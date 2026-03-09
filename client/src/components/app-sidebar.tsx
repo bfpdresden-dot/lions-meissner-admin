@@ -1,4 +1,4 @@
-import { Calendar, Mail, LayoutDashboard, QrCode } from "lucide-react";
+import { Calendar, Mail, LayoutDashboard, QrCode, Phone, MapPin } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 
 const items = [
@@ -62,6 +63,24 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4">
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground text-sm">Kontakt</p>
+          <p>Sebastian Schreiber</p>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span>Seestr. 18e, 01640 Coswig</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Phone className="h-3 w-3 shrink-0" />
+            <a href="tel:01723408543" className="hover:underline" data-testid="link-phone">0172 340 85 43</a>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Mail className="h-3 w-3 shrink-0" />
+            <a href="mailto:schreiber1988@gmx.net" className="hover:underline truncate" data-testid="link-email">schreiber1988@gmx.net</a>
+          </div>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

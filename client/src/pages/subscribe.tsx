@@ -204,6 +204,16 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
           <p className="text-xs text-center text-muted-foreground">
             Sie k&ouml;nnen sich jederzeit wieder abmelden. Wir geben Ihre Daten nicht an Dritte weiter.
           </p>
+
+          <div className="border-t pt-4 space-y-1 text-xs text-center text-muted-foreground">
+            <p>Lions Club Mei&szlig;ner Land &middot; Sebastian Schreiber</p>
+            <p>Seestra&szlig;e 18e, 01640 Coswig</p>
+            <p>
+              <a href="tel:01723408543" className="hover:underline" data-testid="link-subscribe-phone">0172 340 85 43</a>
+              {" "}&middot;{" "}
+              <a href="mailto:schreiber1988@gmx.net" className="hover:underline" data-testid="link-subscribe-email">schreiber1988@gmx.net</a>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
