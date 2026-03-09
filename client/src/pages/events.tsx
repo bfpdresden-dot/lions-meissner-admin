@@ -37,23 +37,28 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Event, InsertEvent } from "@shared/schema";
+import type { Event, InsertEvent, Registration } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
 
-const eventFormSchema = insertEventSchema.extend({
+const eventFormSchema = z.object({
   title: z.string().min(2, "Titel muss mindestens 2 Zeichen haben"),
   description: z.string().min(5, "Beschreibung muss mindestens 5 Zeichen haben"),
   location: z.string().min(2, "Ort muss mindestens 2 Zeichen haben"),
   date: z.string().min(1, "Datum ist erforderlich"),
-  maxParticipants: z.union([z.number().min(1).nullable(), z.string()]).transform((val) => {
-    if (val === "" || val === null) return null;
-    return typeof val === "string" ? parseInt(val, 10) || null : val;
-  }),
+  maxParticipants: z.string().default(""),
   isActive: z.boolean().default(true),
 });
 
@@ -62,10 +67,55 @@ type EventFormValues = z.infer<typeof eventFormSchema>;
 export default function EventsPage() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [viewGuestsEventId, setViewGuestsEventId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+  });
+
+  const { data: guestCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/registrations/counts"],
+  });
+
+  const viewGuestsEvent = events?.find((e) => e.id === viewGuestsEventId);
+
+  const { data: eventGuests } = useQuery<Registration[]>({
+    queryKey: ["/api/registrations/event", viewGuestsEventId],
+    enabled: viewGuestsEventId !== null,
+  });
+
+  const getGuestCount = (eventId: number) => {
+    if (!guestCounts) return 0;
+    return guestCounts[String(eventId)] || 0;
+  };
+
+  const handleExportGuests = async (eventId: number) => {
+    try {
+      const res = await fetch(`/api/registrations/export/${eventId}`);
+      if (!res.ok) throw new Error("Export fehlgeschlagen");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gaeste_${format(new Date(), "yyyy-MM-dd")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Fehler", description: "Export fehlgeschlagen.", variant: "destructive" });
+    }
+  };
+
+  const deleteRegMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/registrations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/event", viewGuestsEventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
+      toast({ title: "G\u00e4st gel\u00f6scht" });
+    },
   });
 
   const createMutation = useMutation({
@@ -192,15 +242,25 @@ export default function EventsPage() {
                             <MapPin className="h-3.5 w-3.5" />
                             {event.location}
                           </span>
-                          {event.maxParticipants && (
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3.5 w-3.5" />
-                              Max. {event.maxParticipants} Teilnehmer
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5" />
+                            <span className="font-medium">{getGuestCount(event.id)}</span> G&auml;ste
+                            {event.maxParticipants && (
+                              <span> / {event.maxParticipants} max.</span>
+                            )}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setViewGuestsEventId(event.id)}
+                          data-testid={`button-view-guests-${event.id}`}
+                          title="G&auml;steliste anzeigen"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Dialog
                           open={editingEvent?.id === event.id}
                           onOpenChange={(open) => !open && setEditingEvent(null)}
@@ -226,7 +286,7 @@ export default function EventsPage() {
                                   description: editingEvent.description,
                                   date: format(new Date(editingEvent.date), "yyyy-MM-dd'T'HH:mm"),
                                   location: editingEvent.location,
-                                  maxParticipants: editingEvent.maxParticipants ?? "",
+                                  maxParticipants: editingEvent.maxParticipants?.toString() ?? "",
                                   isActive: editingEvent.isActive,
                                 }}
                                 onSubmit={(data) =>
@@ -275,6 +335,90 @@ export default function EventsPage() {
             })}
           </div>
         )}
+
+        <Dialog open={viewGuestsEventId !== null} onOpenChange={(open) => !open && setViewGuestsEventId(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between gap-4">
+                <span>G&auml;steliste: {viewGuestsEvent?.title}</span>
+                {viewGuestsEventId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExportGuests(viewGuestsEventId)}
+                    data-testid="button-export-guests"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    CSV
+                  </Button>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            {eventGuests && eventGuests.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>E-Mail</TableHead>
+                    <TableHead>Telefon</TableHead>
+                    <TableHead className="text-right">Personen</TableHead>
+                    <TableHead className="text-right">Datum</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {eventGuests.map((reg) => (
+                    <TableRow key={reg.id} data-testid={`row-guest-${reg.id}`}>
+                      <TableCell className="font-medium">{reg.firstName} {reg.lastName}</TableCell>
+                      <TableCell>{reg.email}</TableCell>
+                      <TableCell>{reg.phone || "-"}</TableCell>
+                      <TableCell className="text-right">{reg.guestCount}</TableCell>
+                      <TableCell className="text-right">
+                        {format(new Date(reg.registeredAt), "dd.MM.yyyy", { locale: de })}
+                      </TableCell>
+                      <TableCell>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" data-testid={`button-delete-guest-${reg.id}`}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Anmeldung l&ouml;schen?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Soll die Anmeldung von {reg.firstName} {reg.lastName} gel&ouml;scht werden?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteRegMutation.mutate(reg.id)}
+                              >
+                                L&ouml;schen
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p>Noch keine Anmeldungen f&uuml;r diese Veranstaltung.</p>
+              </div>
+            )}
+            {eventGuests && eventGuests.length > 0 && (
+              <div className="text-sm text-muted-foreground text-right pt-2 border-t">
+                Gesamt: <span className="font-medium">{eventGuests.reduce((sum, r) => sum + r.guestCount, 0)}</span> Personen
+                ({eventGuests.length} {eventGuests.length === 1 ? "Anmeldung" : "Anmeldungen"})
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
@@ -298,16 +442,17 @@ function EventForm({
       description: defaultValues?.description || "",
       date: defaultValues?.date || "",
       location: defaultValues?.location || "",
-      maxParticipants: defaultValues?.maxParticipants ?? "",
+      maxParticipants: defaultValues?.maxParticipants || "",
       isActive: defaultValues?.isActive ?? true,
     },
   });
 
   const handleSubmit = (values: EventFormValues) => {
+    const parsed = values.maxParticipants ? parseInt(values.maxParticipants, 10) : null;
     const payload = {
       ...values,
-      date: new Date(values.date as string).toISOString(),
-      maxParticipants: values.maxParticipants || null,
+      date: new Date(values.date).toISOString(),
+      maxParticipants: parsed && !isNaN(parsed) ? parsed : null,
     };
     onSubmit(payload);
   };

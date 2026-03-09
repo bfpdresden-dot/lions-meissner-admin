@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Mail, Users, TrendingUp, ExternalLink } from "lucide-react";
+import { Calendar, Mail, Users, TrendingUp, ExternalLink, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Event, Subscriber } from "@shared/schema";
+import type { Event, Subscriber, Registration } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,16 @@ export default function Dashboard() {
     queryKey: ["/api/subscribers"],
   });
 
-  const isLoading = eventsLoading || subscribersLoading;
+  const { data: registrations, isLoading: registrationsLoading } = useQuery<Registration[]>({
+    queryKey: ["/api/registrations"],
+  });
+
+  const { data: guestCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/registrations/counts"],
+  });
+
+  const isLoading = eventsLoading || subscribersLoading || registrationsLoading;
+  const totalGuests = guestCounts ? Object.values(guestCounts).reduce((sum, c) => sum + c, 0) : 0;
   const activeEvents = events?.filter((e) => e.isActive) || [];
   const activeSubscribers = subscribers?.filter((s) => s.isActive) || [];
   const upcomingEvents = activeEvents
@@ -56,7 +65,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             title="Veranstaltungen"
             value={isLoading ? undefined : events?.length || 0}
@@ -84,6 +93,20 @@ export default function Dashboard() {
             subtitle="Newsletter-Empf&auml;nger"
             icon={<Users className="h-4 w-4 text-muted-foreground" />}
             testId="stat-subscribers-active"
+          />
+          <StatCard
+            title="Anmeldungen"
+            value={isLoading ? undefined : registrations?.length || 0}
+            subtitle="Event-Registrierungen"
+            icon={<UserPlus className="h-4 w-4 text-muted-foreground" />}
+            testId="stat-registrations-total"
+          />
+          <StatCard
+            title="G&auml;ste gesamt"
+            value={isLoading ? undefined : totalGuests}
+            subtitle="Alle Veranstaltungen"
+            icon={<Users className="h-4 w-4 text-muted-foreground" />}
+            testId="stat-guests-total"
           />
         </div>
 

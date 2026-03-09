@@ -25,6 +25,7 @@ const subscribeFormSchema = z.object({
   email: z.string().email("Bitte geben Sie eine g\u00fcltige E-Mail-Adresse ein"),
   firstName: z.string().min(1, "Vorname ist erforderlich"),
   lastName: z.string().min(1, "Nachname ist erforderlich"),
+  phone: z.string().optional(),
 });
 
 type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
@@ -55,6 +56,7 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
       email: "",
       firstName: "",
       lastName: "",
+      phone: "",
     },
   });
 
@@ -189,6 +191,24 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
                         type="email"
                         placeholder="max.mustermann@beispiel.de"
                         data-testid="input-subscribe-email"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefonnummer (optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="tel"
+                        placeholder="0123 456789"
+                        data-testid="input-subscribe-phone"
                       />
                     </FormControl>
                     <FormMessage />

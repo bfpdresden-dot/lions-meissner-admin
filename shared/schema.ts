@@ -20,18 +20,38 @@ export const subscribers = pgTable("subscribers", {
   email: text("email").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  phone: text("phone"),
   isActive: boolean("is_active").notNull().default(true),
   eventId: integer("event_id"),
   subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
 });
 
+export const registrations = pgTable("registrations", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  guestCount: integer("guest_count").notNull().default(1),
+  registeredAt: timestamp("registered_at").notNull().defaultNow(),
+});
+
 export const eventsRelations = relations(events, ({ many }) => ({
   subscribers: many(subscribers),
+  registrations: many(registrations),
 }));
 
 export const subscribersRelations = relations(subscribers, ({ one }) => ({
   event: one(events, {
     fields: [subscribers.eventId],
+    references: [events.id],
+  }),
+}));
+
+export const registrationsRelations = relations(registrations, ({ one }) => ({
+  event: one(events, {
+    fields: [registrations.eventId],
     references: [events.id],
   }),
 }));
@@ -46,7 +66,14 @@ export const insertSubscriberSchema = createInsertSchema(subscribers).omit({
   subscribedAt: true,
 });
 
+export const insertRegistrationSchema = createInsertSchema(registrations).omit({
+  id: true,
+  registeredAt: true,
+});
+
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Subscriber = typeof subscribers.$inferSelect;
 export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
+export type Registration = typeof registrations.$inferSelect;
+export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;

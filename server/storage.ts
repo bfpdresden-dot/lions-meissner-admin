@@ -1,13 +1,16 @@
 import {
   events,
   subscribers,
+  registrations,
   type Event,
   type InsertEvent,
   type Subscriber,
   type InsertSubscriber,
+  type Registration,
+  type InsertRegistration,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   getEvents(): Promise<Event[]>;
@@ -22,6 +25,14 @@ export interface IStorage {
   createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
   updateSubscriber(id: number, data: Partial<InsertSubscriber>): Promise<Subscriber | undefined>;
   deleteSubscriber(id: number): Promise<void>;
+
+  getRegistrations(): Promise<Registration[]>;
+  getRegistrationsByEvent(eventId: number): Promise<Registration[]>;
+  getRegistrationByEmailAndEvent(email: string, eventId: number): Promise<Registration | undefined>;
+  createRegistration(registration: InsertRegistration): Promise<Registration>;
+  deleteRegistration(id: number): Promise<void>;
+  getGuestCountByEvent(eventId: number): Promise<number>;
+  getAllGuestCounts(): Promise<Record<number, number>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -45,6 +56,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(id: number): Promise<void> {
+    await db.delete(registrations).where(eq(registrations.eventId, id));
     await db.delete(events).where(eq(events.id, id));
   }
 
@@ -74,6 +86,49 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSubscriber(id: number): Promise<void> {
     await db.delete(subscribers).where(eq(subscribers.id, id));
+  }
+
+  async getRegistrations(): Promise<Registration[]> {
+    return db.select().from(registrations);
+  }
+
+  async getRegistrationsByEvent(eventId: number): Promise<Registration[]> {
+    return db.select().from(registrations).where(eq(registrations.eventId, eventId));
+  }
+
+  async getRegistrationByEmailAndEvent(email: string, eventId: number): Promise<Registration | undefined> {
+    const [reg] = await db.select().from(registrations).where(
+      and(eq(registrations.email, email), eq(registrations.eventId, eventId))
+    );
+    return reg || undefined;
+  }
+
+  async createRegistration(registration: InsertRegistration): Promise<Registration> {
+    const [created] = await db.insert(registrations).values(registration).returning();
+    return created;
+  }
+
+  async deleteRegistration(id: number): Promise<void> {
+    await db.delete(registrations).where(eq(registrations.id, id));
+  }
+
+  async getGuestCountByEvent(eventId: number): Promise<number> {
+    const result = await db.select({
+      total: sql<number>`coalesce(sum(${registrations.guestCount}), 0)`,
+    }).from(registrations).where(eq(registrations.eventId, eventId));
+    return Number(result[0]?.total || 0);
+  }
+
+  async getAllGuestCounts(): Promise<Record<number, number>> {
+    const result = await db.select({
+      eventId: registrations.eventId,
+      total: sql<number>`coalesce(sum(${registrations.guestCount}), 0)`,
+    }).from(registrations).groupBy(registrations.eventId);
+    const counts: Record<number, number> = {};
+    for (const row of result) {
+      counts[row.eventId] = Number(row.total);
+    }
+    return counts;
   }
 }
 
