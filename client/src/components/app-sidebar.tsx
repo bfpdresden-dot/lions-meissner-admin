@@ -25,20 +25,25 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 pb-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-lg">
-            LC
-          </div>
+          <img
+            src="/images/lions-logo.png"
+            alt="Lions Club Logo"
+            className="h-10 w-10 rounded-md object-contain"
+            data-testid="img-sidebar-logo"
+          />
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Lions Club</span>
-            <span className="text-xs text-muted-foreground">Mei&szlig;ner Land</span>
+            <span className="text-sm font-bold tracking-tight">Lions Club</span>
+            <span className="text-xs opacity-70">Mei&szlig;ner Land</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Verwaltung</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider opacity-60">
+            Administration
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -64,8 +69,8 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4">
-        <div className="space-y-2 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground text-sm">Kontakt</p>
+        <div className="space-y-2 text-xs opacity-70">
+          <p className="font-semibold opacity-100 text-sm">Kontakt</p>
           <p>Sebastian Schreiber</p>
           <div className="flex items-center gap-1.5">
             <MapPin className="h-3 w-3 shrink-0" />

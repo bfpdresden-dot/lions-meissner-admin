@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
-import { Download, QrCode, Printer } from "lucide-react";
+import { Download, QrCode, Printer, Info } from "lucide-react";
 import type { Event } from "@shared/schema";
 
 export default function QRCodesPage() {
@@ -83,18 +83,26 @@ export default function QRCodesPage() {
               min-height: 100vh;
               margin: 0;
               font-family: system-ui, sans-serif;
+              color: #1a2744;
             }
-            h1 { font-size: 24px; margin-bottom: 8px; }
+            h1 { font-size: 28px; margin-bottom: 4px; }
+            .subtitle { font-size: 18px; color: #c8951a; margin-bottom: 24px; font-weight: 600; }
             p { font-size: 16px; color: #666; margin-bottom: 24px; }
             .qr { width: 300px; height: 300px; }
             .footer { margin-top: 24px; font-size: 14px; color: #999; }
+            .contact { margin-top: 32px; font-size: 12px; color: #aaa; text-align: center; }
           </style>
         </head>
         <body>
-          <h1>Lions Club Mei&szlig;ner Land</h1>
-          <p>Newsletter abonnieren - ${selectedEvent?.title || ""}</p>
+          <h1>Lions Club Mei\u00dfner Land</h1>
+          <div class="subtitle">${selectedEvent?.title || ""}</div>
+          <p>Newsletter abonnieren</p>
           <div class="qr">${svgData}</div>
           <p class="footer">Scannen Sie den QR-Code mit Ihrem Smartphone</p>
+          <div class="contact">
+            Sebastian Schreiber | Seestra\u00dfe 18e, 01640 Coswig<br>
+            Tel: 0172 340 85 43 | schreiber1988@gmx.net
+          </div>
         </body>
       </html>
     `);
@@ -110,6 +118,17 @@ export default function QRCodesPage() {
           <p className="text-muted-foreground mt-1">
             Generieren Sie QR-Codes f&uuml;r Newsletter-Anmeldungen bei Veranstaltungen
           </p>
+        </div>
+
+        <div className="p-4 rounded-md bg-muted/50 flex items-start gap-3">
+          <Info className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="text-sm text-muted-foreground">
+            <p>
+              W&auml;hlen Sie eine Veranstaltung aus und generieren Sie einen QR-Code.
+              Besucher scannen den Code mit ihrem Smartphone und gelangen direkt zur Newsletter-Anmeldung.
+              Die Anmeldung wird automatisch der jeweiligen Veranstaltung zugeordnet.
+            </p>
+          </div>
         </div>
 
         <Card>
@@ -143,9 +162,17 @@ export default function QRCodesPage() {
 
             {selectedEventId ? (
               <div className="flex flex-col items-center space-y-6">
+                <div className="p-2 rounded-md bg-muted/30 text-center">
+                  <p className="text-sm font-medium">{selectedEvent?.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Besucher werden zu folgender Seite weitergeleitet:
+                  </p>
+                  <p className="text-xs text-primary mt-1 break-all font-mono">{subscribeUrl}</p>
+                </div>
+
                 <div
                   ref={qrRef}
-                  className="p-8 bg-white rounded-md"
+                  className="p-8 bg-white rounded-md border"
                   data-testid="qr-code-display"
                 >
                   <QRCodeSVG
@@ -153,14 +180,8 @@ export default function QRCodesPage() {
                     size={280}
                     level="H"
                     includeMargin={false}
+                    fgColor="#1a2744"
                   />
-                </div>
-
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-medium">{selectedEvent?.title}</p>
-                  <p className="text-xs text-muted-foreground break-all max-w-md">
-                    {subscribeUrl}
-                  </p>
                 </div>
 
                 <div className="flex gap-3 flex-wrap">
@@ -170,13 +191,13 @@ export default function QRCodesPage() {
                   </Button>
                   <Button variant="secondary" onClick={handlePrint} data-testid="button-print-qr">
                     <Printer className="h-4 w-4 mr-2" />
-                    Drucken
+                    Druckversion
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center py-12 text-center">
-                <QrCode className="h-16 w-16 text-muted-foreground mb-4 opacity-30" />
+                <QrCode className="h-16 w-16 text-muted-foreground mb-4 opacity-20" />
                 <p className="text-muted-foreground">
                   W&auml;hlen Sie eine Veranstaltung, um einen QR-Code zu generieren
                 </p>

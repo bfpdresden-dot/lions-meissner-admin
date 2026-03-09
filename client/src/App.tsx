@@ -11,6 +11,7 @@ import EventsPage from "@/pages/events";
 import SubscribersPage from "@/pages/subscribers";
 import QRCodesPage from "@/pages/qr-codes";
 import SubscribePage from "@/pages/subscribe";
+import PublicEventsPage from "@/pages/public-events";
 
 function AdminRouter() {
   return (
@@ -41,8 +42,9 @@ function AdminLayout() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center p-3 border-b shrink-0">
+          <header className="flex items-center gap-2 p-3 border-b shrink-0 bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <span className="text-sm font-medium text-muted-foreground">Admin-Bereich</span>
           </header>
           <main className="flex-1 overflow-hidden flex flex-col">
             <AdminRouter />
@@ -55,12 +57,19 @@ function AdminLayout() {
 
 function App() {
   const [isSubscribe] = useRoute("/subscribe/:eventId");
+  const [isPublicEvents] = useRoute("/veranstaltungen");
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        {isSubscribe ? <SubscribeRoute /> : <AdminLayout />}
+        {isSubscribe ? (
+          <SubscribeRoute />
+        ) : isPublicEvents ? (
+          <PublicEventsPage />
+        ) : (
+          <AdminLayout />
+        )}
       </TooltipProvider>
     </QueryClientProvider>
   );

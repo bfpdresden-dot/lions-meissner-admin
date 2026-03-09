@@ -63,8 +63,8 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-8 space-y-4">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-8 w-3/4 mx-auto" />
+            <Skeleton className="h-4 w-1/2 mx-auto" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
@@ -79,7 +79,7 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Mail className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+            <Mail className="h-12 w-12 text-muted-foreground mb-4 opacity-40" />
             <h3 className="text-lg font-semibold mb-1">Veranstaltung nicht gefunden</h3>
             <p className="text-muted-foreground">
               Diese Veranstaltung existiert nicht oder ist nicht mehr aktiv.
@@ -99,10 +99,14 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
               <CheckCircle2 className="h-8 w-8 text-primary" />
             </div>
             <h3 className="text-xl font-semibold mb-2">Erfolgreich angemeldet!</h3>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground max-w-xs">
               Vielen Dank f&uuml;r Ihre Anmeldung zum Newsletter des Lions Club Mei&szlig;ner Land.
-              Sie erhalten in K&uuml;rze eine Best&auml;tigung per E-Mail.
             </p>
+            <a href="/veranstaltungen" className="mt-6">
+              <Button variant="secondary" data-testid="button-back-events">
+                Zur&uuml;ck zu den Veranstaltungen
+              </Button>
+            </a>
           </CardContent>
         </Card>
       </div>
@@ -114,9 +118,12 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-xl">
-              LC
-            </div>
+            <img
+              src="/images/lions-logo.png"
+              alt="Lions Club Logo"
+              className="h-14 w-14 object-contain"
+              data-testid="img-subscribe-logo"
+            />
           </div>
           <CardTitle className="text-xl">Lions Club Mei&szlig;ner Land</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">Newsletter abonnieren</p>
