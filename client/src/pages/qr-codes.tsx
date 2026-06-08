@@ -61,7 +61,7 @@ export default function QRCodesPage() {
   };
 
   const handlePrint = () => {
-    if (!qrRef.current) return;
+    if (!qrRef.current || !selectedEvent) return;
     const svg = qrRef.current.querySelector("svg");
     if (!svg) return;
 
@@ -69,12 +69,22 @@ export default function QRCodesPage() {
     if (!printWindow) return;
 
     const svgData = new XMLSerializer().serializeToString(svg);
+
+    const eventDate = new Date(selectedEvent.date);
+    const dateStr = eventDate.toLocaleDateString("de-DE", {
+      weekday: "long", day: "2-digit", month: "long", year: "numeric",
+    });
+    const timeStr = eventDate.toLocaleTimeString("de-DE", {
+      hour: "2-digit", minute: "2-digit",
+    });
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>QR-Code - ${selectedEvent?.title || "Newsletter"}</title>
+          <title>QR-Code - ${selectedEvent.title}</title>
           <style>
+            * { box-sizing: border-box; }
             body {
               display: flex;
               flex-direction: column;
@@ -82,28 +92,105 @@ export default function QRCodesPage() {
               justify-content: center;
               min-height: 100vh;
               margin: 0;
+              padding: 32px 24px;
               font-family: system-ui, sans-serif;
               color: #1a2744;
+              background: #fff;
             }
-            h1 { font-size: 28px; margin-bottom: 4px; }
-            .subtitle { font-size: 18px; color: #c8951a; margin-bottom: 24px; font-weight: 600; }
-            p { font-size: 16px; color: #666; margin-bottom: 24px; }
-            .description { font-size: 15px; color: #555; max-width: 420px; text-align: center; margin-bottom: 28px; line-height: 1.6; }
-            .qr { width: 300px; height: 300px; }
-            .footer { margin-top: 24px; font-size: 14px; color: #999; }
-            .contact { margin-top: 32px; font-size: 12px; color: #aaa; text-align: center; }
+            .logo-row {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-bottom: 6px;
+            }
+            h1 { font-size: 26px; margin: 0 0 2px; text-align: center; }
+            .club-sub { font-size: 13px; color: #999; margin-bottom: 28px; letter-spacing: 0.04em; }
+            .event-box {
+              border: 2px solid #c8951a;
+              border-radius: 10px;
+              padding: 20px 28px;
+              max-width: 480px;
+              width: 100%;
+              margin-bottom: 24px;
+              text-align: center;
+            }
+            .event-title { font-size: 22px; font-weight: 700; color: #1a2744; margin-bottom: 14px; }
+            .detail-row {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              font-size: 15px;
+              color: #444;
+              margin-bottom: 8px;
+            }
+            .detail-icon { color: #c8951a; font-size: 16px; }
+            .divider { border: none; border-top: 1px solid #eee; margin: 14px 0; }
+            .description {
+              font-size: 14px;
+              color: #555;
+              line-height: 1.65;
+              text-align: center;
+            }
+            .qr-section { text-align: center; margin-bottom: 8px; }
+            .qr-label {
+              font-size: 14px;
+              font-weight: 600;
+              color: #c8951a;
+              margin-bottom: 12px;
+              letter-spacing: 0.03em;
+              text-transform: uppercase;
+            }
+            .qr { width: 240px; height: 240px; }
+            .scan-hint { font-size: 13px; color: #888; margin-top: 10px; }
+            .footer {
+              margin-top: 28px;
+              font-size: 12px;
+              color: #bbb;
+              text-align: center;
+              border-top: 1px solid #eee;
+              padding-top: 16px;
+              width: 100%;
+              max-width: 480px;
+            }
+            @media print {
+              body { padding: 0; }
+            }
           </style>
         </head>
         <body>
           <h1>Lions Club Mei\u00dfner Land</h1>
-          <div class="subtitle">${selectedEvent?.title || ""}</div>
-          ${selectedEvent?.description ? `<p class="description">${selectedEvent.description}</p>` : ""}
-          <p>Newsletter abonnieren</p>
-          <div class="qr">${svgData}</div>
-          <p class="footer">Scannen Sie den QR-Code mit Ihrem Smartphone</p>
-          <div class="contact">
-            Sebastian Schreiber | Seestra\u00dfe 18e, 01640 Coswig<br>
-            Tel: 0172 340 85 43 | schreiber1988@gmx.net
+          <div class="club-sub">We Serve</div>
+
+          <div class="event-box">
+            <div class="event-title">${selectedEvent.title}</div>
+            <div class="detail-row">
+              <span class="detail-icon">&#128197;</span>
+              <span>${dateStr}, ${timeStr} Uhr</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-icon">&#128205;</span>
+              <span>${selectedEvent.location}</span>
+            </div>
+            ${selectedEvent.maxParticipants ? `
+            <div class="detail-row">
+              <span class="detail-icon">&#128101;</span>
+              <span>Max. ${selectedEvent.maxParticipants} Teilnehmer</span>
+            </div>` : ""}
+            ${selectedEvent.description ? `
+            <hr class="divider" />
+            <div class="description">${selectedEvent.description}</div>` : ""}
+          </div>
+
+          <div class="qr-section">
+            <div class="qr-label">Newsletter anmelden</div>
+            <div class="qr">${svgData}</div>
+            <div class="scan-hint">QR-Code mit dem Smartphone scannen</div>
+          </div>
+
+          <div class="footer">
+            Sebastian Schreiber &nbsp;&bull;&nbsp; Seestra\u00dfe 18e, 01640 Coswig &nbsp;&bull;&nbsp;
+            Tel: 0172&nbsp;340&nbsp;85&nbsp;43 &nbsp;&bull;&nbsp; schreiber1988@gmx.net
           </div>
         </body>
       </html>
