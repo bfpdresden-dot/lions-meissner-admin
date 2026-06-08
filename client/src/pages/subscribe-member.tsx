@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,7 +66,7 @@ export default function SubscribeMemberPage({ memberId }: { memberId: string }) 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-8 space-y-4">
             <Skeleton className="h-8 w-3/4 mx-auto" />
@@ -75,33 +75,33 @@ export default function SubscribeMemberPage({ memberId }: { memberId: string }) 
             <Skeleton className="h-10 w-full" />
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (error || !member) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="h-12 w-12 text-muted-foreground mb-4 opacity-40" />
-            <h3 className="text-lg font-semibold mb-1">Link ungültig</h3>
+            <h1 className="text-lg font-semibold mb-1">Link ungültig</h1>
             <p className="text-muted-foreground">Dieser QR-Code ist nicht mehr gültig.</p>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               <CheckCircle2 className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Erfolgreich angemeldet!</h3>
+            <h1 className="text-xl font-semibold mb-2">Erfolgreich angemeldet!</h1>
             <p className="text-muted-foreground max-w-xs">
               Vielen Dank für Ihre Anmeldung zum Newsletter des Lions Club Meißner Land.
             </p>
@@ -112,12 +112,12 @@ export default function SubscribeMemberPage({ memberId }: { memberId: string }) 
             </a>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-3">
@@ -127,8 +127,8 @@ export default function SubscribeMemberPage({ memberId }: { memberId: string }) 
               className="h-14 w-14 object-contain"
             />
           </div>
-          <CardTitle className="text-xl">Lions Club Meißner Land</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">Newsletter abonnieren</p>
+          <p className="text-sm font-medium text-muted-foreground">Lions Club Meißner Land</p>
+          <h1 className="text-xl font-semibold leading-none tracking-tight mt-1">Newsletter abonnieren</h1>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-3 rounded-md bg-muted/50 flex items-center gap-2 justify-center">
@@ -265,6 +265,6 @@ export default function SubscribeMemberPage({ memberId }: { memberId: string }) 
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

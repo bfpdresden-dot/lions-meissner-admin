@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap } from "lucide-react";
+import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { Event } from "@shared/schema";
@@ -309,7 +310,28 @@ export default function PublicEventsPage() {
               const isFull = spotsLeft !== null && spotsLeft <= 0;
 
               return (
-                <Card key={event.id} data-testid={`card-public-event-${event.id}`}>
+                <div key={event.id}>
+                  <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                      __html: toSafeJsonLd({
+                        '@context': 'https://schema.org',
+                        '@type': 'Event',
+                        name: event.title,
+                        description: event.description,
+                        startDate: event.date,
+                        location: {
+                          '@type': 'Place',
+                          name: event.location,
+                        },
+                        organizer: {
+                          '@type': 'Organization',
+                          name: 'Lions Club Meißner Land',
+                        },
+                      }),
+                    }}
+                  />
+                <Card data-testid={`card-public-event-${event.id}`}>
                   <CardContent className="p-6">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -363,6 +385,7 @@ export default function PublicEventsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               );
             })}
           </div>
