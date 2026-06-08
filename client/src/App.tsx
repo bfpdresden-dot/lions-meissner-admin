@@ -125,6 +125,19 @@ function AuthGate() {
   return <AdminLayout />;
 }
 
+const ADMIN_ROUTE_PATTERNS = [
+  /^\/$/,
+  /^\/events$/,
+  /^\/subscribers$/,
+  /^\/members$/,
+  /^\/qr-codes$/,
+  /^\/settings$/,
+];
+
+function isAdminRoute(pathname: string): boolean {
+  return ADMIN_ROUTE_PATTERNS.some((r) => r.test(pathname));
+}
+
 function App() {
   const [isSubscribeMember] = useRoute("/subscribe/member/:memberId");
   const [isSubscribe] = useRoute("/subscribe/:eventId");
@@ -132,6 +145,16 @@ function App() {
   const [isPortal] = useRoute("/mein-bereich");
   const [isPasswordReset] = useRoute("/passwort-reset");
   const [isDatenschutz] = useRoute("/datenschutz");
+
+  const isKnownPublic =
+    isSubscribeMember ||
+    isSubscribe ||
+    isPublicEvents ||
+    isPortal ||
+    isPasswordReset ||
+    isDatenschutz;
+
+  const isAdmin = isAdminRoute(window.location.pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -149,8 +172,10 @@ function App() {
           <PasswordResetPage />
         ) : isDatenschutz ? (
           <DatenschutzPage />
-        ) : (
+        ) : isAdmin || isKnownPublic ? (
           <AuthGate />
+        ) : (
+          <NotFound />
         )}
       </TooltipProvider>
     </QueryClientProvider>

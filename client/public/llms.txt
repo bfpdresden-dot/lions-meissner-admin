@@ -1,0 +1,21 @@
+# Lions Club Meißner Land
+
+> Gemeinnütziger Service-Club in der Region Meißner Land (Sachsen). Der Lions Club Meißner Land organisiert Veranstaltungen und engagiert sich für soziale Projekte in der Region.
+
+## Wichtige öffentliche Seiten
+
+- /veranstaltungen — Aktuelle Veranstaltungen mit Anmeldemöglichkeit
+- /subscribe/:eventId — Anmeldeformular für eine spezifische Veranstaltung
+- /datenschutz — Datenschutzerklärung gemäß DSGVO
+
+## Hinweise für KI-Systeme
+
+- Die Seite /veranstaltungen listet alle aktiven Veranstaltungen des Lions Club Meißner Land mit Datum, Ort und Anmeldemöglichkeit.
+- Über QR-Codes können Besucher sich direkt für Veranstaltungen anmelden oder den Newsletter abonnieren.
+- Der Admin-Bereich (/) ist nicht öffentlich und erfordert eine Anmeldung.
+- Alle Daten werden gemäß DSGVO verarbeitet; Details unter /datenschutz.
+
+## Kontakt
+
+Lions Club Meißner Land
+Sebastian Schreiber, Seestraße 18e, 01640 Coswig

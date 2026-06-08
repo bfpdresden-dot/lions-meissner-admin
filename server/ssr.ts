@@ -1,0 +1,151 @@
+import { storage } from "./storage";
+
+export const KNOWN_ROUTE_PATTERNS: RegExp[] = [
+  /^\/$/,
+  /^\/events$/,
+  /^\/subscribers$/,
+  /^\/members$/,
+  /^\/qr-codes$/,
+  /^\/settings$/,
+  /^\/veranstaltungen$/,
+  /^\/datenschutz$/,
+  /^\/subscribe\/member\/[^/]+$/,
+  /^\/subscribe\/[^/]+$/,
+  /^\/mein-bereich$/,
+  /^\/passwort-reset$/,
+];
+
+export function isKnownRoute(pathname: string): boolean {
+  const clean = pathname.split("?")[0].split("#")[0];
+  return KNOWN_ROUTE_PATTERNS.some((r) => r.test(clean));
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+interface PageMeta {
+  title: string;
+  description: string;
+  preContent: string;
+}
+
+async function resolvePageMeta(pathname: string): Promise<PageMeta> {
+  const site = "Lions Club Meißner Land";
+
+  if (pathname === "/veranstaltungen") {
+    let eventItems = "";
+    try {
+      const evts = await storage.getEvents();
+      const active = evts.filter((e) => e.isActive);
+      if (active.length > 0) {
+        eventItems = active
+          .map((e) => {
+            const date = e.date
+              ? new Date(e.date).toLocaleDateString("de-DE")
+              : "";
+            const loc = e.location ? ` · ${escapeHtml(e.location)}` : "";
+            return `<li><strong>${escapeHtml(e.title)}</strong>${date ? ` – ${date}` : ""}${loc}</li>`;
+          })
+          .join("");
+      }
+    } catch {
+      // DB not available during build/prerender; omit list
+    }
+    return {
+      title: `Veranstaltungen – ${site}`,
+      description: `Aktuelle Veranstaltungen des ${site}. Informieren Sie sich und melden Sie sich online an.`,
+      preContent: `<h1>Veranstaltungen</h1><p>${site}</p>${eventItems ? `<ul>${eventItems}</ul>` : ""}`,
+    };
+  }
+
+  if (pathname === "/datenschutz") {
+    return {
+      title: `Datenschutzerklärung – ${site}`,
+      description: `Datenschutzerklärung des ${site} gemäß DSGVO.`,
+      preContent: `<h1>Datenschutzerklärung</h1><p>${site} – Informationen zum Datenschutz gemäß DSGVO.</p>`,
+    };
+  }
+
+  const memberMatch = pathname.match(/^\/subscribe\/member\/([^/]+)$/);
+  if (memberMatch) {
+    return {
+      title: `Newsletter-Anmeldung – ${site}`,
+      description: `Melden Sie sich für den Newsletter des ${site} an.`,
+      preContent: `<h1>Newsletter-Anmeldung</h1><p>Melden Sie sich für den Newsletter des ${site} an.</p>`,
+    };
+  }
+
+  const eventMatch = pathname.match(/^\/subscribe\/(\d+)$/);
+  if (eventMatch) {
+    const eventId = parseInt(eventMatch[1], 10);
+    try {
+      const event = await storage.getEvent(eventId);
+      if (event) {
+        const date = event.date
+          ? new Date(event.date).toLocaleDateString("de-DE")
+          : "";
+        const loc = event.location ? ` in ${escapeHtml(event.location)}` : "";
+        const desc = event.description
+          ? `<p>${escapeHtml(event.description)}</p>`
+          : "";
+        return {
+          title: `Anmeldung: ${escapeHtml(event.title)} – ${site}`,
+          description: `Melden Sie sich für „${event.title}"${date ? ` am ${date}` : ""}${event.location ? ` in ${event.location}` : ""} an.`,
+          preContent: `<h1>${escapeHtml(event.title)}</h1>${date ? `<p>Datum: ${date}${loc}</p>` : ""}${desc}`,
+        };
+      }
+    } catch {
+      // fall through to default
+    }
+    return {
+      title: `Veranstaltungsanmeldung – ${site}`,
+      description: `Anmeldung für eine Veranstaltung des ${site}.`,
+      preContent: `<h1>Veranstaltungsanmeldung</h1><p>${site}</p>`,
+    };
+  }
+
+  return {
+    title: `${site} – Verwaltung`,
+    description: `Administratives Tool des ${site} für Veranstaltungen und Newsletter.`,
+    preContent: "",
+  };
+}
+
+export async function injectPageMeta(
+  html: string,
+  pathname: string
+): Promise<string> {
+  const meta = await resolvePageMeta(pathname);
+
+  html = html.replace(
+    /<title>[^<]*<\/title>/,
+    `<title>${escapeHtml(meta.title)}</title>`
+  );
+
+  html = html.replace(
+    /<meta name="description"[^>]*\/?>/,
+    `<meta name="description" content="${escapeHtml(meta.description)}" />`
+  );
+
+  const ogTags = [
+    `<meta property="og:title" content="${escapeHtml(meta.title)}" />`,
+    `<meta property="og:description" content="${escapeHtml(meta.description)}" />`,
+    `<meta property="og:type" content="website" />`,
+  ].join("\n    ");
+
+  html = html.replace("</head>", `    ${ogTags}\n  </head>`);
+
+  if (meta.preContent) {
+    html = html.replace(
+      '<div id="root"></div>',
+      `<div id="root"><div data-pre-render style="max-width:800px;margin:2rem auto;padding:1rem;font-family:sans-serif">${meta.preContent}</div></div>`
+    );
+  }
+
+  return html;
+}

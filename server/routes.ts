@@ -701,5 +701,105 @@ Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer 
     res.send(bom + header + rows);
   });
 
+  // ── Robots.txt (dynamic so Sitemap: uses canonical absolute URL) ─────────
+
+  app.get("/robots.txt", (req, res) => {
+    const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
+    const base = `${proto}://${host}`;
+
+    const body = [
+      "User-agent: *",
+      "Allow: /veranstaltungen",
+      "Allow: /datenschutz",
+      "Allow: /subscribe/",
+      "Allow: /sitemap.xml",
+      "Allow: /llms.txt",
+      "Disallow: /api/",
+      "",
+      "User-agent: GPTBot",
+      "Allow: /veranstaltungen",
+      "Allow: /datenschutz",
+      "Allow: /subscribe/",
+      "",
+      "User-agent: ClaudeBot",
+      "Allow: /veranstaltungen",
+      "Allow: /datenschutz",
+      "Allow: /subscribe/",
+      "",
+      "User-agent: PerplexityBot",
+      "Allow: /veranstaltungen",
+      "Allow: /datenschutz",
+      "Allow: /subscribe/",
+      "",
+      `Sitemap: ${base}/sitemap.xml`,
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(body);
+  });
+
+  // ── Sitemap ──────────────────────────────────────────────────────────────
+
+  app.get("/sitemap.xml", async (req, res) => {
+    const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
+    const base = `${proto}://${host}`;
+
+    const staticUrls = [
+      { loc: "/veranstaltungen", priority: "1.0", changefreq: "daily" },
+      { loc: "/datenschutz", priority: "0.3", changefreq: "yearly" },
+    ];
+
+    let eventUrls: { loc: string; lastmod: string; priority: string }[] = [];
+    let memberUrls: { loc: string; lastmod: string; priority: string }[] = [];
+
+    try {
+      const evts = await storage.getEvents();
+      eventUrls = evts
+        .filter((e) => e.isActive)
+        .map((e) => ({
+          loc: `/subscribe/${e.id}`,
+          lastmod: new Date(e.createdAt).toISOString().split("T")[0],
+          priority: "0.8",
+        }));
+    } catch {
+      // DB unavailable; omit event URLs
+    }
+
+    try {
+      const members = await storage.getMembers();
+      const today = new Date().toISOString().split("T")[0];
+      memberUrls = members
+        .filter((m) => m.isActive)
+        .map((m) => ({
+          loc: `/subscribe/member/${m.id}`,
+          lastmod: new Date(m.subscribedAt).toISOString().split("T")[0],
+          priority: "0.7",
+        }));
+    } catch {
+      // DB unavailable; omit member URLs
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    function urlEntry(loc: string, lastmod: string, changefreq: string, priority: string) {
+      return `  <url>\n    <loc>${base}${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+    }
+
+    const urlXml = [
+      ...staticUrls.map((u) => urlEntry(u.loc, today, u.changefreq, u.priority)),
+      ...eventUrls.map((u) => urlEntry(u.loc, u.lastmod, "weekly", u.priority)),
+      ...memberUrls.map((u) => urlEntry(u.loc, u.lastmod, "monthly", u.priority)),
+    ].join("\n");
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlXml}\n</urlset>`;
+
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(xml);
+  });
+
   return httpServer;
 }
