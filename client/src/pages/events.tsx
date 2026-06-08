@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy, Lock } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration } from "@shared/schema";
@@ -59,8 +59,10 @@ const eventFormSchema = z.object({
   description: z.string().min(5, "Beschreibung muss mindestens 5 Zeichen haben"),
   location: z.string().min(2, "Ort muss mindestens 2 Zeichen haben"),
   date: z.string().min(1, "Datum ist erforderlich"),
+  endDate: z.string().optional(),
   maxParticipants: z.string().default(""),
   isActive: z.boolean().default(true),
+  isInternal: z.boolean().default(false),
 });
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -398,6 +400,12 @@ export default function EventsPage() {
                           <Badge variant={event.isActive ? "default" : "secondary"}>
                             {event.isActive ? "Aktiv" : "Inaktiv"}
                           </Badge>
+                          {(event as any).isInternal && (
+                            <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
+                              <Lock className="h-3 w-3" />
+                              Intern
+                            </Badge>
+                          )}
                           {isPast && (
                             <Badge variant="secondary">Vergangen</Badge>
                           )}
@@ -408,7 +416,10 @@ export default function EventsPage() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
-                            {format(new Date(event.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr
+                            {format(new Date(event.date), "dd. MMMM yyyy, HH:mm", { locale: de })}
+                            {(event as any).endDate && (
+                              <> – {format(new Date((event as any).endDate), "HH:mm", { locale: de })}</>
+                            )} Uhr
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3.5 w-3.5" />
@@ -480,9 +491,13 @@ export default function EventsPage() {
                                   title: editingEvent.title,
                                   description: editingEvent.description,
                                   date: format(new Date(editingEvent.date), "yyyy-MM-dd'T'HH:mm"),
+                                  endDate: (editingEvent as any).endDate
+                                    ? format(new Date((editingEvent as any).endDate), "yyyy-MM-dd'T'HH:mm")
+                                    : "",
                                   location: editingEvent.location,
                                   maxParticipants: editingEvent.maxParticipants?.toString() ?? "",
                                   isActive: editingEvent.isActive,
+                                  isInternal: (editingEvent as any).isInternal ?? false,
                                 }}
                                 onSubmit={(data) =>
                                   updateMutation.mutate({ id: editingEvent.id, data })
@@ -646,9 +661,11 @@ function EventForm({
       title: defaultValues?.title || "",
       description: defaultValues?.description || "",
       date: defaultValues?.date || "",
+      endDate: defaultValues?.endDate || "",
       location: defaultValues?.location || "",
       maxParticipants: defaultValues?.maxParticipants || "",
       isActive: defaultValues?.isActive ?? true,
+      isInternal: defaultValues?.isInternal ?? false,
     },
   });
 
@@ -657,6 +674,7 @@ function EventForm({
     const payload = {
       ...values,
       date: new Date(values.date).toISOString(),
+      endDate: values.endDate ? new Date(values.endDate).toISOString() : null,
       maxParticipants: parsed && !isNaN(parsed) ? parsed : null,
     };
     onSubmit(payload);
@@ -703,7 +721,7 @@ function EventForm({
             name="date"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Datum & Uhrzeit</FormLabel>
+                <FormLabel>Beginn (Datum & Zeit)</FormLabel>
                 <FormControl>
                   <Input {...field} type="datetime-local" data-testid="input-event-date" />
                 </FormControl>
@@ -713,18 +731,31 @@ function EventForm({
           />
           <FormField
             control={form.control}
-            name="location"
+            name="endDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Ort</FormLabel>
+                <FormLabel>Ende (optional)</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="z.B. Vereinshaus" data-testid="input-event-location" />
+                  <Input {...field} type="datetime-local" data-testid="input-event-end-date" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Ort</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="z.B. Vereinshaus" data-testid="input-event-location" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -762,6 +793,29 @@ function EventForm({
             )}
           />
         </div>
+        <FormField
+          control={form.control}
+          name="isInternal"
+          render={({ field }) => (
+            <FormItem className="flex items-center gap-3 rounded-md border p-3 bg-amber-50/50">
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  data-testid="switch-event-internal"
+                />
+              </FormControl>
+              <div>
+                <FormLabel className="text-sm font-medium cursor-pointer">
+                  Interne Veranstaltung
+                </FormLabel>
+                <p className="text-xs text-muted-foreground">
+                  Nur für angemeldete Mitglieder sichtbar – nicht öffentlich
+                </p>
+              </div>
+            </FormItem>
+          )}
+        />
         <Button type="submit" disabled={isPending} className="w-full" data-testid="button-submit-event">
           {isPending ? "Wird gespeichert..." : submitLabel}
         </Button>

@@ -28,6 +28,8 @@ import {
   Shield,
   ChevronLeft,
   KeyRound,
+  Lock,
+  Cake,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -41,9 +43,20 @@ type PortalSubscriber = {
   lastName: string;
   email: string;
   phone: string | null;
+  birthday: string | null;
   isMember: boolean;
   isActive: boolean;
   subscribedAt: string;
+};
+
+type InternalEvent = {
+  id: number;
+  title: string;
+  date: string;
+  endDate: string | null;
+  location: string;
+  description: string;
+  maxParticipants: number | null;
 };
 
 type PortalRegistration = {
@@ -63,6 +76,7 @@ const profileSchema = z.object({
   firstName: z.string().min(1, "Vorname ist erforderlich"),
   lastName: z.string().min(1, "Nachname ist erforderlich"),
   phone: z.string().optional(),
+  birthday: z.string().optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().optional(),
   newPasswordConfirm: z.string().optional(),
@@ -131,6 +145,7 @@ export default function PortalPage() {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone || "",
+        birthday: data.birthday || "",
       };
       if (data.newPassword) {
         payload.currentPassword = data.currentPassword || "";
@@ -167,11 +182,19 @@ export default function PortalPage() {
     },
   });
 
+  const { data: internalEvents } = useQuery<InternalEvent[]>({
+    queryKey: ["/api/portal/events"],
+    enabled: !!subscriber,
+    retry: false,
+    staleTime: 1000 * 60,
+  });
+
   const startEdit = () => {
     profileForm.reset({
       firstName: subscriber?.firstName || "",
       lastName: subscriber?.lastName || "",
       phone: subscriber?.phone || "",
+      birthday: subscriber?.birthday || "",
       currentPassword: "",
       newPassword: "",
       newPasswordConfirm: "",
@@ -361,6 +384,17 @@ export default function PortalPage() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={profileForm.control}
+                        name="birthday"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Geburtstag (optional)</FormLabel>
+                            <FormControl><Input {...field} type="date" data-testid="input-profile-birthday" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
                       {!showPasswordChange ? (
                         <Button
@@ -438,6 +472,14 @@ export default function PortalPage() {
                       <dd data-testid="text-profile-phone">{subscriber.phone || <span className="text-muted-foreground italic">nicht angegeben</span>}</dd>
                     </div>
                     <div className="flex gap-2">
+                      <dt className="w-28 text-muted-foreground shrink-0">Geburtstag</dt>
+                      <dd data-testid="text-profile-birthday">
+                        {subscriber.birthday
+                          ? format(new Date(subscriber.birthday), "dd. MMMM", { locale: de })
+                          : <span className="text-muted-foreground italic">nicht angegeben</span>}
+                      </dd>
+                    </div>
+                    <div className="flex gap-2">
                       <dt className="w-28 text-muted-foreground shrink-0">Dabei seit</dt>
                       <dd>{format(new Date(subscriber.subscribedAt), "dd. MMMM yyyy", { locale: de })}</dd>
                     </div>
@@ -445,6 +487,50 @@ export default function PortalPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Internal events card — only shown when there are internal events */}
+            {internalEvents && internalEvents.length > 0 && (
+              <Card className="border-amber-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-amber-700">
+                    <Lock className="h-5 w-5" />
+                    Interne Veranstaltungen
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">Nur für Mitglieder sichtbar</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {[...internalEvents]
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map((ev) => (
+                        <div key={ev.id} className="rounded-md border border-amber-100 bg-amber-50/40 p-3 space-y-1" data-testid={`internal-event-${ev.id}`}>
+                          <p className="font-medium text-sm">{ev.title}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(ev.date), "dd. MMMM yyyy, HH:mm", { locale: de })}
+                              {ev.endDate && <> – {format(new Date(ev.endDate), "HH:mm", { locale: de })}</>} Uhr
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {ev.location}
+                            </span>
+                            {ev.maxParticipants && (
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                Max. {ev.maxParticipants} Personen
+                              </span>
+                            )}
+                          </div>
+                          {ev.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">{ev.description}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Registrations card */}
             <Card>

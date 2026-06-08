@@ -39,6 +39,9 @@ pool.query(`
     CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
   );
   CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+  ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS end_date timestamp;
+  ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS is_internal boolean NOT NULL DEFAULT false;
+  ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS birthday text;
 `).then(() => {
   console.log("[session] table ready");
 }).catch((err) => {

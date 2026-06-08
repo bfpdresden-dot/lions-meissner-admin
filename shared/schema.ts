@@ -9,9 +9,11 @@ export const events = pgTable("events", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   date: timestamp("date").notNull(),
+  endDate: timestamp("end_date"),
   location: text("location").notNull(),
   maxParticipants: integer("max_participants"),
   isActive: boolean("is_active").notNull().default(true),
+  isInternal: boolean("is_internal").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -21,6 +23,7 @@ export const subscribers = pgTable("subscribers", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   phone: text("phone"),
+  birthday: text("birthday"),
   isActive: boolean("is_active").notNull().default(true),
   isMember: boolean("is_member").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false),

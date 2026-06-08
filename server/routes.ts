@@ -162,9 +162,11 @@ export async function registerRoutes(
 
   // ── Events ───────────────────────────────────────────────────────────────
 
-  app.get("/api/events", async (_req, res) => {
-    const events = await storage.getEvents();
-    res.json(events);
+  app.get("/api/events", async (req, res) => {
+    const all = await storage.getEvents();
+    // Public route: hide internal events unless admin session
+    if (req.session?.isAdmin) return res.json(all);
+    res.json(all.filter((e) => !e.isInternal));
   });
 
   app.get("/api/events/:id", async (req, res) => {
@@ -380,8 +382,8 @@ export async function registerRoutes(
     }
     res.json({
       id: sub.id, firstName: sub.firstName, lastName: sub.lastName,
-      email: sub.email, phone: sub.phone, isMember: sub.isMember,
-      isActive: sub.isActive, subscribedAt: sub.subscribedAt,
+      email: sub.email, phone: sub.phone, birthday: sub.birthday,
+      isMember: sub.isMember, isActive: sub.isActive, subscribedAt: sub.subscribedAt,
     });
   });
 
@@ -389,11 +391,16 @@ export async function registerRoutes(
     if (!req.session?.subscriberId) {
       return res.status(401).json({ error: "Nicht angemeldet" });
     }
-    const { firstName, lastName, phone, currentPassword, newPassword } = req.body;
+    const { firstName, lastName, phone, birthday, currentPassword, newPassword } = req.body;
     if (!firstName || !lastName) {
       return res.status(400).json({ error: "Vorname und Nachname sind erforderlich" });
     }
-    const updates: Record<string, any> = { firstName, lastName, phone: phone || null };
+    const updates: Record<string, any> = {
+      firstName,
+      lastName,
+      phone: phone || null,
+      birthday: birthday || null,
+    };
     if (newPassword) {
       if (!currentPassword) {
         return res.status(400).json({ error: "Aktuelles Passwort ist erforderlich" });
@@ -412,9 +419,17 @@ export async function registerRoutes(
     if (!updated) return res.status(404).json({ error: "Konto nicht gefunden" });
     res.json({
       id: updated.id, firstName: updated.firstName, lastName: updated.lastName,
-      email: updated.email, phone: updated.phone, isMember: updated.isMember,
-      isActive: updated.isActive, subscribedAt: updated.subscribedAt,
+      email: updated.email, phone: updated.phone, birthday: updated.birthday,
+      isMember: updated.isMember, isActive: updated.isActive, subscribedAt: updated.subscribedAt,
     });
+  });
+
+  app.get("/api/portal/events", async (req, res) => {
+    if (!req.session?.subscriberId) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+    const all = await storage.getEvents();
+    res.json(all.filter((e) => e.isInternal && e.isActive));
   });
 
   app.get("/api/portal/registrations", async (req, res) => {
