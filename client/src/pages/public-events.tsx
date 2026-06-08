@@ -102,6 +102,17 @@ export default function PublicEventsPage() {
     select: (data: any) => data?.id ? (data as PortalSubscriber) : undefined,
   });
 
+  const { data: myRegistrations } = useQuery<{ eventId: number }[]>({
+    queryKey: ["/api/portal/registrations"],
+    enabled: !!portalSubscriber,
+    retry: false,
+    staleTime: 1000 * 60,
+    select: (data: any[]) => data.map((r) => ({ eventId: r.eventId })),
+  });
+
+  const isAlreadyRegistered = (eventId: number) =>
+    !!portalSubscriber && (myRegistrations || []).some((r) => r.eventId === eventId);
+
   const upcomingEvents = (events || [])
     .filter((e) => e.isActive && new Date(e.date) >= new Date())
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -341,11 +352,12 @@ export default function PublicEventsPage() {
                         </div>
                         <Button
                           onClick={() => handleOpenRegister(event.id)}
-                          disabled={isFull}
+                          disabled={isFull || isAlreadyRegistered(event.id)}
+                          variant={isAlreadyRegistered(event.id) ? "secondary" : "default"}
                           data-testid={`button-register-${event.id}`}
                         >
                           <UserPlus className="h-4 w-4 mr-2" />
-                          {isFull ? "Ausgebucht" : "Anmelden"}
+                          {isFull ? "Ausgebucht" : isAlreadyRegistered(event.id) ? "Bereits angemeldet" : "Anmelden"}
                         </Button>
                       </div>
                     </div>
