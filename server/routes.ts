@@ -449,6 +449,40 @@ export async function registerRoutes(
     res.json(all.filter((e) => e.isInternal && e.isActive));
   });
 
+  app.get("/api/birthdays", async (req, res) => {
+    const isAdmin = req.session?.isAdmin;
+    const isPortalMember = !!req.session?.subscriberId;
+    if (!isAdmin && !isPortalMember) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+    const members = await storage.getMembers();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const currentYear = now.getFullYear();
+
+    const birthdays = members
+      .filter((m) => m.birthday && m.isActive)
+      .map((m) => {
+        const bday = new Date(m.birthday!);
+        let thisYear = new Date(currentYear, bday.getMonth(), bday.getDate());
+        // if already passed this year, show next year
+        let nextBirthday = thisYear < now
+          ? new Date(currentYear + 1, bday.getMonth(), bday.getDate())
+          : thisYear;
+        const daysUntil = Math.round((nextBirthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          id: m.id,
+          name: `${m.firstName} ${m.lastName}`,
+          birthday: m.birthday,
+          nextBirthday: nextBirthday.toISOString().split("T")[0],
+          daysUntil,
+        };
+      })
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+
+    res.json(birthdays);
+  });
+
   app.get("/api/portal/registrations", async (req, res) => {
     if (!req.session?.subscriberId) {
       return res.status(401).json({ error: "Nicht angemeldet" });

@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy, Lock } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration } from "@shared/schema";
@@ -79,6 +79,11 @@ export default function EventsPage() {
 
   const { data: guestCounts } = useQuery<Record<string, number>>({
     queryKey: ["/api/registrations/counts"],
+  });
+
+  type BirthdayEntry = { id: number; name: string; birthday: string; nextBirthday: string; daysUntil: number };
+  const { data: birthdays } = useQuery<BirthdayEntry[]>({
+    queryKey: ["/api/birthdays"],
   });
 
   const viewGuestsEvent = events?.find((e) => e.id === viewGuestsEventId);
@@ -554,6 +559,51 @@ export default function EventsPage() {
               );
             })}
           </div>
+        )}
+
+        {/* Birthdays section */}
+        {birthdays && birthdays.length > 0 && (
+          <Card className="border-pink-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-pink-700 text-base">
+                <Cake className="h-5 w-5" />
+                Geburtstage der Mitglieder
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Nächste Geburtstage — berechnet aus den Mitgliederdaten
+              </p>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="divide-y">
+                {birthdays.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between py-2.5 gap-4" data-testid={`birthday-row-${b.id}`}>
+                    <div className="flex items-center gap-3">
+                      <Cake className="h-4 w-4 text-pink-400 shrink-0" />
+                      <span className="font-medium text-sm">{b.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <span>
+                        {format(new Date(b.nextBirthday + "T12:00:00"), "dd. MMMM", { locale: de })}
+                        {" · "}
+                        {new Date(b.birthday + "T12:00:00").toLocaleDateString("de-DE", { year: "numeric" }).replace(/\.\d{4}$/, (m) => m)}
+                      </span>
+                      {b.daysUntil === 0 ? (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-pink-100 text-pink-700">
+                          Heute 🎂
+                        </span>
+                      ) : b.daysUntil <= 7 ? (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                          in {b.daysUntil} {b.daysUntil === 1 ? "Tag" : "Tagen"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/60">in {b.daysUntil} Tagen</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <Dialog open={viewGuestsEventId !== null} onOpenChange={(open) => !open && setViewGuestsEventId(null)}>

@@ -189,6 +189,14 @@ export default function PortalPage() {
     staleTime: 1000 * 60,
   });
 
+  type BirthdayEntry = { id: number; name: string; birthday: string; nextBirthday: string; daysUntil: number };
+  const { data: birthdays } = useQuery<BirthdayEntry[]>({
+    queryKey: ["/api/birthdays"],
+    enabled: !!subscriber,
+    retry: false,
+    staleTime: 1000 * 60,
+  });
+
   const startEdit = () => {
     profileForm.reset({
       firstName: subscriber?.firstName || "",
@@ -487,6 +495,43 @@ export default function PortalPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Birthdays card */}
+            {birthdays && birthdays.length > 0 && (
+              <Card className="border-pink-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-pink-700 text-base">
+                    <Cake className="h-5 w-5" />
+                    Geburtstage
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">Nächste Geburtstage der Mitglieder</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="divide-y">
+                    {birthdays.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between py-2.5 gap-3" data-testid={`portal-birthday-${b.id}`}>
+                        <div className="flex items-center gap-2">
+                          <Cake className="h-4 w-4 text-pink-400 shrink-0" />
+                          <span className="text-sm font-medium">{b.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{format(new Date(b.nextBirthday + "T12:00:00"), "dd. MMMM", { locale: de })}</span>
+                          {b.daysUntil === 0 ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-pink-100 text-pink-700">Heute 🎂</span>
+                          ) : b.daysUntil <= 7 ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                              in {b.daysUntil} {b.daysUntil === 1 ? "Tag" : "Tagen"}
+                            </span>
+                          ) : (
+                            <span className="text-xs opacity-50">in {b.daysUntil} Tagen</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Internal events card — only shown when there are internal events */}
             {internalEvents && internalEvents.length > 0 && (
