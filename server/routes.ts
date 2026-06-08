@@ -312,7 +312,7 @@ export async function registerRoutes(
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
     if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY nicht konfiguriert" });
 
     let settings: any = {};
@@ -344,9 +344,11 @@ Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer 
       });
 
       if (!response.ok) {
-        const err = await response.text();
-        console.error("OpenRouter error:", err);
-        return res.status(500).json({ error: "KI-Anfrage fehlgeschlagen" });
+        const errText = await response.text();
+        console.error("OpenRouter error:", errText);
+        let detail = "";
+        try { detail = JSON.parse(errText)?.error?.message || ""; } catch {}
+        return res.status(500).json({ error: `KI-Anfrage fehlgeschlagen${detail ? ": " + detail : ""}` });
       }
 
       const data = await response.json() as any;
