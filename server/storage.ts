@@ -30,6 +30,7 @@ export interface IStorage {
 
   getRegistrations(): Promise<Registration[]>;
   getRegistrationsByEvent(eventId: number): Promise<Registration[]>;
+  getRegistrationsByEmail(email: string): Promise<Registration[]>;
   getRegistrationByEmailAndEvent(email: string, eventId: number): Promise<Registration | undefined>;
   createRegistration(registration: InsertRegistration): Promise<Registration>;
   deleteRegistration(id: number): Promise<void>;
@@ -104,6 +105,10 @@ export class DatabaseStorage implements IStorage {
 
   async getRegistrationsByEvent(eventId: number): Promise<Registration[]> {
     return db.select().from(registrations).where(eq(registrations.eventId, eventId));
+  }
+
+  async getRegistrationsByEmail(email: string): Promise<Registration[]> {
+    return db.select().from(registrations).where(eq(registrations.email, email));
   }
 
   async getRegistrationByEmailAndEvent(email: string, eventId: number): Promise<Registration | undefined> {

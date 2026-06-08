@@ -16,6 +16,7 @@ import MembersPage from "@/pages/members";
 import QRCodesPage from "@/pages/qr-codes";
 import SubscribePage from "@/pages/subscribe";
 import PublicEventsPage from "@/pages/public-events";
+import PortalPage from "@/pages/portal";
 import LoginPage from "@/pages/login";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 
@@ -108,6 +109,7 @@ function AuthGate() {
 function App() {
   const [isSubscribe] = useRoute("/subscribe/:eventId");
   const [isPublicEvents] = useRoute("/veranstaltungen");
+  const [isPortal] = useRoute("/mein-bereich");
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -117,6 +119,8 @@ function App() {
           <SubscribeRoute />
         ) : isPublicEvents ? (
           <PublicEventsPage />
+        ) : isPortal ? (
+          <PortalPage />
         ) : (
           <AuthGate />
         )}

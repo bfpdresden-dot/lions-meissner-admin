@@ -183,20 +183,22 @@ export async function registerRoutes(
     if (!adminOk && !setupMode) {
       return res.status(401).json({ error: "Nicht autorisiert" });
     }
-    const { email, firstName, lastName, phone } = req.body;
+    const { email, firstName, lastName, phone, password } = req.body;
     if (!email || !firstName || !lastName) {
       return res.status(400).json({ error: "Alle Felder sind erforderlich" });
     }
     const existing = await storage.getSubscriberByEmail(email);
     if (existing) return res.status(409).json({ error: "E-Mail bereits registriert" });
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
     const member = await storage.createSubscriber({
-      email,
+      email: email.trim().toLowerCase(),
       firstName,
       lastName,
       phone: phone || null,
       eventId: null,
       isActive: true,
       isMember: true,
+      passwordHash,
     });
     res.status(201).json(member);
   });
@@ -225,9 +227,103 @@ export async function registerRoutes(
     res.send(bom + header + rows);
   });
 
+  // ── Portal (Subscriber/Member personal area) ─────────────────────────────
+
+  app.post("/api/portal/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+    }
+    const sub = await storage.getSubscriberByEmail(email.trim().toLowerCase());
+    if (!sub || !sub.passwordHash) {
+      return res.status(401).json({ error: "Ungültige Anmeldedaten oder kein Portal-Konto vorhanden" });
+    }
+    const valid = await bcrypt.compare(password, sub.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+    }
+    if (!sub.isActive) {
+      return res.status(403).json({ error: "Ihr Konto ist deaktiviert" });
+    }
+    req.session.subscriberId = sub.id;
+    res.json({
+      ok: true,
+      subscriber: { id: sub.id, firstName: sub.firstName, lastName: sub.lastName, email: sub.email, isMember: sub.isMember },
+    });
+  });
+
+  app.post("/api/portal/logout", (req, res) => {
+    delete (req.session as any).subscriberId;
+    req.session.save(() => res.json({ ok: true }));
+  });
+
+  app.get("/api/portal/me", async (req, res) => {
+    if (!req.session?.subscriberId) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: "Konto nicht gefunden" });
+    }
+    res.json({
+      id: sub.id, firstName: sub.firstName, lastName: sub.lastName,
+      email: sub.email, phone: sub.phone, isMember: sub.isMember,
+      isActive: sub.isActive, subscribedAt: sub.subscribedAt,
+    });
+  });
+
+  app.patch("/api/portal/me", async (req, res) => {
+    if (!req.session?.subscriberId) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+    const { firstName, lastName, phone, currentPassword, newPassword } = req.body;
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: "Vorname und Nachname sind erforderlich" });
+    }
+    const updates: Record<string, any> = { firstName, lastName, phone: phone || null };
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Aktuelles Passwort ist erforderlich" });
+      }
+      const sub = await storage.getSubscriber(req.session.subscriberId);
+      const valid = await bcrypt.compare(currentPassword, sub?.passwordHash || "");
+      if (!valid) {
+        return res.status(401).json({ error: "Aktuelles Passwort ist falsch" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "Neues Passwort muss mindestens 6 Zeichen haben" });
+      }
+      updates.passwordHash = await bcrypt.hash(newPassword, 10);
+    }
+    const updated = await storage.updateSubscriber(req.session.subscriberId, updates);
+    if (!updated) return res.status(404).json({ error: "Konto nicht gefunden" });
+    res.json({
+      id: updated.id, firstName: updated.firstName, lastName: updated.lastName,
+      email: updated.email, phone: updated.phone, isMember: updated.isMember,
+      isActive: updated.isActive, subscribedAt: updated.subscribedAt,
+    });
+  });
+
+  app.get("/api/portal/registrations", async (req, res) => {
+    if (!req.session?.subscriberId) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub) return res.status(401).json({ error: "Konto nicht gefunden" });
+    const regs = await storage.getRegistrationsByEmail(sub.email);
+    const enriched = await Promise.all(
+      regs.map(async (r) => {
+        const event = await storage.getEvent(r.eventId);
+        return { ...r, event: event || null };
+      })
+    );
+    res.json(enriched);
+  });
+
   // Public subscribe (no auth needed)
   app.post("/api/subscribe", async (req, res) => {
-    const { email, firstName, lastName, phone, eventId, isMember } = req.body;
+    const { email, firstName, lastName, phone, eventId, isMember, password } = req.body;
     if (!email || !firstName || !lastName) {
       return res.status(400).json({ error: "Alle Felder sind erforderlich" });
     }
@@ -239,14 +335,16 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Veranstaltung nicht gefunden oder inaktiv" });
       }
     }
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
     const subscriber = await storage.createSubscriber({
-      email,
+      email: email.trim().toLowerCase(),
       firstName,
       lastName,
       phone: phone || null,
       eventId: eventId || null,
       isActive: true,
       isMember: isMember || false,
+      passwordHash,
     });
     res.status(201).json(subscriber);
   });

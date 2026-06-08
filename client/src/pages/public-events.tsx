@@ -29,12 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
+import { Link } from "wouter";
 
 const registerFormSchema = z.object({
   firstName: z.string().min(1, "Vorname ist erforderlich"),
@@ -49,6 +50,14 @@ const subscribeFormSchema = z.object({
   lastName: z.string().min(1, "Nachname ist erforderlich"),
   email: z.string().email("Bitte geben Sie eine gültige E-Mail-Adresse ein"),
   phone: z.string().optional(),
+  password: z.string().optional().or(z.literal("")),
+  passwordConfirm: z.string().optional().or(z.literal("")),
+}).refine((d) => !d.password || d.password.length >= 6, {
+  message: "Mindestens 6 Zeichen",
+  path: ["password"],
+}).refine((d) => !d.password || d.password === d.passwordConfirm, {
+  message: "Passwörter stimmen nicht überein",
+  path: ["passwordConfirm"],
 });
 
 type RegisterFormValues = z.infer<typeof registerFormSchema>;
@@ -102,11 +111,15 @@ export default function PublicEventsPage() {
 
   const subscribeMutation = useMutation({
     mutationFn: async (data: SubscribeFormValues) => {
-      const res = await apiRequest("POST", "/api/subscribe", data);
+      const { passwordConfirm, ...payload } = data;
+      const res = await apiRequest("POST", "/api/subscribe", {
+        ...payload,
+        password: payload.password || undefined,
+      });
       return res.json();
     },
-    onSuccess: () => {
-      setSubscribeSuccess(true);
+    onSuccess: (_data, variables) => {
+      setSubscribeSuccess(!!variables.password);
       subscribeForm.reset();
     },
     onError: (error: Error) => {
@@ -131,7 +144,7 @@ export default function PublicEventsPage() {
 
   const subscribeForm = useForm<SubscribeFormValues>({
     resolver: zodResolver(subscribeFormSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", password: "", passwordConfirm: "" },
   });
 
   const handleOpenRegister = (eventId: number) => {
@@ -174,15 +187,27 @@ export default function PublicEventsPage() {
             Lions Club Mei&szlig;ner Land
           </h1>
           <p className="text-lg opacity-80 mb-8">Unsere Veranstaltungen</p>
-          <Button
-            variant="outline"
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-            onClick={handleOpenSubscribe}
-            data-testid="button-open-subscribe"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Newsletter abonnieren
-          </Button>
+          <div className="flex items-center gap-3 justify-center flex-wrap">
+            <Button
+              variant="outline"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              onClick={handleOpenSubscribe}
+              data-testid="button-open-subscribe"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Newsletter abonnieren
+            </Button>
+            <Link href="/mein-bereich">
+              <Button
+                variant="ghost"
+                className="text-white/70 hover:text-white hover:bg-white/10 border border-white/20"
+                data-testid="link-mein-bereich"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Mein Bereich
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -422,9 +447,22 @@ export default function PublicEventsPage() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Erfolgreich angemeldet!</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Sie erhalten künftig Einladungen zu unseren Veranstaltungen.
+                  Sie erhalten künftig Einladungen zu unseren Veranstaltungen.<br />
+                  Mit Ihrem Passwort können Sie sich jetzt unter{" "}
+                  <Link href="/mein-bereich" onClick={() => setShowSubscribe(false)} className="underline font-medium text-foreground">
+                    Mein Bereich
+                  </Link>{" "}
+                  anmelden.
                 </p>
-                <Button onClick={() => setShowSubscribe(false)} data-testid="button-subscribe-close">Schließen</Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => setShowSubscribe(false)} variant="outline" data-testid="button-subscribe-close">Schließen</Button>
+                  <Link href="/mein-bereich">
+                    <Button onClick={() => setShowSubscribe(false)} data-testid="button-go-to-portal">
+                      <User className="h-4 w-4 mr-2" />
+                      Mein Bereich
+                    </Button>
+                  </Link>
+                </div>
               </div>
             ) : (
               <Form {...subscribeForm}>
@@ -489,6 +527,40 @@ export default function PublicEventsPage() {
                       </FormItem>
                     )}
                   />
+                  <div className="border rounded-md p-4 space-y-3 bg-muted/30">
+                    <div>
+                      <p className="text-sm font-medium">Passwort für &quot;Mein Bereich&quot; (optional)</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Mit einem Passwort können Sie sich unter <strong>/mein-bereich</strong> anmelden und Ihre Anmeldungen einsehen.
+                      </p>
+                    </div>
+                    <FormField
+                      control={subscribeForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Passwort (min. 6 Zeichen)</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="password" autoComplete="new-password" data-testid="input-sub-password" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={subscribeForm.control}
+                      name="passwordConfirm"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Passwort bestätigen</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="password" autoComplete="new-password" data-testid="input-sub-password-confirm" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <Button
                     type="submit"
                     className="w-full"
