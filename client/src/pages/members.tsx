@@ -61,11 +61,18 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import type { Subscriber } from "@shared/schema";
+import type { Subscriber, Event } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -102,12 +109,18 @@ export default function MembersPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiEventId, setAiEventId] = useState<string>("");
   const { toast } = useToast();
   const { data: auth } = useAuth();
 
   const { data: members, isLoading } = useQuery<Subscriber[]>({
     queryKey: ["/api/members"],
   });
+
+  const { data: events } = useQuery<Event[]>({ queryKey: ["/api/events"] });
+  const upcomingEvents = (events || [])
+    .filter((e) => e.isActive && new Date(e.date) >= new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const hasAdmins = members?.some((m) => m.isAdmin) ?? false;
   const setupMode = auth?.setupRequired ?? false;
@@ -625,7 +638,7 @@ export default function MembersPage() {
       {/* Email Dialog */}
       <Dialog
         open={emailTarget !== null}
-        onOpenChange={(open) => { if (!open) { setEmailTarget(null); setEmailSubject(""); setEmailBody(""); setAiPrompt(""); setAiOpen(false); } }}
+        onOpenChange={(open) => { if (!open) { setEmailTarget(null); setEmailSubject(""); setEmailBody(""); setAiPrompt(""); setAiOpen(false); setAiEventId(""); } }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -659,8 +672,29 @@ export default function MembersPage() {
                   <p className="text-xs text-muted-foreground">
                     Beschreiben Sie kurz, was die E-Mail enthalten soll — die KI erstellt den Text auf Deutsch.
                   </p>
+
+                  {/* Event context dropdown */}
+                  {upcomingEvents.length > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Veranstaltungsbezug (optional)</label>
+                      <Select value={aiEventId} onValueChange={setAiEventId}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-ai-event">
+                          <SelectValue placeholder="Veranstaltung auswählen…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein Bezug</SelectItem>
+                          {upcomingEvents.map((ev) => (
+                            <SelectItem key={ev.id} value={String(ev.id)}>
+                              {format(new Date(ev.date), "dd.MM.yy", { locale: de })} · {ev.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <Textarea
-                    placeholder="z.B. Einladung zum Sommerfest am 12. Juli in Meißen, Teilnahme bis 5. Juli anmelden"
+                    placeholder="z.B. Einladung mit Bitte um Rückmeldung bis zum 5. Juli"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     rows={3}
@@ -673,12 +707,21 @@ export default function MembersPage() {
                     className="w-full"
                     disabled={!aiPrompt.trim() || aiLoading}
                     onClick={async () => {
+                      const selectedEvent = aiEventId && aiEventId !== "none"
+                        ? upcomingEvents.find((e) => String(e.id) === aiEventId)
+                        : null;
+                      const eventContext = selectedEvent
+                        ? `\n\nVeranstaltungsdetails:\n- Titel: ${selectedEvent.title}\n- Datum: ${format(new Date(selectedEvent.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr\n- Ort: ${selectedEvent.location}${selectedEvent.description ? `\n- Beschreibung: ${selectedEvent.description}` : ""}`
+                        : "";
                       setAiLoading(true);
                       try {
                         const res = await fetch("/api/ai/generate-email", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ prompt: aiPrompt, subject: emailSubject }),
+                          body: JSON.stringify({
+                            prompt: aiPrompt + eventContext,
+                            subject: emailSubject,
+                          }),
                         });
                         const data = await res.json();
                         if (!res.ok) throw new Error(data.error || "Fehler");
