@@ -42,8 +42,21 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Users, Download, Trash2, Plus, UserX, UserCheck, Pencil } from "lucide-react";
+import {
+  Users,
+  Download,
+  Trash2,
+  Plus,
+  UserX,
+  UserCheck,
+  Pencil,
+  Shield,
+  ShieldOff,
+  KeyRound,
+  ShieldAlert,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import type { Subscriber } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -56,16 +69,30 @@ const memberFormSchema = z.object({
   phone: z.string().optional(),
 });
 
+const passwordFormSchema = z.object({
+  password: z.string().min(6, "Mindestens 6 Zeichen"),
+  passwordConfirm: z.string().min(1, "Bitte wiederholen"),
+}).refine((d) => d.password === d.passwordConfirm, {
+  message: "Passwörter stimmen nicht überein",
+  path: ["passwordConfirm"],
+});
+
 type MemberFormValues = z.infer<typeof memberFormSchema>;
+type PasswordFormValues = z.infer<typeof passwordFormSchema>;
 
 export default function MembersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Subscriber | null>(null);
+  const [passwordMember, setPasswordMember] = useState<Subscriber | null>(null);
   const { toast } = useToast();
+  const { data: auth } = useAuth();
 
   const { data: members, isLoading } = useQuery<Subscriber[]>({
     queryKey: ["/api/members"],
   });
+
+  const hasAdmins = members?.some((m) => m.isAdmin) ?? false;
+  const setupMode = auth?.setupRequired ?? false;
 
   const createMutation = useMutation({
     mutationFn: async (data: MemberFormValues) => {
@@ -102,9 +129,6 @@ export default function MembersPage() {
       setEditingMember(null);
       toast({ title: "Mitglied aktualisiert" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Fehler", description: error.message, variant: "destructive" });
-    },
   });
 
   const toggleActiveMutation = useMutation({
@@ -114,7 +138,6 @@ export default function MembersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
       toast({ title: "Status aktualisiert" });
     },
   });
@@ -127,7 +150,38 @@ export default function MembersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
-      toast({ title: "Aus Mitgliederliste entfernt", description: "Der Eintrag bleibt als Abonnent erhalten." });
+      toast({ title: "Aus Mitgliederliste entfernt" });
+    },
+  });
+
+  const setPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await apiRequest("POST", `/api/members/${id}/set-password`, { password });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      setPasswordMember(null);
+      toast({ title: "Passwort gesetzt", description: "Admin-Zugang wurde eingerichtet." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeAdminMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/members/${id}/remove-admin`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "Admin-Berechtigung entfernt" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
     },
   });
 
@@ -142,7 +196,6 @@ export default function MembersPage() {
       a.download = `mitglieder_${format(new Date(), "yyyy-MM-dd")}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast({ title: "Export erfolgreich" });
     } catch {
       toast({ title: "Fehler", description: "Export fehlgeschlagen.", variant: "destructive" });
     }
@@ -159,7 +212,7 @@ export default function MembersPage() {
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-members-title">Mitglieder</h1>
             <p className="text-muted-foreground mt-1">
-              Verwalten Sie die Mitglieder des Lions Club Mei&szlig;ner Land
+              Verwalten Sie die Mitglieder und Admin-Berechtigungen
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -192,6 +245,19 @@ export default function MembersPage() {
           </div>
         </div>
 
+        {setupMode && !hasAdmins && (
+          <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm text-amber-800 dark:text-amber-300">
+            <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold mb-1">Noch kein Admin eingerichtet</p>
+              <p>
+                Fügen Sie ein Mitglied hinzu und klicken Sie auf <strong>Admin einrichten</strong> (Schild-Symbol),
+                um dem Mitglied ein Passwort zu vergeben. Danach ist für den Admin-Bereich ein Login erforderlich.
+              </p>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
@@ -223,6 +289,7 @@ export default function MembersPage() {
                     <TableHead>Telefon</TableHead>
                     <TableHead>Seit</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Admin</TableHead>
                     <TableHead className="text-right">Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -244,6 +311,20 @@ export default function MembersPage() {
                           {member.isActive ? "Aktiv" : "Inaktiv"}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        {member.isAdmin ? (
+                          <Badge
+                            variant="outline"
+                            className="border-blue-300 text-blue-700 dark:text-blue-400 gap-1"
+                            data-testid={`badge-admin-${member.id}`}
+                          >
+                            <Shield className="h-3 w-3" />
+                            Admin
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground/40 text-sm">–</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
@@ -255,12 +336,10 @@ export default function MembersPage() {
                             title={member.isActive ? "Deaktivieren" : "Aktivieren"}
                             data-testid={`button-toggle-member-${member.id}`}
                           >
-                            {member.isActive ? (
-                              <UserX className="h-4 w-4" />
-                            ) : (
-                              <UserCheck className="h-4 w-4" />
-                            )}
+                            {member.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                           </Button>
+
+                          {/* Edit */}
                           <Dialog
                             open={editingMember?.id === member.id}
                             onOpenChange={(open) => !open && setEditingMember(null)}
@@ -287,15 +366,89 @@ export default function MembersPage() {
                                     email: editingMember.email,
                                     phone: editingMember.phone || "",
                                   }}
-                                  onSubmit={(data) =>
-                                    updateMutation.mutate({ id: editingMember.id, data })
-                                  }
+                                  onSubmit={(data) => updateMutation.mutate({ id: editingMember.id, data })}
                                   isPending={updateMutation.isPending}
                                   submitLabel="Speichern"
                                 />
                               )}
                             </DialogContent>
                           </Dialog>
+
+                          {/* Admin: set password / manage */}
+                          <Dialog
+                            open={passwordMember?.id === member.id}
+                            onOpenChange={(open) => !open && setPasswordMember(null)}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setPasswordMember(member)}
+                                title={member.isAdmin ? "Admin-Passwort ändern" : "Admin einrichten"}
+                                data-testid={`button-admin-${member.id}`}
+                              >
+                                {member.isAdmin ? (
+                                  <KeyRound className="h-4 w-4 text-blue-600" />
+                                ) : (
+                                  <Shield className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  {member.isAdmin ? "Admin-Passwort ändern" : "Admin-Berechtigung einrichten"}
+                                </DialogTitle>
+                              </DialogHeader>
+                              <p className="text-sm text-muted-foreground">
+                                {member.isAdmin
+                                  ? `Neues Passwort für ${member.firstName} ${member.lastName} festlegen.`
+                                  : `${member.firstName} ${member.lastName} erhält vollen Zugriff auf den Admin-Bereich.`}
+                              </p>
+                              <PasswordForm
+                                onSubmit={(data) =>
+                                  setPasswordMutation.mutate({ id: member.id, password: data.password })
+                                }
+                                isPending={setPasswordMutation.isPending}
+                              />
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Remove admin role */}
+                          {member.isAdmin && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  title="Admin-Berechtigung entfernen"
+                                  data-testid={`button-remove-admin-${member.id}`}
+                                >
+                                  <ShieldOff className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Admin-Berechtigung entfernen?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {member.firstName} {member.lastName} verliert den Zugang zum Admin-Bereich.
+                                    Das Mitglied bleibt erhalten.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => removeAdminMutation.mutate(member.id)}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                  >
+                                    Entfernen
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+
+                          {/* Remove from member list */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -312,15 +465,12 @@ export default function MembersPage() {
                                 <AlertDialogTitle>Mitglied entfernen?</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   {member.firstName} {member.lastName} wird aus der Mitgliederliste entfernt,
-                                  bleibt aber als Abonnent erhalten. Soll die Person komplett gelöscht werden,
-                                  nutzen Sie die Abonnenten-Verwaltung.
+                                  bleibt aber als Abonnent erhalten.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => removeMemberMutation.mutate(member.id)}
-                                >
+                                <AlertDialogAction onClick={() => removeMemberMutation.mutate(member.id)}>
                                   Entfernen
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -333,8 +483,14 @@ export default function MembersPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="px-4 py-3 border-t text-sm text-muted-foreground">
-              {sortedMembers.length} {sortedMembers.length === 1 ? "Mitglied" : "Mitglieder"} gesamt
+            <div className="px-4 py-3 border-t text-sm text-muted-foreground flex items-center gap-4">
+              <span>{sortedMembers.length} {sortedMembers.length === 1 ? "Mitglied" : "Mitglieder"} gesamt</span>
+              {hasAdmins && (
+                <span className="flex items-center gap-1">
+                  <Shield className="h-3.5 w-3.5 text-blue-600" />
+                  {sortedMembers.filter((m) => m.isAdmin).length} Admin{sortedMembers.filter((m) => m.isAdmin).length !== 1 ? "s" : ""}
+                </span>
+              )}
             </div>
           </Card>
         )}
@@ -423,6 +579,55 @@ function MemberForm({
         />
         <Button type="submit" className="w-full" disabled={isPending} data-testid="button-submit-member">
           {isPending ? "Wird gespeichert..." : submitLabel}
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
+function PasswordForm({
+  onSubmit,
+  isPending,
+}: {
+  onSubmit: (data: PasswordFormValues) => void;
+  isPending: boolean;
+}) {
+  const form = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordFormSchema),
+    defaultValues: { password: "", passwordConfirm: "" },
+  });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Neues Passwort</FormLabel>
+              <FormControl>
+                <Input {...field} type="password" placeholder="Mindestens 6 Zeichen" data-testid="input-password" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="passwordConfirm"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Passwort wiederholen</FormLabel>
+              <FormControl>
+                <Input {...field} type="password" data-testid="input-password-confirm" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" className="w-full" disabled={isPending} data-testid="button-submit-password">
+          {isPending ? "Wird gespeichert..." : "Admin-Zugang einrichten"}
         </Button>
       </form>
     </Form>
