@@ -88,6 +88,7 @@ export default function QRCodesPage() {
             h1 { font-size: 28px; margin-bottom: 4px; }
             .subtitle { font-size: 18px; color: #c8951a; margin-bottom: 24px; font-weight: 600; }
             p { font-size: 16px; color: #666; margin-bottom: 24px; }
+            .description { font-size: 15px; color: #555; max-width: 420px; text-align: center; margin-bottom: 28px; line-height: 1.6; }
             .qr { width: 300px; height: 300px; }
             .footer { margin-top: 24px; font-size: 14px; color: #999; }
             .contact { margin-top: 32px; font-size: 12px; color: #aaa; text-align: center; }
@@ -96,6 +97,7 @@ export default function QRCodesPage() {
         <body>
           <h1>Lions Club Mei\u00dfner Land</h1>
           <div class="subtitle">${selectedEvent?.title || ""}</div>
+          ${selectedEvent?.description ? `<p class="description">${selectedEvent.description}</p>` : ""}
           <p>Newsletter abonnieren</p>
           <div class="qr">${svgData}</div>
           <p class="footer">Scannen Sie den QR-Code mit Ihrem Smartphone</p>
