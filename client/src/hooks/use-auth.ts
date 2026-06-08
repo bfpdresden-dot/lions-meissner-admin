@@ -29,7 +29,12 @@ export function useLogin() {
       const res = await apiRequest("POST", "/api/auth/login", { email, password });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Set auth state immediately so UI responds even if re-fetch is cached/slow
+      queryClient.setQueryData(["/api/auth/me"], {
+        authenticated: true,
+        user: data.user,
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
   });

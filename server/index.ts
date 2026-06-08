@@ -8,6 +8,9 @@ import { seedDatabase } from "./seed";
 const app = express();
 const httpServer = createServer(app);
 
+// Trust Replit's reverse proxy so secure cookies work in production
+app.set("trust proxy", 1);
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -32,6 +35,7 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   })

@@ -14,6 +14,7 @@ export async function registerRoutes(
   // ── Auth ─────────────────────────────────────────────────────────────────
 
   app.get("/api/auth/me", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     if (!req.session?.userId) {
       const noAdmin = !(await hasAnyAdmin());
       return res.json({ authenticated: false, setupRequired: noAdmin });
@@ -44,7 +45,10 @@ export async function registerRoutes(
     }
     req.session.userId = sub.id;
     req.session.isAdmin = true;
-    res.json({ ok: true, user: { id: sub.id, firstName: sub.firstName, lastName: sub.lastName, email: sub.email } });
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: "Sitzungsfehler" });
+      res.json({ ok: true, user: { id: sub.id, firstName: sub.firstName, lastName: sub.lastName, email: sub.email } });
+    });
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -278,9 +282,12 @@ export async function registerRoutes(
       return res.status(403).json({ error: "Ihr Konto ist deaktiviert" });
     }
     req.session.subscriberId = sub.id;
-    res.json({
-      ok: true,
-      subscriber: { id: sub.id, firstName: sub.firstName, lastName: sub.lastName, email: sub.email, isMember: sub.isMember },
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: "Sitzungsfehler" });
+      res.json({
+        ok: true,
+        subscriber: { id: sub.id, firstName: sub.firstName, lastName: sub.lastName, email: sub.email, isMember: sub.isMember },
+      });
     });
   });
 
