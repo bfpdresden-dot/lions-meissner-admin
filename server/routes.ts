@@ -194,6 +194,20 @@ export async function registerRoutes(
     res.json(event);
   });
 
+  app.post("/api/events/:id/copy", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const source = await storage.getEvent(id);
+    if (!source) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    const { id: _id, createdAt: _c, ...rest } = source;
+    const copy = await storage.createEvent({
+      ...rest,
+      title: `${source.title} (Kopie)`,
+      isActive: false,
+    });
+    res.status(201).json(copy);
+  });
+
   app.delete("/api/events/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });

@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration } from "@shared/schema";
@@ -319,6 +319,20 @@ export default function EventsPage() {
     },
   });
 
+  const copyMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/events/${id}/copy`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Veranstaltung kopiert", description: "Eine Kopie wurde als inaktiver Entwurf erstellt." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
   const sortedEvents = [...(events || [])].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
@@ -479,6 +493,16 @@ export default function EventsPage() {
                             )}
                           </DialogContent>
                         </Dialog>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => copyMutation.mutate(event.id)}
+                          disabled={copyMutation.isPending}
+                          data-testid={`button-copy-event-${event.id}`}
+                          title="Veranstaltung kopieren"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
