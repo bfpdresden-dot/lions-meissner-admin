@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Mail, Users, TrendingUp, ExternalLink, UserPlus, ChevronRight, QrCode } from "lucide-react";
+import { Calendar, Mail, Users, TrendingUp, ExternalLink, UserPlus, ChevronRight, QrCode, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Event, Subscriber, Registration } from "@shared/schema";
 import { format } from "date-fns";
@@ -24,11 +24,15 @@ export default function Dashboard() {
     queryKey: ["/api/registrations"],
   });
 
+  const { data: members, isLoading: membersLoading } = useQuery<Subscriber[]>({
+    queryKey: ["/api/members"],
+  });
+
   const { data: guestCounts } = useQuery<Record<string, number>>({
     queryKey: ["/api/registrations/counts"],
   });
 
-  const isLoading = eventsLoading || subscribersLoading || registrationsLoading;
+  const isLoading = eventsLoading || subscribersLoading || registrationsLoading || membersLoading;
   const totalGuests = guestCounts ? Object.values(guestCounts).reduce((sum, c) => sum + c, 0) : 0;
   const activeEvents = events?.filter((e) => e.isActive) || [];
   const activeSubscribers = subscribers?.filter((s) => s.isActive) || [];
@@ -113,6 +117,14 @@ export default function Dashboard() {
             icon={<Users className="h-4 w-4 text-muted-foreground" />}
             testId="stat-guests-total"
             href="/events"
+          />
+          <StatCard
+            title="Mitglieder"
+            value={isLoading ? undefined : members?.length || 0}
+            subtitle="Lions Club Mitglieder"
+            icon={<Star className="h-4 w-4 text-muted-foreground" />}
+            testId="stat-members-total"
+            href="/members"
           />
         </div>
 

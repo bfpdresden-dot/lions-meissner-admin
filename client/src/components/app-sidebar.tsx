@@ -1,4 +1,4 @@
-import { Calendar, Mail, LayoutDashboard, QrCode, Phone, MapPin } from "lucide-react";
+import { Calendar, Mail, LayoutDashboard, QrCode, Phone, MapPin, Users } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -16,6 +16,7 @@ import {
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Veranstaltungen", url: "/events", icon: Calendar },
+  { title: "Mitglieder", url: "/members", icon: Users },
   { title: "Abonnenten", url: "/subscribers", icon: Mail },
   { title: "QR-Codes", url: "/qr-codes", icon: QrCode },
 ];

@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import EventsPage from "@/pages/events";
 import SubscribersPage from "@/pages/subscribers";
+import MembersPage from "@/pages/members";
 import QRCodesPage from "@/pages/qr-codes";
 import SubscribePage from "@/pages/subscribe";
 import PublicEventsPage from "@/pages/public-events";
@@ -19,6 +20,7 @@ function AdminRouter() {
       <Route path="/" component={Dashboard} />
       <Route path="/events" component={EventsPage} />
       <Route path="/subscribers" component={SubscribersPage} />
+      <Route path="/members" component={MembersPage} />
       <Route path="/qr-codes" component={QRCodesPage} />
       <Route component={NotFound} />
     </Switch>

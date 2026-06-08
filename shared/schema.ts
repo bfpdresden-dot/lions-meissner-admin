@@ -22,6 +22,7 @@ export const subscribers = pgTable("subscribers", {
   lastName: text("last_name").notNull(),
   phone: text("phone"),
   isActive: boolean("is_active").notNull().default(true),
+  isMember: boolean("is_member").notNull().default(false),
   eventId: integer("event_id"),
   subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
 });

@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Mail, Download, Trash2, UserX, UserCheck } from "lucide-react";
+import { Mail, Download, Trash2, UserX, UserCheck, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Subscriber, Event } from "@shared/schema";
 import { format } from "date-fns";
@@ -49,6 +49,24 @@ export default function SubscribersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
       toast({ title: "Status aktualisiert" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const memberMutation = useMutation({
+    mutationFn: async ({ id, isMember }: { id: number; isMember: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/subscribers/${id}`, { isMember });
+      return res.json();
+    },
+    onSuccess: (_data, { isMember }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      toast({
+        title: isMember ? "Als Mitglied markiert" : "Mitglied-Status entfernt",
+        description: isMember ? "Person erscheint nun in der Mitgliederliste." : undefined,
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Fehler", description: error.message, variant: "destructive" });
@@ -143,6 +161,7 @@ export default function SubscribersPage() {
                     <TableHead>Quelle</TableHead>
                     <TableHead>Datum</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Mitglied</TableHead>
                     <TableHead className="text-right">Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -165,6 +184,18 @@ export default function SubscribersPage() {
                         <Badge variant={sub.isActive ? "default" : "secondary"}>
                           {sub.isActive ? "Aktiv" : "Inaktiv"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <button
+                          onClick={() => memberMutation.mutate({ id: sub.id, isMember: !sub.isMember })}
+                          title={sub.isMember ? "Mitglied-Status entfernen" : "Als Mitglied markieren"}
+                          data-testid={`button-member-${sub.id}`}
+                          className="p-1 rounded hover:bg-muted transition-colors"
+                        >
+                          <Star
+                            className={`h-4 w-4 transition-colors ${sub.isMember ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}`}
+                          />
+                        </button>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

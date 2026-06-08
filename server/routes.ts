@@ -74,6 +74,23 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/members", async (_req, res) => {
+    const members = await storage.getMembers();
+    res.json(members);
+  });
+
+  app.get("/api/members/export", async (_req, res) => {
+    const members = await storage.getMembers();
+    const header = "Vorname;Nachname;E-Mail;Telefon;Status;Mitglied seit\n";
+    const rows = members.map((m) =>
+      `${m.firstName};${m.lastName};${m.email};${m.phone || ""};${m.isActive ? "Aktiv" : "Inaktiv"};${new Date(m.subscribedAt).toLocaleDateString("de-DE")}`
+    ).join("\n");
+    const bom = "\uFEFF";
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=mitglieder.csv");
+    res.send(bom + header + rows);
+  });
+
   app.get("/api/subscribers/export", async (_req, res) => {
     const subs = await storage.getSubscribers();
     const header = "Vorname;Nachname;E-Mail;Telefon;Status;Anmeldedatum\n";

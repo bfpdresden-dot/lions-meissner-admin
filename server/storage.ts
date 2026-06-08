@@ -20,6 +20,7 @@ export interface IStorage {
   deleteEvent(id: number): Promise<void>;
 
   getSubscribers(): Promise<Subscriber[]>;
+  getMembers(): Promise<Subscriber[]>;
   getSubscriber(id: number): Promise<Subscriber | undefined>;
   getSubscriberByEmail(email: string): Promise<Subscriber | undefined>;
   createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
@@ -62,6 +63,10 @@ export class DatabaseStorage implements IStorage {
 
   async getSubscribers(): Promise<Subscriber[]> {
     return db.select().from(subscribers);
+  }
+
+  async getMembers(): Promise<Subscriber[]> {
+    return db.select().from(subscribers).where(eq(subscribers.isMember, true));
   }
 
   async getSubscriber(id: number): Promise<Subscriber | undefined> {
