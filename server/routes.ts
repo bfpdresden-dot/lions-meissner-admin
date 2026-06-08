@@ -72,6 +72,38 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // First-time setup: create the very first admin account in one step
+  app.post("/api/auth/first-setup", async (req, res) => {
+    const adminExists = await hasAnyAdmin();
+    if (adminExists) {
+      return res.status(403).json({ error: "Setup bereits abgeschlossen" });
+    }
+    const { firstName, lastName, email, password } = req.body;
+    if (!firstName || !lastName || !email || !password || password.length < 6) {
+      return res.status(400).json({ error: "Alle Felder sind erforderlich (Passwort min. 6 Zeichen)" });
+    }
+    const existing = await storage.getSubscriberByEmail(email.trim().toLowerCase());
+    if (existing) {
+      // Upgrade existing subscriber to admin
+      const passwordHash = await bcrypt.hash(password, 10);
+      await storage.updateSubscriber(existing.id, { isAdmin: true, isMember: true, passwordHash });
+      return res.json({ ok: true });
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await storage.createSubscriber({
+      email: email.trim().toLowerCase(),
+      firstName,
+      lastName,
+      phone: null,
+      eventId: null,
+      isActive: true,
+      isMember: true,
+      isAdmin: true,
+      passwordHash,
+    });
+    res.status(201).json({ ok: true });
+  });
+
   // Set / update admin password (requires existing admin session OR setup mode)
   app.post("/api/members/:id/set-password", async (req, res) => {
     const id = parseInt(req.params.id, 10);

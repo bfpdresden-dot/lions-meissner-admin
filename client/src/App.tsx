@@ -18,6 +18,7 @@ import SubscribePage from "@/pages/subscribe";
 import PublicEventsPage from "@/pages/public-events";
 import PortalPage from "@/pages/portal";
 import LoginPage from "@/pages/login";
+import SetupPage from "@/pages/setup";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 
 function AdminRouter() {
@@ -85,7 +86,7 @@ function AdminLayout() {
 function AuthGate() {
   const { data: auth, isLoading, isError } = useAuth();
 
-  if (isLoading) {
+  if (isLoading || isError) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Skeleton className="h-12 w-48" />
@@ -93,9 +94,16 @@ function AuthGate() {
     );
   }
 
-  // If query errored OR no admins exist yet → allow access (backend is the real gatekeeper)
-  if (isError || auth?.setupRequired) {
-    return <AdminLayout />;
+  // No admins exist yet → show first-time setup wizard
+  if (auth?.setupRequired) {
+    return (
+      <SetupPage
+        onComplete={() => {
+          queryClient.setQueryData(["/api/auth/me"], { authenticated: false, setupRequired: false });
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        }}
+      />
+    );
   }
 
   // Admins exist but user not logged in → show login
