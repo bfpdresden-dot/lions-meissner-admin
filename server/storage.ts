@@ -47,7 +47,7 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getEvents(): Promise<Event[]> {
-    return db.select().from(events);
+    return db.select().from(events).orderBy(events.date);
   }
 
   async getEvent(id: number): Promise<Event | undefined> {
