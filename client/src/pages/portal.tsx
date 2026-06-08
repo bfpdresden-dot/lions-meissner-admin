@@ -30,7 +30,11 @@ import {
   KeyRound,
   Lock,
   Cake,
+  QrCode,
+  Copy,
+  Check,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -94,6 +98,7 @@ type ProfileValues = z.infer<typeof profileSchema>;
 export default function PortalPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const { toast } = useToast();
 
   const { data: subscriber, isLoading, isError } = useQuery<PortalSubscriber>({
@@ -655,6 +660,52 @@ export default function PortalPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Personal QR code card — only for members */}
+            {subscriber.isMember && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <QrCode className="h-5 w-5" />
+                    Mein Empfehlungs-QR-Code
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Teilen Sie diesen Code, um neue Newsletter-Abonnenten zu gewinnen.
+                    Neue Anmeldungen werden Ihnen zugeordnet.
+                  </p>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-4">
+                  <div className="bg-white p-4 rounded-xl border">
+                    <QRCodeSVG
+                      value={`${window.location.origin}/subscribe/member/${subscriber.id}`}
+                      size={180}
+                      level="M"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center break-all px-2">
+                    {window.location.origin}/subscribe/member/{subscriber.id}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `${window.location.origin}/subscribe/member/${subscriber.id}`
+                      );
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    }}
+                    data-testid="button-copy-referral-link"
+                  >
+                    {linkCopied ? (
+                      <><Check className="h-4 w-4 mr-2 text-green-600" />Link kopiert!</>
+                    ) : (
+                      <><Copy className="h-4 w-4 mr-2" />Link kopieren</>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </div>
