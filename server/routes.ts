@@ -314,6 +314,7 @@ export async function registerRoutes(
 
     const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
     if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY nicht konfiguriert" });
+    console.log("OpenRouter key check — length:", apiKey.length, "| prefix:", apiKey.substring(0, 8));
 
     let settings: any = {};
     try { settings = await storage.getSettings(); } catch {}
