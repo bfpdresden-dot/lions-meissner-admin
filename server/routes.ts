@@ -127,6 +127,21 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // Set portal password for any subscriber/member (does NOT grant admin rights)
+  app.post("/api/subscribers/:id/set-portal-password", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: "Passwort muss mindestens 6 Zeichen haben" });
+    }
+    const sub = await storage.getSubscriber(id);
+    if (!sub) return res.status(404).json({ error: "Person nicht gefunden" });
+    const passwordHash = await bcrypt.hash(password, 10);
+    await storage.updateSubscriber(id, { passwordHash });
+    res.json({ ok: true });
+  });
+
   // Remove admin role
   app.post("/api/members/:id/remove-admin", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);

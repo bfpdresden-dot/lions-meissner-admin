@@ -24,13 +24,44 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Mail, Download, Trash2, UserX, UserCheck, Star } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Mail, Download, Trash2, UserX, UserCheck, Star, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Subscriber, Event } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { z } from "zod";
+
+const portalPasswordSchema = z
+  .object({
+    password: z.string().min(6, "Mindestens 6 Zeichen"),
+    passwordConfirm: z.string().min(1, "Passwort bestätigen"),
+  })
+  .refine((d) => d.password === d.passwordConfirm, {
+    message: "Passwörter stimmen nicht überein",
+    path: ["passwordConfirm"],
+  });
+type PortalPasswordValues = z.infer<typeof portalPasswordSchema>;
 
 export default function SubscribersPage() {
+  const [portalPasswordSub, setPortalPasswordSub] = useState<Subscriber | null>(null);
   const { toast } = useToast();
 
   const { data: subscribers, isLoading } = useQuery<Subscriber[]>({
@@ -67,6 +98,21 @@ export default function SubscribersPage() {
         title: isMember ? "Als Mitglied markiert" : "Mitglied-Status entfernt",
         description: isMember ? "Person erscheint nun in der Mitgliederliste." : undefined,
       });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const setPortalPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await apiRequest("POST", `/api/subscribers/${id}/set-portal-password`, { password });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] });
+      setPortalPasswordSub(null);
+      toast({ title: "Portal-Passwort gesetzt", description: "Person kann sich jetzt unter /mein-bereich anmelden." });
     },
     onError: (error: Error) => {
       toast({ title: "Fehler", description: error.message, variant: "destructive" });
@@ -199,6 +245,42 @@ export default function SubscribersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {/* Portal password */}
+                          <Dialog
+                            open={portalPasswordSub?.id === sub.id}
+                            onOpenChange={(open) => !open && setPortalPasswordSub(null)}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setPortalPasswordSub(sub)}
+                                title={sub.passwordHash ? "Portal-Passwort ändern" : "Portal-Passwort vergeben"}
+                                data-testid={`button-portal-password-sub-${sub.id}`}
+                              >
+                                <KeyRound className={`h-4 w-4 ${sub.passwordHash ? "text-emerald-600" : "text-muted-foreground/40"}`} />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Portal-Passwort für {sub.firstName} {sub.lastName}
+                                </DialogTitle>
+                              </DialogHeader>
+                              <p className="text-sm text-muted-foreground">
+                                Person kann sich damit unter <strong>/mein-bereich</strong> anmelden.
+                              </p>
+                              {portalPasswordSub?.id === sub.id && (
+                                <PortalPasswordForm
+                                  onSubmit={(data) =>
+                                    setPortalPasswordMutation.mutate({ id: sub.id, password: data.password })
+                                  }
+                                  isPending={setPortalPasswordMutation.isPending}
+                                />
+                              )}
+                            </DialogContent>
+                          </Dialog>
+
                           <Button
                             size="icon"
                             variant="ghost"
@@ -251,5 +333,53 @@ export default function SubscribersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function PortalPasswordForm({
+  onSubmit,
+  isPending,
+}: {
+  onSubmit: (data: PortalPasswordValues) => void;
+  isPending: boolean;
+}) {
+  const form = useForm<PortalPasswordValues>({
+    resolver: zodResolver(portalPasswordSchema),
+    defaultValues: { password: "", passwordConfirm: "" },
+  });
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Neues Passwort</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="Mindestens 6 Zeichen" data-testid="input-portal-password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="passwordConfirm"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Passwort bestätigen</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="Passwort wiederholen" data-testid="input-portal-password-confirm" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" className="w-full" disabled={isPending} data-testid="button-submit-portal-password">
+          {isPending ? "Wird gespeichert..." : "Portal-Passwort speichern"}
+        </Button>
+      </form>
+    </Form>
   );
 }

@@ -84,6 +84,7 @@ export default function MembersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Subscriber | null>(null);
   const [passwordMember, setPasswordMember] = useState<Subscriber | null>(null);
+  const [portalPasswordMember, setPortalPasswordMember] = useState<Subscriber | null>(null);
   const { toast } = useToast();
   const { data: auth } = useAuth();
 
@@ -160,6 +161,21 @@ export default function MembersPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setPasswordMember(null);
       toast({ title: "Passwort gesetzt", description: "Admin-Zugang wurde eingerichtet." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const setPortalPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await apiRequest("POST", `/api/subscribers/${id}/set-portal-password`, { password });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      setPortalPasswordMember(null);
+      toast({ title: "Portal-Passwort gesetzt", description: "Das Mitglied kann sich jetzt unter /mein-bereich anmelden." });
     },
     onError: (error: Error) => {
       toast({ title: "Fehler", description: error.message, variant: "destructive" });
@@ -365,6 +381,43 @@ export default function MembersPage() {
                                   onSubmit={(data) => updateMutation.mutate({ id: editingMember.id, data })}
                                   isPending={updateMutation.isPending}
                                   submitLabel="Speichern"
+                                />
+                              )}
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Portal password */}
+                          <Dialog
+                            open={portalPasswordMember?.id === member.id}
+                            onOpenChange={(open) => !open && setPortalPasswordMember(null)}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setPortalPasswordMember(member)}
+                                title={member.passwordHash ? "Portal-Passwort ändern" : "Portal-Passwort vergeben"}
+                                data-testid={`button-portal-password-${member.id}`}
+                              >
+                                <KeyRound className={`h-4 w-4 ${member.passwordHash ? "text-emerald-600" : "text-muted-foreground/40"}`} />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Portal-Passwort für {member.firstName} {member.lastName}
+                                </DialogTitle>
+                              </DialogHeader>
+                              <p className="text-sm text-muted-foreground">
+                                Das Mitglied kann sich damit unter <strong>/mein-bereich</strong> anmelden — ohne Admin-Rechte.
+                              </p>
+                              {portalPasswordMember && (
+                                <PasswordForm
+                                  onSubmit={(data) =>
+                                    setPortalPasswordMutation.mutate({ id: member.id, password: data.password })
+                                  }
+                                  isPending={setPortalPasswordMutation.isPending}
+                                  submitLabel="Portal-Passwort speichern"
                                 />
                               )}
                             </DialogContent>
@@ -584,9 +637,11 @@ function MemberForm({
 function PasswordForm({
   onSubmit,
   isPending,
+  submitLabel = "Admin-Zugang einrichten",
 }: {
   onSubmit: (data: PasswordFormValues) => void;
   isPending: boolean;
+  submitLabel?: string;
 }) {
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordFormSchema),
@@ -623,7 +678,7 @@ function PasswordForm({
           )}
         />
         <Button type="submit" className="w-full" disabled={isPending} data-testid="button-submit-password">
-          {isPending ? "Wird gespeichert..." : "Admin-Zugang einrichten"}
+          {isPending ? "Wird gespeichert..." : submitLabel}
         </Button>
       </form>
     </Form>
