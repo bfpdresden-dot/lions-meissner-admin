@@ -501,8 +501,19 @@ export async function registerRoutes(
   });
 
   // Public subscribe (no auth needed)
+  // Public: get member name for referral subscribe page
+  app.get("/api/member-ref/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const member = await storage.getSubscriber(id);
+    if (!member || !member.isMember || !member.isActive) {
+      return res.status(404).json({ error: "Mitglied nicht gefunden" });
+    }
+    res.json({ id: member.id, firstName: member.firstName, lastName: member.lastName });
+  });
+
   app.post("/api/subscribe", async (req, res) => {
-    const { email, firstName, lastName, phone, eventId, isMember, password } = req.body;
+    const { email, firstName, lastName, phone, eventId, referredByMemberId, isMember, password } = req.body;
     if (!email || !firstName || !lastName) {
       return res.status(400).json({ error: "Alle Felder sind erforderlich" });
     }
@@ -521,6 +532,7 @@ export async function registerRoutes(
       lastName,
       phone: phone || null,
       eventId: eventId || null,
+      referredByMemberId: referredByMemberId || null,
       isActive: true,
       isMember: isMember || false,
       passwordHash,

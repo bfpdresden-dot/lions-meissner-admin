@@ -72,6 +72,10 @@ export default function SubscribersPage() {
     queryKey: ["/api/events"],
   });
 
+  const { data: members } = useQuery<Subscriber[]>({
+    queryKey: ["/api/members"],
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
       const res = await apiRequest("PATCH", `/api/subscribers/${id}`, { isActive });
@@ -149,10 +153,16 @@ export default function SubscribersPage() {
     }
   };
 
-  const getEventName = (eventId: number | null) => {
-    if (!eventId || !events) return "-";
-    const event = events.find((e) => e.id === eventId);
-    return event?.title || "-";
+  const getSource = (sub: Subscriber) => {
+    if (sub.eventId && events) {
+      const event = events.find((e) => e.id === sub.eventId);
+      return event?.title || "-";
+    }
+    if ((sub as any).referredByMemberId && members) {
+      const member = members.find((m) => m.id === (sub as any).referredByMemberId);
+      if (member) return `👤 ${member.firstName} ${member.lastName}`;
+    }
+    return "-";
   };
 
   const sortedSubscribers = [...(subscribers || [])].sort(
@@ -220,7 +230,7 @@ export default function SubscribersPage() {
                       <TableCell className="text-muted-foreground">{sub.email}</TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
-                          {getEventName(sub.eventId)}
+                          {getSource(sub)}
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">

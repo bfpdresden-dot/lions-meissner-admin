@@ -54,7 +54,9 @@ import {
   ShieldOff,
   KeyRound,
   ShieldAlert,
+  QrCode,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import type { Subscriber } from "@shared/schema";
@@ -86,6 +88,7 @@ export default function MembersPage() {
   const [editingMember, setEditingMember] = useState<Subscriber | null>(null);
   const [passwordMember, setPasswordMember] = useState<Subscriber | null>(null);
   const [portalPasswordMember, setPortalPasswordMember] = useState<Subscriber | null>(null);
+  const [qrMember, setQrMember] = useState<Subscriber | null>(null);
   const { toast } = useToast();
   const { data: auth } = useAuth();
 
@@ -358,6 +361,17 @@ export default function MembersPage() {
                             {member.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                           </Button>
 
+                          {/* QR Code */}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setQrMember(member)}
+                            title="Persönlicher QR-Code"
+                            data-testid={`button-qr-member-${member.id}`}
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+
                           {/* Edit */}
                           <Dialog
                             open={editingMember?.id === member.id}
@@ -552,6 +566,44 @@ export default function MembersPage() {
           </Card>
         )}
       </div>
+
+      {/* QR Code Dialog */}
+      <Dialog open={qrMember !== null} onOpenChange={(open) => !open && setQrMember(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Persönlicher QR-Code</DialogTitle>
+          </DialogHeader>
+          {qrMember && (
+            <div className="flex flex-col items-center gap-4 py-2">
+              <p className="text-sm text-muted-foreground text-center">
+                <span className="font-medium text-foreground">{qrMember.firstName} {qrMember.lastName}</span>
+                <br />
+                Wer diesen Code scannt, trägt sich als Empfehlung dieses Mitglieds ein.
+              </p>
+              <div className="bg-white p-4 rounded-xl border">
+                <QRCodeSVG
+                  value={`${window.location.origin}/subscribe/member/${qrMember.id}`}
+                  size={200}
+                  level="M"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center break-all">
+                {window.location.origin}/subscribe/member/{qrMember.id}
+              </p>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/subscribe/member/${qrMember.id}`);
+                }}
+                data-testid="button-copy-member-qr-link"
+              >
+                Link kopieren
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

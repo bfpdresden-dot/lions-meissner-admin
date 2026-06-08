@@ -29,6 +29,7 @@ export const subscribers = pgTable("subscribers", {
   isAdmin: boolean("is_admin").notNull().default(false),
   passwordHash: text("password_hash"),
   eventId: integer("event_id"),
+  referredByMemberId: integer("referred_by_member_id"),
   subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
 });
 

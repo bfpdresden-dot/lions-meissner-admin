@@ -16,6 +16,7 @@ import MembersPage from "@/pages/members";
 import QRCodesPage from "@/pages/qr-codes";
 import SettingsPage from "@/pages/settings";
 import SubscribePage from "@/pages/subscribe";
+import SubscribeMemberPage from "@/pages/subscribe-member";
 import PublicEventsPage from "@/pages/public-events";
 import PortalPage from "@/pages/portal";
 import PasswordResetPage from "@/pages/password-reset";
@@ -42,6 +43,12 @@ function SubscribeRoute() {
   const [match, params] = useRoute("/subscribe/:eventId");
   if (!match || !params?.eventId) return null;
   return <SubscribePage eventId={params.eventId} />;
+}
+
+function SubscribeMemberRoute() {
+  const [match, params] = useRoute("/subscribe/member/:memberId");
+  if (!match || !params?.memberId) return null;
+  return <SubscribeMemberPage memberId={params.memberId} />;
 }
 
 function AdminLayout() {
@@ -119,6 +126,7 @@ function AuthGate() {
 }
 
 function App() {
+  const [isSubscribeMember] = useRoute("/subscribe/member/:memberId");
   const [isSubscribe] = useRoute("/subscribe/:eventId");
   const [isPublicEvents] = useRoute("/veranstaltungen");
   const [isPortal] = useRoute("/mein-bereich");
@@ -129,7 +137,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        {isSubscribe ? (
+        {isSubscribeMember ? (
+          <SubscribeMemberRoute />
+        ) : isSubscribe ? (
           <SubscribeRoute />
         ) : isPublicEvents ? (
           <PublicEventsPage />

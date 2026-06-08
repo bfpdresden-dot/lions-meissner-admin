@@ -42,6 +42,7 @@ pool.query(`
   ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS end_date timestamp;
   ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS is_internal boolean NOT NULL DEFAULT false;
   ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS birthday text;
+  ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS referred_by_member_id INTEGER;
   CREATE TABLE IF NOT EXISTS "settings" (
     "key" text PRIMARY KEY,
     "value" text NOT NULL,
