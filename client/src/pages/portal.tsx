@@ -263,6 +263,13 @@ export default function PortalPage() {
                     <LogIn className="h-4 w-4 mr-2" />
                     {loginMutation.isPending ? "Wird angemeldet..." : "Anmelden"}
                   </Button>
+                  <div className="text-center">
+                    <Link href="/passwort-reset">
+                      <Button variant="link" size="sm" className="text-muted-foreground text-xs h-auto p-0" data-testid="link-forgot-password">
+                        Passwort vergessen?
+                      </Button>
+                    </Link>
+                  </div>
                 </form>
               </Form>
               <p className="mt-4 text-xs text-muted-foreground text-center">

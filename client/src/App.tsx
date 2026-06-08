@@ -17,6 +17,7 @@ import QRCodesPage from "@/pages/qr-codes";
 import SubscribePage from "@/pages/subscribe";
 import PublicEventsPage from "@/pages/public-events";
 import PortalPage from "@/pages/portal";
+import PasswordResetPage from "@/pages/password-reset";
 import LoginPage from "@/pages/login";
 import SetupPage from "@/pages/setup";
 import { useAuth, useLogout } from "@/hooks/use-auth";
@@ -118,6 +119,7 @@ function App() {
   const [isSubscribe] = useRoute("/subscribe/:eventId");
   const [isPublicEvents] = useRoute("/veranstaltungen");
   const [isPortal] = useRoute("/mein-bereich");
+  const [isPasswordReset] = useRoute("/passwort-reset");
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -129,6 +131,8 @@ function App() {
           <PublicEventsPage />
         ) : isPortal ? (
           <PortalPage />
+        ) : isPasswordReset ? (
+          <PasswordResetPage />
         ) : (
           <AuthGate />
         )}
