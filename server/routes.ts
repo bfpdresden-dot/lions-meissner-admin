@@ -478,6 +478,7 @@ export async function registerRoutes(
           daysUntil,
         };
       })
+      .filter((b) => b.daysUntil <= 183)
       .sort((a, b) => a.daysUntil - b.daysUntil);
 
     res.json(birthdays);
