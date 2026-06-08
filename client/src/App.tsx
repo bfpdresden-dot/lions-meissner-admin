@@ -20,6 +20,7 @@ import PortalPage from "@/pages/portal";
 import PasswordResetPage from "@/pages/password-reset";
 import LoginPage from "@/pages/login";
 import SetupPage from "@/pages/setup";
+import DatenschutzPage from "@/pages/datenschutz";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 
 function AdminRouter() {
@@ -120,6 +121,7 @@ function App() {
   const [isPublicEvents] = useRoute("/veranstaltungen");
   const [isPortal] = useRoute("/mein-bereich");
   const [isPasswordReset] = useRoute("/passwort-reset");
+  const [isDatenschutz] = useRoute("/datenschutz");
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -133,6 +135,8 @@ function App() {
           <PortalPage />
         ) : isPasswordReset ? (
           <PasswordResetPage />
+        ) : isDatenschutz ? (
+          <DatenschutzPage />
         ) : (
           <AuthGate />
         )}

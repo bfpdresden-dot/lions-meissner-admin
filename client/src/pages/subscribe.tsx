@@ -16,6 +16,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { CheckCircle2, Mail } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "wouter";
 import type { Event } from "@shared/schema";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -26,6 +28,9 @@ const subscribeFormSchema = z.object({
   firstName: z.string().min(1, "Vorname ist erforderlich"),
   lastName: z.string().min(1, "Nachname ist erforderlich"),
   phone: z.string().optional(),
+  consent: z.boolean().refine((v) => v === true, {
+    message: "Bitte stimmen Sie der Datenschutzerklärung zu.",
+  }),
 });
 
 type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
@@ -57,6 +62,7 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
       firstName: "",
       lastName: "",
       phone: "",
+      consent: false,
     },
   });
 
@@ -215,6 +221,34 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="consent"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-start gap-3">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-consent"
+                        />
+                      </FormControl>
+                      <div className="text-sm leading-relaxed">
+                        Ich stimme zu, dass meine personenbezogenen Daten (Name, E-Mail,
+                        Telefon) zur Newsletter-Zusendung und Veranstaltungsorganisation
+                        des Lions Club Meißner Land verarbeitet werden. Diese Einwilligung
+                        kann ich jederzeit widerrufen. Weitere Informationen in der{" "}
+                        <Link href="/datenschutz" className="underline text-foreground hover:text-primary">
+                          Datenschutzerklärung
+                        </Link>
+                        . *
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <Button
                 type="submit"
                 className="w-full"
@@ -229,7 +263,7 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
           </Form>
 
           <p className="text-xs text-center text-muted-foreground">
-            Sie k&ouml;nnen sich jederzeit wieder abmelden. Wir geben Ihre Daten nicht an Dritte weiter.
+            * Pflichtfeld. Sie k&ouml;nnen sich jederzeit wieder abmelden.
           </p>
 
           <div className="border-t pt-4 space-y-1 text-xs text-center text-muted-foreground">

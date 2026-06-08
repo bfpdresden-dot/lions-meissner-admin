@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { Event } from "@shared/schema";
 import { format } from "date-fns";
@@ -51,6 +52,9 @@ const registerFormSchema = z.object({
   email: z.string().email("Bitte geben Sie eine gültige E-Mail-Adresse ein"),
   phone: z.string().optional(),
   guestCount: z.string().default("1"),
+  consent: z.boolean().refine((v) => v === true, {
+    message: "Bitte stimmen Sie der Datenschutzerklärung zu.",
+  }),
 });
 
 const subscribeFormSchema = z.object({
@@ -60,6 +64,9 @@ const subscribeFormSchema = z.object({
   phone: z.string().optional(),
   password: z.string().optional().or(z.literal("")),
   passwordConfirm: z.string().optional().or(z.literal("")),
+  consent: z.boolean().refine((v) => v === true, {
+    message: "Bitte stimmen Sie der Datenschutzerklärung zu.",
+  }),
 }).refine((d) => !d.password || d.password.length >= 6, {
   message: "Mindestens 6 Zeichen",
   path: ["password"],
@@ -156,28 +163,29 @@ export default function PublicEventsPage() {
       email: "",
       phone: "",
       guestCount: "1",
+      consent: false,
     },
   });
 
   const subscribeForm = useForm<SubscribeFormValues>({
     resolver: zodResolver(subscribeFormSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "", password: "", passwordConfirm: "" },
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", password: "", passwordConfirm: "", consent: false },
   });
 
   const handleOpenRegister = (eventId: number) => {
     setSuccessEvent(null);
     setQuickGuestCount("1");
     if (portalSubscriber) {
-      // Pre-fill form from portal session (used as fallback if not quick-registering)
       form.reset({
         firstName: portalSubscriber.firstName,
         lastName: portalSubscriber.lastName,
         email: portalSubscriber.email,
         phone: portalSubscriber.phone || "",
         guestCount: "1",
+        consent: false,
       });
     } else {
-      form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1" });
+      form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1", consent: false });
     }
     setRegisterEventId(eventId);
   };
@@ -436,6 +444,13 @@ export default function PublicEventsPage() {
                       <Zap className="h-4 w-4 mr-2" />
                       {quickRegisterMutation.isPending ? "Wird angemeldet..." : "Jetzt verbindlich anmelden"}
                     </Button>
+                    <p className="text-xs text-muted-foreground text-center leading-relaxed">
+                      Mit der Anmeldung stimmen Sie der Verarbeitung Ihrer Daten gemäß{" "}
+                      <Link href="/datenschutz" className="underline hover:text-foreground" target="_blank">
+                        Datenschutzerklärung
+                      </Link>{" "}
+                      zu.
+                    </p>
                   </div>
                 ) : (
                   /* ── Full form for guests ── */
@@ -520,6 +535,31 @@ export default function PublicEventsPage() {
                                 </SelectContent>
                               </Select>
                             </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="consent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-start gap-3">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="checkbox-reg-consent"
+                                />
+                              </FormControl>
+                              <div className="text-xs text-muted-foreground leading-relaxed">
+                                Ich stimme zu, dass meine Daten zur Veranstaltungsanmeldung verarbeitet
+                                werden (Art. 6 Abs. 1 lit. a DSGVO). Weitere Infos in der{" "}
+                                <Link href="/datenschutz" className="underline hover:text-foreground" target="_blank">
+                                  Datenschutzerklärung
+                                </Link>. *
+                              </div>
+                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -667,6 +707,32 @@ export default function PublicEventsPage() {
                       )}
                     />
                   </div>
+                  <FormField
+                    control={subscribeForm.control}
+                    name="consent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-start gap-3">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-sub-consent"
+                            />
+                          </FormControl>
+                          <div className="text-xs text-muted-foreground leading-relaxed">
+                            Ich stimme zu, dass meine Daten zur Newsletter-Zusendung und
+                            Veranstaltungsorganisation verarbeitet werden (Art. 6 Abs. 1 lit. a DSGVO).
+                            Weitere Infos in der{" "}
+                            <Link href="/datenschutz" className="underline hover:text-foreground" target="_blank">
+                              Datenschutzerklärung
+                            </Link>. *
+                          </div>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <Button
                     type="submit"
                     className="w-full"
@@ -689,6 +755,9 @@ export default function PublicEventsPage() {
             <a href="tel:01723408543" className="hover:underline">0172 340 85 43</a>
             {" "}&middot;{" "}
             <a href="mailto:schreiber1988@gmx.net" className="hover:underline">schreiber1988@gmx.net</a>
+          </p>
+          <p className="pt-1">
+            <Link href="/datenschutz" className="hover:underline">Datenschutzerklärung</Link>
           </p>
         </div>
       </div>
