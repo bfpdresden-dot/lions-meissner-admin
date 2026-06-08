@@ -29,6 +29,22 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Ensure session table exists (connect-pg-simple's createTableIfMissing can
+// silently fail in production; create it explicitly to be safe)
+pool.query(`
+  CREATE TABLE IF NOT EXISTS "session" (
+    "sid" varchar NOT NULL COLLATE "default",
+    "sess" json NOT NULL,
+    "expire" timestamp(6) NOT NULL,
+    CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+  );
+  CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+`).then(() => {
+  console.log("[session] table ready");
+}).catch((err) => {
+  console.error("[session] table creation error:", err);
+});
+
 const PgSession = connectPgSimple(session);
 
 app.use(
@@ -36,7 +52,7 @@ app.use(
     store: new PgSession({
       pool,
       tableName: "session",
-      createTableIfMissing: true,
+      createTableIfMissing: false,
     }),
     secret: process.env.SESSION_SECRET || "fallback-secret-change-me",
     resave: false,

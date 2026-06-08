@@ -48,7 +48,10 @@ export async function registerRoutes(
     req.session.userId = sub.id;
     req.session.isAdmin = true;
     req.session.save((err) => {
-      if (err) return res.status(500).json({ error: "Sitzungsfehler" });
+      if (err) {
+        console.error("[login] session.save error:", err);
+        return res.status(500).json({ error: "Sitzungsfehler" });
+      }
       res.json({ ok: true, user: { id: sub.id, firstName: sub.firstName, lastName: sub.lastName, email: sub.email } });
     });
   });
