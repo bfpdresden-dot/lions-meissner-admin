@@ -45,7 +45,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
@@ -104,6 +105,163 @@ export default function EventsPage() {
     } catch {
       toast({ title: "Fehler", description: "Export fehlgeschlagen.", variant: "destructive" });
     }
+  };
+
+  const handlePrintQR = (event: Event) => {
+    const subscribeUrl = `${window.location.origin}/subscribe/${event.id}`;
+    const eventDate = format(new Date(event.date), "dd. MMMM yyyy, HH:mm", { locale: de });
+
+    const svgEl = document.getElementById(`qr-hidden-${event.id}`)?.querySelector("svg");
+    if (!svgEl) return;
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Anmeldeflyer – ${event.title}</title>
+  <style>
+    @page { size: A4 portrait; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 210mm;
+      min-height: 297mm;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #1a2744;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      width: 100%;
+      background: #1a2744;
+      color: #fff;
+      padding: 20mm 20mm 12mm;
+      text-align: center;
+    }
+    .club-name {
+      font-size: 28pt;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 3mm;
+    }
+    .header-subtitle {
+      font-size: 13pt;
+      color: #c8951a;
+      font-weight: 600;
+    }
+    .body {
+      flex: 1;
+      width: 100%;
+      padding: 14mm 20mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10mm;
+    }
+    .event-box {
+      width: 100%;
+      border: 2px solid #c8951a;
+      border-radius: 6px;
+      padding: 8mm 10mm;
+      text-align: center;
+    }
+    .event-title {
+      font-size: 22pt;
+      font-weight: 700;
+      color: #1a2744;
+      margin-bottom: 4mm;
+    }
+    .event-meta {
+      font-size: 12pt;
+      color: #555;
+      display: flex;
+      justify-content: center;
+      gap: 10mm;
+      flex-wrap: wrap;
+    }
+    .event-meta span { display: flex; align-items: center; gap: 2mm; }
+    .cta {
+      font-size: 16pt;
+      font-weight: 600;
+      color: #1a2744;
+      text-align: center;
+    }
+    .qr-wrapper {
+      padding: 6mm;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .qr-wrapper svg { display: block; width: 70mm; height: 70mm; }
+    .scan-hint {
+      font-size: 11pt;
+      color: #888;
+      text-align: center;
+    }
+    .url {
+      font-size: 9pt;
+      color: #bbb;
+      font-family: monospace;
+      word-break: break-all;
+      text-align: center;
+    }
+    .footer {
+      width: 100%;
+      background: #f5f5f5;
+      border-top: 1px solid #e5e7eb;
+      padding: 6mm 20mm;
+      text-align: center;
+      font-size: 9pt;
+      color: #999;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="club-name">Lions Club Mei&szlig;ner Land</div>
+    <div class="header-subtitle">Wir sind f&uuml;reinander da</div>
+  </div>
+
+  <div class="body">
+    <div class="event-box">
+      <div class="event-title">${event.title}</div>
+      <div class="event-meta">
+        <span>&#128197; ${eventDate} Uhr</span>
+        <span>&#128205; ${event.location}</span>
+        ${event.maxParticipants ? `<span>&#128101; Max. ${event.maxParticipants} Teilnehmer</span>` : ""}
+      </div>
+    </div>
+
+    <div class="cta">Newsletter abonnieren &amp; dabei sein!</div>
+    <div class="cta" style="font-size:13pt; font-weight:400; color:#555;">
+      Scannen Sie den QR-Code mit Ihrem Smartphone
+    </div>
+
+    <div class="qr-wrapper">${svgData}</div>
+
+    <div class="scan-hint">
+      Nach dem Scan gelangen Sie direkt zur Anmeldung f&uuml;r<br>
+      <strong>${event.title}</strong>
+    </div>
+    <div class="url">${subscribeUrl}</div>
+  </div>
+
+  <div class="footer">
+    Sebastian Schreiber &nbsp;&bull;&nbsp; Seestra&szlig;e 18e, 01640 Coswig &nbsp;&bull;&nbsp;
+    Tel: 0172 340 85 43 &nbsp;&bull;&nbsp; schreiber1988@gmx.net
+  </div>
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`);
+    printWindow.document.close();
   };
 
   const deleteRegMutation = useMutation({
@@ -251,7 +409,30 @@ export default function EventsPage() {
                           </span>
                         </div>
                       </div>
+                      {/* Hidden QR code for print extraction */}
+                      <div
+                        id={`qr-hidden-${event.id}`}
+                        style={{ position: "absolute", left: "-9999px", top: 0 }}
+                        aria-hidden="true"
+                      >
+                        <QRCodeSVG
+                          value={`${window.location.origin}/subscribe/${event.id}`}
+                          size={280}
+                          level="H"
+                          fgColor="#1a2744"
+                        />
+                      </div>
+
                       <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handlePrintQR(event)}
+                          data-testid={`button-print-qr-${event.id}`}
+                          title="Anmeldeflyer drucken (DIN A4)"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
