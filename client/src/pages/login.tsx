@@ -115,7 +115,18 @@ export default function LoginPage({ setupRequired }: { setupRequired?: boolean }
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Passwort</FormLabel>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Passwort</FormLabel>
+                        <Link href="/passwort-reset">
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:text-foreground underline"
+                            data-testid="link-admin-forgot-password"
+                          >
+                            Passwort vergessen?
+                          </button>
+                        </Link>
+                      </div>
                       <FormControl>
                         <Input
                           {...field}
