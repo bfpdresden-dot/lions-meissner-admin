@@ -67,6 +67,7 @@ const memberFormSchema = z.object({
   lastName: z.string().min(1, "Nachname ist erforderlich"),
   email: z.string().email("Bitte gültige E-Mail-Adresse eingeben"),
   phone: z.string().optional(),
+  birthday: z.string().optional(),
 });
 
 const passwordFormSchema = z.object({
@@ -299,6 +300,7 @@ export default function MembersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>E-Mail</TableHead>
                     <TableHead>Telefon</TableHead>
+                    <TableHead>Geburtstag</TableHead>
                     <TableHead>Seit</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Admin</TableHead>
@@ -314,6 +316,11 @@ export default function MembersPage() {
                       <TableCell className="text-muted-foreground">{member.email}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {member.phone || <span className="opacity-40">–</span>}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {member.birthday
+                          ? format(new Date(member.birthday), "dd.MM.yyyy", { locale: de })
+                          : <span className="opacity-40">–</span>}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {format(new Date(member.subscribedAt), "dd.MM.yyyy", { locale: de })}
@@ -377,6 +384,7 @@ export default function MembersPage() {
                                     lastName: editingMember.lastName,
                                     email: editingMember.email,
                                     phone: editingMember.phone || "",
+                                    birthday: editingMember.birthday || "",
                                   }}
                                   onSubmit={(data) => updateMutation.mutate({ id: editingMember.id, data })}
                                   isPending={updateMutation.isPending}
@@ -566,6 +574,7 @@ function MemberForm({
       lastName: defaultValues?.lastName || "",
       email: defaultValues?.email || "",
       phone: defaultValues?.phone || "",
+      birthday: defaultValues?.birthday || "",
     },
   });
 
@@ -621,6 +630,19 @@ function MemberForm({
               <FormLabel>Telefonnummer (optional)</FormLabel>
               <FormControl>
                 <Input {...field} type="tel" placeholder="0123 456789" data-testid="input-member-phone" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="birthday"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Geburtstag (optional)</FormLabel>
+              <FormControl>
+                <Input {...field} type="date" data-testid="input-member-birthday" />
               </FormControl>
               <FormMessage />
             </FormItem>
