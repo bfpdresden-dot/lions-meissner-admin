@@ -14,6 +14,7 @@ import EventsPage from "@/pages/events";
 import SubscribersPage from "@/pages/subscribers";
 import MembersPage from "@/pages/members";
 import QRCodesPage from "@/pages/qr-codes";
+import SettingsPage from "@/pages/settings";
 import SubscribePage from "@/pages/subscribe";
 import PublicEventsPage from "@/pages/public-events";
 import PortalPage from "@/pages/portal";
@@ -31,6 +32,7 @@ function AdminRouter() {
       <Route path="/subscribers" component={SubscribersPage} />
       <Route path="/members" component={MembersPage} />
       <Route path="/qr-codes" component={QRCodesPage} />
+      <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );

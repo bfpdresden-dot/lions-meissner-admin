@@ -43,6 +43,14 @@ export const registrations = pgTable("registrations", {
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
 });
 
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type Setting = typeof settings.$inferSelect;
+
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: serial("id").primaryKey(),
   subscriberId: integer("subscriber_id").notNull(),

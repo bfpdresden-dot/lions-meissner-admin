@@ -217,6 +217,23 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // ── Settings ─────────────────────────────────────────────────────────────
+
+  app.get("/api/settings", requireAdmin, async (_req, res) => {
+    const s = await storage.getSettings();
+    res.json(s);
+  });
+
+  app.patch("/api/settings", requireAdmin, async (req, res) => {
+    const entries = req.body as Record<string, string>;
+    if (typeof entries !== "object" || Array.isArray(entries)) {
+      return res.status(400).json({ error: "Ungültiges Format" });
+    }
+    await storage.setSettings(entries);
+    const updated = await storage.getSettings();
+    res.json(updated);
+  });
+
   // ── Subscribers ──────────────────────────────────────────────────────────
 
   app.get("/api/subscribers", requireAdmin, async (_req, res) => {

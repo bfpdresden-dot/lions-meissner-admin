@@ -3,6 +3,7 @@ import {
   subscribers,
   registrations,
   passwordResetTokens,
+  settings,
   type Event,
   type InsertEvent,
   type Subscriber,
@@ -10,6 +11,7 @@ import {
   type Registration,
   type InsertRegistration,
   type PasswordResetToken,
+  type Setting,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -43,6 +45,10 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
   markPasswordResetTokenUsed(id: number): Promise<void>;
   deleteExpiredPasswordResetTokens(): Promise<void>;
+
+  getSettings(): Promise<Record<string, string>>;
+  setSetting(key: string, value: string): Promise<void>;
+  setSettings(entries: Record<string, string>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -169,6 +175,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteExpiredPasswordResetTokens(): Promise<void> {
     await db.delete(passwordResetTokens).where(sql`${passwordResetTokens.expiresAt} < now()`);
+  }
+
+  async getSettings(): Promise<Record<string, string>> {
+    const rows = await db.select().from(settings);
+    const result: Record<string, string> = {};
+    for (const row of rows) result[row.key] = row.value;
+    return result;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    await db.insert(settings).values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } });
+  }
+
+  async setSettings(entries: Record<string, string>): Promise<void> {
+    for (const [key, value] of Object.entries(entries)) {
+      await this.setSetting(key, value);
+    }
   }
 }
 
