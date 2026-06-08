@@ -314,7 +314,7 @@ export async function registerRoutes(
 
     const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
     if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY nicht konfiguriert" });
-    console.log("OpenRouter key check — length:", apiKey.length, "| prefix:", apiKey.substring(0, 8));
+
 
     let settings: any = {};
     try { settings = await storage.getSettings(); } catch {}
@@ -336,7 +336,7 @@ Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer 
           "X-Title": clubName,
         },
         body: JSON.stringify({
-          model: "google/gemini-2.0-flash-001",
+          model: "openai/gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: parsed.data.prompt + (parsed.data.subject ? `\n\nBetreff: ${parsed.data.subject}` : "") },
