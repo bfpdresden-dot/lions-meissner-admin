@@ -29,13 +29,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
 import { Link } from "wouter";
+
+type PortalSubscriber = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+};
 
 const registerFormSchema = z.object({
   firstName: z.string().min(1, "Vorname ist erforderlich"),
@@ -68,6 +76,7 @@ export default function PublicEventsPage() {
   const [successEvent, setSuccessEvent] = useState<string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
+  const [quickGuestCount, setQuickGuestCount] = useState("1");
   const { toast } = useToast();
 
   const { data: events, isLoading } = useQuery<Event[]>({
@@ -76,6 +85,14 @@ export default function PublicEventsPage() {
 
   const { data: guestCounts } = useQuery<Record<string, number>>({
     queryKey: ["/api/registrations/counts"],
+  });
+
+  const { data: portalSubscriber } = useQuery<PortalSubscriber | undefined>({
+    queryKey: ["/api/portal/me"],
+    retry: false,
+    staleTime: 1000 * 60 * 5,
+    throwOnError: false,
+    select: (data: any) => data?.id ? (data as PortalSubscriber) : undefined,
   });
 
   const upcomingEvents = (events || [])
@@ -148,10 +165,52 @@ export default function PublicEventsPage() {
   });
 
   const handleOpenRegister = (eventId: number) => {
-    form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1" });
     setSuccessEvent(null);
+    setQuickGuestCount("1");
+    if (portalSubscriber) {
+      // Pre-fill form from portal session (used as fallback if not quick-registering)
+      form.reset({
+        firstName: portalSubscriber.firstName,
+        lastName: portalSubscriber.lastName,
+        email: portalSubscriber.email,
+        phone: portalSubscriber.phone || "",
+        guestCount: "1",
+      });
+    } else {
+      form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1" });
+    }
     setRegisterEventId(eventId);
   };
+
+  const quickRegisterMutation = useMutation({
+    mutationFn: async ({ eventId, guestCount }: { eventId: number; guestCount: number }) => {
+      if (!portalSubscriber) throw new Error("Nicht angemeldet");
+      const res = await apiRequest("POST", "/api/registrations", {
+        eventId,
+        firstName: portalSubscriber.firstName,
+        lastName: portalSubscriber.lastName,
+        email: portalSubscriber.email,
+        phone: portalSubscriber.phone || "",
+        guestCount,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
+      setSuccessEvent(registerEvent?.title || "");
+      setRegisterEventId(null);
+    },
+    onError: (error: Error) => {
+      const msg = error.message;
+      if (msg.includes("409")) {
+        toast({ title: "Bereits angemeldet", description: "Sie sind bereits für diese Veranstaltung registriert.", variant: "destructive" });
+      } else if (msg.includes("maximale")) {
+        toast({ title: "Ausgebucht", description: "Die maximale Teilnehmerzahl wurde erreicht.", variant: "destructive" });
+      } else {
+        toast({ title: "Fehler", description: "Die Anmeldung konnte nicht durchgeführt werden.", variant: "destructive" });
+      }
+    },
+  });
 
   const handleOpenSubscribe = () => {
     subscribeForm.reset();
@@ -334,101 +393,148 @@ export default function PublicEventsPage() {
                   </p>
                 </div>
 
-                <Form {...form}>
-                  <form
-                    onSubmit={form.handleSubmit((values) =>
-                      registerMutation.mutate({ ...values, eventId: registerEventId! })
-                    )}
-                    className="space-y-4"
-                  >
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Vorname *</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Max" data-testid="input-reg-firstname" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nachname *</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Mustermann" data-testid="input-reg-lastname" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                {portalSubscriber ? (
+                  /* ── Quick-register for logged-in members ── */
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+                      <User className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {portalSubscriber.firstName} {portalSubscriber.lastName}
+                        </p>
+                        <p className="text-muted-foreground">{portalSubscriber.email}</p>
+                      </div>
                     </div>
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>E-Mail-Adresse *</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="email" placeholder="max@beispiel.de" data-testid="input-reg-email" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Telefonnummer (optional)</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="tel" placeholder="0123 456789" data-testid="input-reg-phone" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="guestCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Anzahl Personen (inkl. Sie)</FormLabel>
-                          <FormControl>
-                            <Select value={field.value} onValueChange={field.onChange}>
-                              <SelectTrigger data-testid="select-guest-count">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                                  <SelectItem key={n} value={n.toString()}>
-                                    {n} {n === 1 ? "Person" : "Personen"}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Anzahl Personen (inkl. Sie)</label>
+                      <Select value={quickGuestCount} onValueChange={setQuickGuestCount}>
+                        <SelectTrigger data-testid="select-quick-guest-count">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                            <SelectItem key={n} value={n.toString()}>
+                              {n} {n === 1 ? "Person" : "Personen"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <Button
-                      type="submit"
                       className="w-full"
-                      disabled={registerMutation.isPending}
-                      data-testid="button-submit-registration"
+                      disabled={quickRegisterMutation.isPending}
+                      onClick={() =>
+                        quickRegisterMutation.mutate({
+                          eventId: registerEventId!,
+                          guestCount: parseInt(quickGuestCount, 10),
+                        })
+                      }
+                      data-testid="button-quick-register"
                     >
-                      {registerMutation.isPending ? "Wird angemeldet..." : "Verbindlich anmelden"}
+                      <Zap className="h-4 w-4 mr-2" />
+                      {quickRegisterMutation.isPending ? "Wird angemeldet..." : "Jetzt verbindlich anmelden"}
                     </Button>
-                  </form>
-                </Form>
+                  </div>
+                ) : (
+                  /* ── Full form for guests ── */
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit((values) =>
+                        registerMutation.mutate({ ...values, eventId: registerEventId! })
+                      )}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Vorname *</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Max" data-testid="input-reg-firstname" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nachname *</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Mustermann" data-testid="input-reg-lastname" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>E-Mail-Adresse *</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="email" placeholder="max@beispiel.de" data-testid="input-reg-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Telefonnummer (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="tel" placeholder="0123 456789" data-testid="input-reg-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="guestCount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Anzahl Personen (inkl. Sie)</FormLabel>
+                            <FormControl>
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <SelectTrigger data-testid="select-guest-count">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                                    <SelectItem key={n} value={n.toString()}>
+                                      {n} {n === 1 ? "Person" : "Personen"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={registerMutation.isPending}
+                        data-testid="button-submit-registration"
+                      >
+                        {registerMutation.isPending ? "Wird angemeldet..." : "Verbindlich anmelden"}
+                      </Button>
+                    </form>
+                  </Form>
+                )}
               </div>
             )}
           </DialogContent>
