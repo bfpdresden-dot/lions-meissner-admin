@@ -2,12 +2,14 @@ import {
   events,
   subscribers,
   registrations,
+  passwordResetTokens,
   type Event,
   type InsertEvent,
   type Subscriber,
   type InsertSubscriber,
   type Registration,
   type InsertRegistration,
+  type PasswordResetToken,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -36,6 +38,11 @@ export interface IStorage {
   deleteRegistration(id: number): Promise<void>;
   getGuestCountByEvent(eventId: number): Promise<number>;
   getAllGuestCounts(): Promise<Record<number, number>>;
+
+  createPasswordResetToken(subscriberId: number, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(id: number): Promise<void>;
+  deleteExpiredPasswordResetTokens(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -144,6 +151,24 @@ export class DatabaseStorage implements IStorage {
       counts[row.eventId] = Number(row.total);
     }
     return counts;
+  }
+
+  async createPasswordResetToken(subscriberId: number, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [created] = await db.insert(passwordResetTokens).values({ subscriberId, token, expiresAt }).returning();
+    return created;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [row] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return row || undefined;
+  }
+
+  async markPasswordResetTokenUsed(id: number): Promise<void> {
+    await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, id));
+  }
+
+  async deleteExpiredPasswordResetTokens(): Promise<void> {
+    await db.delete(passwordResetTokens).where(sql`${passwordResetTokens.expiresAt} < now()`);
   }
 }
 

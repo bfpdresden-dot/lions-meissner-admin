@@ -40,6 +40,17 @@ export const registrations = pgTable("registrations", {
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
 });
 
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  subscriberId: integer("subscriber_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+
 export const eventsRelations = relations(events, ({ many }) => ({
   subscribers: many(subscribers),
   registrations: many(registrations),

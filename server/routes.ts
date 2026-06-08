@@ -1,9 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { insertEventSchema, insertSubscriberSchema, insertRegistrationSchema } from "@shared/schema";
 import { requireAdmin, hasAnyAdmin } from "./auth";
+import { sendPasswordResetEmail } from "./email";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -309,6 +311,45 @@ export async function registerRoutes(
   app.post("/api/portal/logout", (req, res) => {
     delete (req.session as any).subscriberId;
     req.session.save(() => res.json({ ok: true }));
+  });
+
+  // Passwort vergessen: E-Mail anfordern
+  app.post("/api/portal/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "E-Mail erforderlich" });
+    // Always respond with success to prevent email enumeration
+    const sub = await storage.getSubscriberByEmail(email.trim().toLowerCase());
+    if (!sub || !sub.passwordHash) {
+      return res.json({ ok: true });
+    }
+    await storage.deleteExpiredPasswordResetTokens();
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await storage.createPasswordResetToken(sub.id, token, expiresAt);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    try {
+      await sendPasswordResetEmail(sub.email, sub.firstName, token, baseUrl);
+    } catch (err) {
+      console.error("SendGrid error:", err);
+      return res.status(500).json({ error: "E-Mail konnte nicht gesendet werden. Bitte kontaktieren Sie den Administrator." });
+    }
+    res.json({ ok: true });
+  });
+
+  // Passwort zurücksetzen: Token prüfen + neues Passwort speichern
+  app.post("/api/portal/reset-password", async (req, res) => {
+    const { token, password } = req.body;
+    if (!token || !password || password.length < 6) {
+      return res.status(400).json({ error: "Token und Passwort (min. 6 Zeichen) erforderlich" });
+    }
+    const resetToken = await storage.getPasswordResetToken(token);
+    if (!resetToken) return res.status(400).json({ error: "Ungültiger Reset-Link" });
+    if (resetToken.usedAt) return res.status(400).json({ error: "Dieser Link wurde bereits verwendet" });
+    if (new Date() > resetToken.expiresAt) return res.status(400).json({ error: "Der Reset-Link ist abgelaufen. Bitte fordern Sie einen neuen an." });
+    const passwordHash = await bcrypt.hash(password, 10);
+    await storage.updateSubscriber(resetToken.subscriberId, { passwordHash });
+    await storage.markPasswordResetTokenUsed(resetToken.id);
+    res.json({ ok: true });
   });
 
   app.get("/api/portal/me", async (req, res) => {
