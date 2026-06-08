@@ -7,6 +7,12 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function handleGlobal401() {
+  // Clear the admin auth cache so the UI shows the login form again
+  queryClient.setQueryData(["/api/auth/me"], { authenticated: false, setupRequired: false });
+  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -18,6 +24,11 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // If a protected admin endpoint returns 401, the session has expired → force re-login
+  if (res.status === 401 && url.startsWith("/api/") && !url.startsWith("/api/portal")) {
+    handleGlobal401();
+  }
 
   await throwIfResNotOk(res);
   return res;
@@ -33,8 +44,15 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (res.status === 401) {
+      // If this is an admin query (not portal), force re-login
+      const url = queryKey[0] as string;
+      if (!url.startsWith("/api/portal")) {
+        handleGlobal401();
+      }
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      }
     }
 
     await throwIfResNotOk(res);
