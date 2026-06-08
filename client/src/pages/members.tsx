@@ -55,8 +55,11 @@ import {
   KeyRound,
   ShieldAlert,
   QrCode,
+  Mail,
+  Send,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import type { Subscriber } from "@shared/schema";
@@ -89,6 +92,10 @@ export default function MembersPage() {
   const [passwordMember, setPasswordMember] = useState<Subscriber | null>(null);
   const [portalPasswordMember, setPortalPasswordMember] = useState<Subscriber | null>(null);
   const [qrMember, setQrMember] = useState<Subscriber | null>(null);
+  // Email dialog: null = closed, "all" = all members, Subscriber = single member
+  const [emailTarget, setEmailTarget] = useState<Subscriber | "all" | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const { toast } = useToast();
   const { data: auth } = useAuth();
 
@@ -201,6 +208,29 @@ export default function MembersPage() {
     },
   });
 
+  const sendEmailMutation = useMutation({
+    mutationFn: async ({ memberIds, subject, body }: { memberIds?: number[]; subject: string; body: string }) => {
+      const res = await apiRequest("POST", "/api/members/send-email", { memberIds, subject, body });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Fehler beim Senden");
+      }
+      return res.json() as Promise<{ sent: number; failed: number }>;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "E-Mail gesendet",
+        description: `${data.sent} erfolgreich${data.failed > 0 ? `, ${data.failed} fehlgeschlagen` : ""}`,
+      });
+      setEmailTarget(null);
+      setEmailSubject("");
+      setEmailBody("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleExport = async () => {
     try {
       const res = await fetch("/api/members/export");
@@ -240,6 +270,15 @@ export default function MembersPage() {
             >
               <Download className="h-4 w-4 mr-2" />
               CSV Export
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => { setEmailTarget("all"); setEmailSubject(""); setEmailBody(""); }}
+              disabled={!members?.length}
+              data-testid="button-email-all-members"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              E-Mail an alle
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
@@ -349,6 +388,16 @@ export default function MembersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEmailTarget(member); setEmailSubject(""); setEmailBody(""); }}
+                            title="E-Mail senden"
+                            data-testid={`button-email-member-${member.id}`}
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+
                           <Button
                             size="icon"
                             variant="ghost"
@@ -566,6 +615,66 @@ export default function MembersPage() {
           </Card>
         )}
       </div>
+
+      {/* Email Dialog */}
+      <Dialog
+        open={emailTarget !== null}
+        onOpenChange={(open) => { if (!open) { setEmailTarget(null); setEmailSubject(""); setEmailBody(""); } }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {emailTarget === "all"
+                ? `E-Mail an alle Mitglieder (${sortedMembers.filter((m) => m.isActive).length} aktiv)`
+                : emailTarget
+                ? `E-Mail an ${(emailTarget as Subscriber).firstName} ${(emailTarget as Subscriber).lastName}`
+                : "E-Mail senden"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Betreff</label>
+              <Input
+                placeholder="z.B. Einladung zur nächsten Veranstaltung"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                data-testid="input-email-subject"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Nachricht</label>
+              <Textarea
+                placeholder={"Guten Tag {{Vorname}},\n\n..."}
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                rows={8}
+                data-testid="input-email-body"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tipp: <code className="bg-muted px-1 rounded">{"{{Vorname}}"}</code> wird automatisch durch den Vornamen des Mitglieds ersetzt.
+              </p>
+            </div>
+            <Button
+              className="w-full"
+              disabled={!emailSubject.trim() || !emailBody.trim() || sendEmailMutation.isPending}
+              onClick={() => {
+                const ids = emailTarget === "all"
+                  ? undefined
+                  : [(emailTarget as Subscriber).id];
+                sendEmailMutation.mutate({ memberIds: ids, subject: emailSubject, body: emailBody });
+              }}
+              data-testid="button-send-email"
+            >
+              {sendEmailMutation.isPending ? (
+                "Wird gesendet..."
+              ) : (
+                <><Send className="h-4 w-4 mr-2" />E-Mail senden</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* QR Code Dialog */}
       <Dialog open={qrMember !== null} onOpenChange={(open) => !open && setQrMember(null)}>

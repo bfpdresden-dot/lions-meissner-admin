@@ -94,6 +94,75 @@ export async function sendPasswordResetEmail(
   }
 }
 
+export async function sendCustomEmail(
+  recipients: { email: string; firstName: string }[],
+  subject: string,
+  body: string
+): Promise<{ sent: number; failed: number }> {
+  const apiKey = await getSendGridApiKey();
+  const sender = await getSenderInfo();
+
+  if (!sender.email) {
+    throw new Error(
+      "Absender-E-Mail nicht konfiguriert. Bitte hinterlegen Sie die Absender-E-Mail unter Einstellungen im Admin-Bereich."
+    );
+  }
+
+  sgMail.setApiKey(apiKey);
+
+  let settings: any = {};
+  try { settings = await storage.getSettings(); } catch {}
+  const clubName = settings.clubName || sender.name;
+  const address = [settings.clubStreet, `${settings.clubZip || ""} ${settings.clubCity || ""}`.trim()]
+    .filter(Boolean).join(" · ");
+
+  const bodyHtml = body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br/>");
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const recipient of recipients) {
+    try {
+      const personalizedHtml = bodyHtml.replace(/\{\{vorname\}\}/gi, recipient.firstName);
+      const personalizedText = body.replace(/\{\{vorname\}\}/gi, recipient.firstName);
+      await sgMail.send({
+        to: recipient.email,
+        from: { name: sender.name, email: sender.email },
+        subject,
+        html: buildCustomEmailHtml(subject, personalizedHtml, clubName, address),
+        text: personalizedText,
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return { sent, failed };
+}
+
+function buildCustomEmailHtml(subject: string, bodyHtml: string, clubName: string, address: string): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
+        <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
+      </div>
+      <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
+        <h2 style="color: #1a3a5c; margin-top: 0;">${subject}</h2>
+        <div style="color: #333; line-height: 1.7;">${bodyHtml}</div>
+      </div>
+      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
+        ${clubName}${address ? " · " + address : ""}
+      </p>
+    </div>
+  `;
+}
+
 function buildResetEmailHtml(firstName: string, resetUrl: string, clubName: string, address: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

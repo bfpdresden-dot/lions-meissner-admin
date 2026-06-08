@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { insertEventSchema, insertSubscriberSchema, insertRegistrationSchema } from "@shared/schema";
 import { requireAdmin, hasAnyAdmin } from "./auth";
-import { sendPasswordResetEmail } from "./email";
+import { sendPasswordResetEmail, sendCustomEmail } from "./email";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -302,6 +302,33 @@ export async function registerRoutes(
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=mitglieder.csv");
     res.send(bom + header + rows);
+  });
+
+  app.post("/api/members/send-email", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      memberIds: z.array(z.number()).optional(),
+      subject: z.string().min(1),
+      body: z.string().min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
+
+    const { memberIds, subject, body } = parsed.data;
+    const allMembers = await storage.getMembers();
+    const targets = memberIds && memberIds.length > 0
+      ? allMembers.filter((m) => memberIds.includes(m.id) && m.isActive)
+      : allMembers.filter((m) => m.isActive);
+
+    if (targets.length === 0) return res.status(400).json({ error: "Keine Empfänger gefunden" });
+
+    try {
+      const recipients = targets.map((m) => ({ email: m.email, firstName: m.firstName }));
+      const result = await sendCustomEmail(recipients, subject, body);
+      return res.json(result);
+    } catch (err: any) {
+      console.error("Send email error:", err);
+      return res.status(500).json({ error: err.message || "E-Mail konnte nicht gesendet werden." });
+    }
   });
 
   app.get("/api/subscribers/export", requireAdmin, async (_req, res) => {
