@@ -96,11 +96,7 @@ export default function MembersPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: MemberFormValues) => {
-      const res = await apiRequest("POST", "/api/subscribe", {
-        ...data,
-        isMember: true,
-        isActive: true,
-      });
+      const res = await apiRequest("POST", "/api/members", data);
       return res.json();
     },
     onSuccess: () => {

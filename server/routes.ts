@@ -177,6 +177,30 @@ export async function registerRoutes(
     res.json(members);
   });
 
+  app.post("/api/members", async (req, res) => {
+    const adminOk = req.session?.isAdmin;
+    const setupMode = !(await hasAnyAdmin());
+    if (!adminOk && !setupMode) {
+      return res.status(401).json({ error: "Nicht autorisiert" });
+    }
+    const { email, firstName, lastName, phone } = req.body;
+    if (!email || !firstName || !lastName) {
+      return res.status(400).json({ error: "Alle Felder sind erforderlich" });
+    }
+    const existing = await storage.getSubscriberByEmail(email);
+    if (existing) return res.status(409).json({ error: "E-Mail bereits registriert" });
+    const member = await storage.createSubscriber({
+      email,
+      firstName,
+      lastName,
+      phone: phone || null,
+      eventId: null,
+      isActive: true,
+      isMember: true,
+    });
+    res.status(201).json(member);
+  });
+
   app.get("/api/members/export", requireAdmin, async (_req, res) => {
     const members = await storage.getMembers();
     const header = "Vorname;Nachname;E-Mail;Telefon;Status;Mitglied seit\n";

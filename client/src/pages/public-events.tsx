@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event } from "@shared/schema";
 import { format } from "date-fns";
@@ -39,16 +39,26 @@ import { z } from "zod";
 const registerFormSchema = z.object({
   firstName: z.string().min(1, "Vorname ist erforderlich"),
   lastName: z.string().min(1, "Nachname ist erforderlich"),
-  email: z.string().email("Bitte geben Sie eine g\u00fcltige E-Mail-Adresse ein"),
+  email: z.string().email("Bitte geben Sie eine gültige E-Mail-Adresse ein"),
   phone: z.string().optional(),
   guestCount: z.string().default("1"),
 });
 
+const subscribeFormSchema = z.object({
+  firstName: z.string().min(1, "Vorname ist erforderlich"),
+  lastName: z.string().min(1, "Nachname ist erforderlich"),
+  email: z.string().email("Bitte geben Sie eine gültige E-Mail-Adresse ein"),
+  phone: z.string().optional(),
+});
+
 type RegisterFormValues = z.infer<typeof registerFormSchema>;
+type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
 
 export default function PublicEventsPage() {
   const [registerEventId, setRegisterEventId] = useState<number | null>(null);
   const [successEvent, setSuccessEvent] = useState<string | null>(null);
+  const [showSubscribe, setShowSubscribe] = useState(false);
+  const [subscribeSuccess, setSubscribeSuccess] = useState(false);
   const { toast } = useToast();
 
   const { data: events, isLoading } = useQuery<Event[]>({
@@ -81,11 +91,29 @@ export default function PublicEventsPage() {
     onError: (error: Error) => {
       const msg = error.message;
       if (msg.includes("409")) {
-        toast({ title: "Bereits angemeldet", description: "Sie sind bereits f\u00fcr diese Veranstaltung registriert.", variant: "destructive" });
+        toast({ title: "Bereits angemeldet", description: "Sie sind bereits für diese Veranstaltung registriert.", variant: "destructive" });
       } else if (msg.includes("maximale")) {
         toast({ title: "Ausgebucht", description: "Die maximale Teilnehmerzahl wurde erreicht.", variant: "destructive" });
       } else {
-        toast({ title: "Fehler", description: "Die Anmeldung konnte nicht durchgef\u00fchrt werden.", variant: "destructive" });
+        toast({ title: "Fehler", description: "Die Anmeldung konnte nicht durchgeführt werden.", variant: "destructive" });
+      }
+    },
+  });
+
+  const subscribeMutation = useMutation({
+    mutationFn: async (data: SubscribeFormValues) => {
+      const res = await apiRequest("POST", "/api/subscribe", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      setSubscribeSuccess(true);
+      subscribeForm.reset();
+    },
+    onError: (error: Error) => {
+      if (error.message.includes("409")) {
+        toast({ title: "Bereits registriert", description: "Diese E-Mail-Adresse ist bereits für den Newsletter angemeldet.", variant: "destructive" });
+      } else {
+        toast({ title: "Fehler", description: "Die Anmeldung konnte nicht durchgeführt werden.", variant: "destructive" });
       }
     },
   });
@@ -101,10 +129,21 @@ export default function PublicEventsPage() {
     },
   });
 
+  const subscribeForm = useForm<SubscribeFormValues>({
+    resolver: zodResolver(subscribeFormSchema),
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "" },
+  });
+
   const handleOpenRegister = (eventId: number) => {
     form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1" });
     setSuccessEvent(null);
     setRegisterEventId(eventId);
+  };
+
+  const handleOpenSubscribe = () => {
+    subscribeForm.reset();
+    setSubscribeSuccess(false);
+    setShowSubscribe(true);
   };
 
   const getGuestCount = (eventId: number) => {
@@ -134,7 +173,16 @@ export default function PublicEventsPage() {
           <h1 className="text-3xl md:text-4xl font-bold mb-2" data-testid="text-public-title">
             Lions Club Mei&szlig;ner Land
           </h1>
-          <p className="text-lg opacity-80">Unsere Veranstaltungen</p>
+          <p className="text-lg opacity-80 mb-8">Unsere Veranstaltungen</p>
+          <Button
+            variant="outline"
+            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+            onClick={handleOpenSubscribe}
+            data-testid="button-open-subscribe"
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Newsletter abonnieren
+          </Button>
         </div>
       </div>
 
@@ -190,12 +238,12 @@ export default function PublicEventsPage() {
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">{guests}</span>
                             <span className="text-muted-foreground">
-                              {guests === 1 ? "Gast" : "G\u00e4ste"} angemeldet
+                              {guests === 1 ? "Gast" : "Gäste"} angemeldet
                             </span>
                           </span>
                           {event.maxParticipants && spotsLeft !== null && !isFull && (
                             <span className="text-muted-foreground">
-                              ({spotsLeft} {spotsLeft === 1 ? "Platz" : "Pl\u00e4tze"} frei)
+                              ({spotsLeft} {spotsLeft === 1 ? "Platz" : "Plätze"} frei)
                             </span>
                           )}
                         </div>
@@ -216,6 +264,20 @@ export default function PublicEventsPage() {
           </div>
         )}
 
+        {/* Newsletter sign-up banner */}
+        <div className="mt-10 rounded-xl bg-muted/50 border p-8 text-center">
+          <Mail className="h-10 w-10 mx-auto mb-3 text-primary opacity-80" />
+          <h2 className="text-lg font-semibold mb-1">Bleiben Sie informiert</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Melden Sie sich für unseren Newsletter an und erhalten Sie Einladungen zu zukünftigen Veranstaltungen.
+          </p>
+          <Button onClick={handleOpenSubscribe} data-testid="button-subscribe-banner">
+            <Mail className="h-4 w-4 mr-2" />
+            Jetzt anmelden
+          </Button>
+        </div>
+
+        {/* Event registration success dialog */}
         {successEvent && (
           <Dialog open={!!successEvent} onOpenChange={() => setSuccessEvent(null)}>
             <DialogContent className="sm:max-w-sm">
@@ -225,13 +287,14 @@ export default function PublicEventsPage() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Erfolgreich angemeldet!</h3>
                 <p className="text-sm text-muted-foreground">
-                  Sie sind jetzt f&uuml;r &quot;{successEvent}&quot; registriert.
+                  Sie sind jetzt für &quot;{successEvent}&quot; registriert.
                 </p>
               </div>
             </DialogContent>
           </Dialog>
         )}
 
+        {/* Event registration dialog */}
         <Dialog open={registerEventId !== null && !successEvent} onOpenChange={(open) => !open && setRegisterEventId(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -342,6 +405,101 @@ export default function PublicEventsPage() {
                   </form>
                 </Form>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Newsletter subscribe dialog */}
+        <Dialog open={showSubscribe} onOpenChange={(open) => { setShowSubscribe(open); if (!open) setSubscribeSuccess(false); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Newsletter abonnieren</DialogTitle>
+            </DialogHeader>
+            {subscribeSuccess ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Erfolgreich angemeldet!</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Sie erhalten künftig Einladungen zu unseren Veranstaltungen.
+                </p>
+                <Button onClick={() => setShowSubscribe(false)} data-testid="button-subscribe-close">Schließen</Button>
+              </div>
+            ) : (
+              <Form {...subscribeForm}>
+                <form
+                  onSubmit={subscribeForm.handleSubmit((values) => subscribeMutation.mutate(values))}
+                  className="space-y-4"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Tragen Sie sich ein und bleiben Sie über kommende Veranstaltungen des Lions Club Meißner Land informiert.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={subscribeForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vorname *</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Max" data-testid="input-sub-firstname" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={subscribeForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nachname *</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Mustermann" data-testid="input-sub-lastname" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={subscribeForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-Mail-Adresse *</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="email" placeholder="max@beispiel.de" data-testid="input-sub-email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={subscribeForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefonnummer (optional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="tel" placeholder="0123 456789" data-testid="input-sub-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={subscribeMutation.isPending}
+                    data-testid="button-submit-subscribe"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    {subscribeMutation.isPending ? "Wird angemeldet..." : "Newsletter abonnieren"}
+                  </Button>
+                </form>
+              </Form>
             )}
           </DialogContent>
         </Dialog>
