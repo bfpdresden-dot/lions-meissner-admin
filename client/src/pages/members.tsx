@@ -57,6 +57,9 @@ import {
   QrCode,
   Mail,
   Send,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,6 +99,9 @@ export default function MembersPage() {
   const [emailTarget, setEmailTarget] = useState<Subscriber | "all" | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const { toast } = useToast();
   const { data: auth } = useAuth();
 
@@ -619,7 +625,7 @@ export default function MembersPage() {
       {/* Email Dialog */}
       <Dialog
         open={emailTarget !== null}
-        onOpenChange={(open) => { if (!open) { setEmailTarget(null); setEmailSubject(""); setEmailBody(""); } }}
+        onOpenChange={(open) => { if (!open) { setEmailTarget(null); setEmailSubject(""); setEmailBody(""); setAiPrompt(""); setAiOpen(false); } }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -633,6 +639,69 @@ export default function MembersPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-1">
+
+            {/* AI assistant panel */}
+            <div className="rounded-lg border border-primary/30 bg-primary/5">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-primary"
+                onClick={() => setAiOpen((v) => !v)}
+                data-testid="button-toggle-ai"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  KI-Assistent — Text generieren lassen
+                </span>
+                {aiOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              {aiOpen && (
+                <div className="px-3 pb-3 space-y-2 border-t border-primary/20 pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    Beschreiben Sie kurz, was die E-Mail enthalten soll — die KI erstellt den Text auf Deutsch.
+                  </p>
+                  <Textarea
+                    placeholder="z.B. Einladung zum Sommerfest am 12. Juli in Meißen, Teilnahme bis 5. Juli anmelden"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    rows={3}
+                    data-testid="input-ai-prompt"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    disabled={!aiPrompt.trim() || aiLoading}
+                    onClick={async () => {
+                      setAiLoading(true);
+                      try {
+                        const res = await fetch("/api/ai/generate-email", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ prompt: aiPrompt, subject: emailSubject }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || "Fehler");
+                        setEmailBody(data.text);
+                        setAiOpen(false);
+                      } catch (err: any) {
+                        toast({ title: "KI-Fehler", description: err.message, variant: "destructive" });
+                      } finally {
+                        setAiLoading(false);
+                      }
+                    }}
+                    data-testid="button-ai-generate"
+                  >
+                    {aiLoading ? (
+                      <><Sparkles className="h-4 w-4 mr-2 animate-pulse" />Generiere…</>
+                    ) : (
+                      <><Sparkles className="h-4 w-4 mr-2" />Text generieren</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Betreff</label>
               <Input

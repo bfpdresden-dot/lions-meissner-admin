@@ -304,6 +304,60 @@ export async function registerRoutes(
     res.send(bom + header + rows);
   });
 
+  app.post("/api/ai/generate-email", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      prompt: z.string().min(1),
+      subject: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY nicht konfiguriert" });
+
+    let settings: any = {};
+    try { settings = await storage.getSettings(); } catch {}
+    const clubName = settings.clubName || "Lions Club Meißner Land";
+
+    const systemPrompt = `Du bist ein hilfreicher Assistent für den ${clubName}. 
+Schreibe E-Mail-Texte auf Deutsch im professionellen aber freundlichen Ton.
+Nutze {{Vorname}} als Platzhalter für die persönliche Anrede.
+Gib NUR den E-Mail-Text zurück, ohne Betreff, ohne Erklärungen, ohne Anführungszeichen.
+Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer passenden Grußformel.`;
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://lions-meissnerland.replit.app",
+          "X-Title": clubName,
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.0-flash-001",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: parsed.data.prompt + (parsed.data.subject ? `\n\nBetreff: ${parsed.data.subject}` : "") },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("OpenRouter error:", err);
+        return res.status(500).json({ error: "KI-Anfrage fehlgeschlagen" });
+      }
+
+      const data = await response.json() as any;
+      const text = data.choices?.[0]?.message?.content || "";
+      return res.json({ text });
+    } catch (err: any) {
+      console.error("OpenRouter error:", err);
+      return res.status(500).json({ error: err.message || "Fehler bei der KI-Generierung" });
+    }
+  });
+
   app.post("/api/members/send-email", requireAdmin, async (req, res) => {
     const schema = z.object({
       memberIds: z.array(z.number()).optional(),
