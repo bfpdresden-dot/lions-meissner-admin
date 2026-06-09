@@ -477,40 +477,24 @@ export default function EventsPage() {
               return (
                 <Card key={event.id} data-testid={`card-event-${event.id}`}>
                   <CardContent className="p-5">
+                    {/* Hidden QR code for print extraction */}
+                    <div
+                      id={`qr-hidden-${event.id}`}
+                      style={{ position: "absolute", left: "-9999px", top: 0 }}
+                      aria-hidden="true"
+                    >
+                      <QRCodeSVG
+                        value={`${window.location.origin}/subscribe/${event.id}`}
+                        size={280}
+                        level="H"
+                        fgColor="#1a2744"
+                      />
+                    </div>
+
                     <div className="space-y-2">
-                      {/* Top row: title + badges + action buttons */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-semibold">{event.title}</h3>
-                          <Badge variant={event.isActive ? "default" : "secondary"}>
-                            {event.isActive ? "Aktiv" : "Inaktiv"}
-                          </Badge>
-                          {(event as any).isInternal && (
-                            <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
-                              <Lock className="h-3 w-3" />
-                              Intern
-                            </Badge>
-                          )}
-                          {isPast && (
-                            <Badge variant="secondary">Vergangen</Badge>
-                          )}
-                        </div>
-
-                      {/* Hidden QR code for print extraction */}
-                      <div
-                        id={`qr-hidden-${event.id}`}
-                        style={{ position: "absolute", left: "-9999px", top: 0 }}
-                        aria-hidden="true"
-                      >
-                        <QRCodeSVG
-                          value={`${window.location.origin}/subscribe/${event.id}`}
-                          size={280}
-                          level="H"
-                          fgColor="#1a2744"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
+                      {/* Buttons — eigene Zeile, ganz oben rechtsbündig */}
+                      <div className="flex justify-end">
+                      <div className="flex items-center gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
@@ -621,9 +605,26 @@ export default function EventsPage() {
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                      </div>{/* end top row */}
+                      </div>{/* end buttons row */}
 
-                      {/* Full-width content */}
+                      {/* Titel + Badges — volle Breite */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-lg font-semibold">{event.title}</h3>
+                        <Badge variant={event.isActive ? "default" : "secondary"}>
+                          {event.isActive ? "Aktiv" : "Inaktiv"}
+                        </Badge>
+                        {(event as any).isInternal && (
+                          <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
+                            <Lock className="h-3 w-3" />
+                            Intern
+                          </Badge>
+                        )}
+                        {isPast && (
+                          <Badge variant="secondary">Vergangen</Badge>
+                        )}
+                      </div>
+
+                      {/* Beschreibung + Metadaten — volle Breite */}
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {event.description}
                       </p>
