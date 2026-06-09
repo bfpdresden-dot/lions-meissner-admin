@@ -56,6 +56,10 @@ function fileUrl(filenameOrUrl: string): string {
   if (filenameOrUrl.startsWith("http://") || filenameOrUrl.startsWith("https://")) return filenameOrUrl;
   return `/uploads/${filenameOrUrl}`;
 }
+
+function mapsUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -785,7 +789,7 @@ export default function EventsPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />
-                          {event.location}
+                          <a href={mapsUrl(event.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{event.location}</a>
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
@@ -986,7 +990,7 @@ export default function EventsPage() {
                     </div>
                     <div className="flex items-start gap-2.5">
                       <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                      <span>{ev.location}</span>
+                      <a href={mapsUrl(ev.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{ev.location}</a>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <Users className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />

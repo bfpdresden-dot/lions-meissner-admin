@@ -43,6 +43,10 @@ function fileUrl(filenameOrUrl: string): string {
   if (filenameOrUrl.startsWith("http://") || filenameOrUrl.startsWith("https://")) return filenameOrUrl;
   return `/uploads/${filenameOrUrl}`;
 }
+
+function mapsUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -587,7 +591,7 @@ export default function PortalPage() {
                             </span>
                             <span className="flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
-                              {ev.location}
+                              <a href={mapsUrl(ev.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{ev.location}</a>
                             </span>
                             {ev.maxParticipants && (
                               <span className="flex items-center gap-1">
@@ -665,7 +669,7 @@ export default function PortalPage() {
                                     </span>
                                     <span className="flex items-center gap-1">
                                       <MapPin className="h-3 w-3" />
-                                      {r.event.location}
+                                      <a href={mapsUrl(r.event.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{r.event.location}</a>
                                     </span>
                                   </div>
                                 )}
