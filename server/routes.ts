@@ -332,6 +332,7 @@ export async function registerRoutes(
   app.post("/api/events", requireAdmin, async (req, res) => {
     const body = { ...req.body };
     if (typeof body.date === "string") body.date = new Date(body.date);
+    if (typeof body.endDate === "string") body.endDate = new Date(body.endDate);
     const parsed = insertEventSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     const event = await storage.createEvent(parsed.data);
@@ -343,6 +344,7 @@ export async function registerRoutes(
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
     const body = { ...req.body };
     if (typeof body.date === "string") body.date = new Date(body.date);
+    if (typeof body.endDate === "string") body.endDate = new Date(body.endDate);
     const event = await storage.updateEvent(id, body);
     if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
     res.json(event);
