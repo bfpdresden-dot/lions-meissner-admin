@@ -113,7 +113,18 @@ export default function EventsPage() {
       setIsCreateOpen(true);
     },
     onError: (err: Error) => {
-      toast({ title: "KI-Fehler", description: err.message, variant: "destructive" });
+      const msg = err.message || "";
+      let hint = msg;
+      if (msg.includes("No endpoints found") || msg.includes("endpoints")) {
+        hint = `Modell nicht gefunden. Bitte in den Einstellungen ein gültiges Modell eintragen (z.B. "google/gemini-2.0-flash-exp:free" oder "openai/gpt-4o-mini").`;
+      } else if (msg.includes("OPENROUTER_API_KEY")) {
+        hint = "OpenRouter API-Schlüssel fehlt. Bitte in den Server-Einstellungen konfigurieren.";
+      } else if (msg.includes("rate limit") || msg.includes("429")) {
+        hint = "KI-Anfrage-Limit erreicht. Bitte kurz warten und erneut versuchen.";
+      } else if (msg.includes("kein gültiges JSON")) {
+        hint = "Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.";
+      }
+      toast({ title: "KI-Assistent", description: hint, variant: "destructive" });
     },
   });
 
