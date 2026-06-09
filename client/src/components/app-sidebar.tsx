@@ -28,13 +28,17 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 pb-6">
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           <img
             src="/images/lions-logo.png"
             alt="Lions Club Logo"
             className="h-10 w-10 rounded-md object-contain"
             data-testid="img-sidebar-logo"
           />
+          <div className="flex flex-col">
+            <span className="text-sm font-bold tracking-tight">Lions Club</span>
+            <span className="text-xs opacity-70">Mei&szlig;ner Land</span>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
