@@ -1,0 +1,26 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "B0BKjhtpdqYiPgim37NOb"
+uri = "file://attached_assets/image_search/logo1.png"
+type = "image"
+title = "Lions Logo 1"
+
+[[outputs]]
+id = "956EQn3FTd9hTogqruAng"
+uri = "file://attached_assets/image_search/logo2.png"
+type = "image"
+title = "Lions Logo 2"
+
+[[outputs]]
+id = "ixyzLjuanWotQ6w5gqFc_"
+uri = "file://attached_assets/image_search/logo3.png"
+type = "image"
+title = "Lions Logo 3"
+
+[[outputs]]
+id = "rH_cch6jx3clyJ0r379MI"
+uri = "file://attached_assets/image_search/logo4.jpg"
+type = "image"
+title = "Lions Logo 4"
