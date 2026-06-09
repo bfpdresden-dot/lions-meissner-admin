@@ -320,11 +320,19 @@ export async function registerRoutes(
     try { settings = await storage.getSettings(); } catch {}
     const clubName = settings.clubName || "Lions Club Meißner Land";
 
+    // Get the logged-in admin's full name for the signature
+    let senderName = settings.senderName || "";
+    try {
+      const adminSub = await storage.getSubscriber((req.session as any).userId);
+      if (adminSub) senderName = `${adminSub.firstName} ${adminSub.lastName}`.trim();
+    } catch {}
+
     const systemPrompt = `Du bist ein hilfreicher Assistent für den ${clubName}.
 Schreibe E-Mail-Texte auf Deutsch im professionellen aber freundlichen Ton.
 Nutze {{Vorname}} als Platzhalter für die persönliche Anrede.
 Gib NUR den E-Mail-Text zurück, ohne Betreff, ohne Erklärungen, ohne Anführungszeichen.
 Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer passenden Grußformel.
+${senderName ? `Verwende als Absendername in der Grußformel: "${senderName}" (also z.B. "Mit freundlichen Grüßen,\n${senderName}").` : "Verwende KEINEN Platzhalter wie [Ihr Name] in der Grußformel — lasse den Namen weg oder schreibe nur den Club-Namen."}
 
 WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten oder erreichen soll (z.B. eine konkrete Bitte, eine Aufgabe, eine Ankündigung). Baue diesen Inhalt vollständig und deutlich in den E-Mail-Text ein. Wenn der Nutzer z.B. schreibt "Hilfe beim Aufbau unseres Standes", dann formuliere im E-Mail-Text eine freundliche aber klare Bitte an den Empfänger, beim Aufbau des Standes zu helfen.`;
 
