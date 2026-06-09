@@ -1076,6 +1076,13 @@ function EventForm({
     },
   });
 
+  const watchedDate = form.watch("date");
+  useEffect(() => {
+    if (watchedDate && !form.getValues("endDate")) {
+      form.setValue("endDate", watchedDate);
+    }
+  }, [watchedDate]);
+
   const handleSubmit = (values: EventFormValues) => {
     const parsed = values.maxParticipants ? parseInt(values.maxParticipants, 10) : null;
     const payload = {
