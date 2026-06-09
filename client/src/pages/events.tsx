@@ -443,8 +443,9 @@ export default function EventsPage() {
               return (
                 <Card key={event.id} data-testid={`card-event-${event.id}`}>
                   <CardContent className="p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0 space-y-2">
+                    <div className="space-y-2">
+                      {/* Top row: title + badges + action buttons */}
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-lg font-semibold">{event.title}</h3>
                           <Badge variant={event.isActive ? "default" : "secondary"}>
@@ -460,30 +461,7 @@ export default function EventsPage() {
                             <Badge variant="secondary">Vergangen</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {event.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {format(new Date(event.date), "dd. MMMM yyyy, HH:mm", { locale: de })}
-                            {(event as any).endDate && (
-                              <> – {format(new Date((event as any).endDate), "HH:mm", { locale: de })}</>
-                            )} Uhr
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {event.location}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5" />
-                            <span className="font-medium">{getGuestCount(event.id)}</span> G&auml;ste
-                            {event.maxParticipants && (
-                              <span> / {event.maxParticipants} max.</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
+
                       {/* Hidden QR code for print extraction */}
                       <div
                         id={`qr-hidden-${event.id}`}
@@ -598,7 +576,33 @@ export default function EventsPage() {
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </div>
+                      </div>{/* end top row */}
+
+                      {/* Full-width content */}
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {event.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {format(new Date(event.date), "dd. MMMM yyyy, HH:mm", { locale: de })}
+                          {(event as any).endDate && (
+                            <> – {format(new Date((event as any).endDate), "HH:mm", { locale: de })}</>
+                          )} Uhr
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {event.location}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5" />
+                          <span className="font-medium">{getGuestCount(event.id)}</span> G&auml;ste
+                          {event.maxParticipants && (
+                            <span> / {event.maxParticipants} max.</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>{/* end space-y-2 */}
                   </CardContent>
                 </Card>
               );
