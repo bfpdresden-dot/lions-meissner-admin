@@ -8,6 +8,7 @@ export const events = pgTable("events", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
+  agenda: text("agenda"),
   date: timestamp("date").notNull(),
   endDate: timestamp("end_date"),
   location: text("location").notNull(),

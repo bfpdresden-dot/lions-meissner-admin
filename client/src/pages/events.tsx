@@ -57,6 +57,7 @@ import { z } from "zod";
 const eventFormSchema = z.object({
   title: z.string().min(2, "Titel muss mindestens 2 Zeichen haben"),
   description: z.string().min(5, "Beschreibung muss mindestens 5 Zeichen haben"),
+  agenda: z.string().optional(),
   location: z.string().min(2, "Ort muss mindestens 2 Zeichen haben"),
   date: z.string().min(1, "Datum ist erforderlich"),
   endDate: z.string().optional(),
@@ -525,7 +526,8 @@ export default function EventsPage() {
                                   location: editingEvent.location,
                                   maxParticipants: editingEvent.maxParticipants?.toString() ?? "",
                                   isActive: editingEvent.isActive,
-                                  isInternal: (editingEvent as any).isInternal ?? false,
+                                  agenda: (editingEvent as any).agenda ?? "",
+                  isInternal: (editingEvent as any).isInternal ?? false,
                                 }}
                                 onSubmit={(data) =>
                                   updateMutation.mutate({ id: editingEvent.id, data })
@@ -714,6 +716,7 @@ function EventForm({
     defaultValues: {
       title: defaultValues?.title || "",
       description: defaultValues?.description || "",
+      agenda: defaultValues?.agenda || "",
       date: defaultValues?.date || "",
       endDate: defaultValues?.endDate || "",
       location: defaultValues?.location || "",
@@ -867,6 +870,28 @@ function EventForm({
                   Nur für angemeldete Mitglieder sichtbar – nicht öffentlich
                 </p>
               </div>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="agenda"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-1.5">
+                Tagesordnung
+                <span className="text-xs font-normal text-muted-foreground">(nur im Mitglieder-Portal sichtbar)</span>
+              </FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  placeholder={"1. Begrüßung\n2. Bericht des Präsidenten\n3. Verschiedenes"}
+                  className="resize-none font-mono text-sm"
+                  rows={5}
+                  data-testid="input-event-agenda"
+                />
+              </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />

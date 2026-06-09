@@ -60,6 +60,7 @@ type InternalEvent = {
   endDate: string | null;
   location: string;
   description: string;
+  agenda: string | null;
   maxParticipants: number | null;
 };
 
@@ -588,6 +589,12 @@ export default function PortalPage() {
                           </div>
                           {ev.description && (
                             <p className="text-xs text-muted-foreground line-clamp-2">{ev.description}</p>
+                          )}
+                          {ev.agenda && (
+                            <div className="mt-2 pt-2 border-t border-amber-200">
+                              <p className="text-xs font-semibold text-amber-800 mb-1">Tagesordnung</p>
+                              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">{ev.agenda}</pre>
+                            </div>
                           )}
                         </div>
                       ))}
