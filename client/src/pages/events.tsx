@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration, EventPhoto } from "@shared/schema";
@@ -85,7 +85,33 @@ export default function EventsPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiEventName, setAiEventName] = useState("");
+  const [aiEventDate, setAiEventDate] = useState("");
+  const [aiPrefilledValues, setAiPrefilledValues] = useState<Partial<EventFormValues> | null>(null);
   const { toast } = useToast();
+
+  const aiMutation = useMutation({
+    mutationFn: async ({ name, date }: { name: string; date: string }) => {
+      const res = await apiRequest("POST", "/api/ai/fill-event", { eventName: name, date });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "KI-Fehler"); }
+      return res.json() as Promise<{ title: string; description: string; location: string; agenda: string }>;
+    },
+    onSuccess: (data) => {
+      setAiPrefilledValues({
+        title: data.title || aiEventName,
+        description: data.description || "",
+        location: data.location || "",
+        agenda: data.agenda || "",
+        date: aiEventDate,
+      });
+      setAiDialogOpen(false);
+      setIsCreateOpen(true);
+    },
+    onError: (err: Error) => {
+      toast({ title: "KI-Fehler", description: err.message, variant: "destructive" });
+    },
+  });
 
   const handlePdfUpload = async (eventId: number, file: File) => {
     setPdfUploading(true);
@@ -427,23 +453,85 @@ export default function EventsPage() {
             <h1 className="text-2xl font-bold" data-testid="text-events-title">Veranstaltungen</h1>
             <p className="text-muted-foreground mt-1">Verwalten Sie Ihre Club-Veranstaltungen</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-create-event">
-                <Plus className="h-4 w-4 mr-2" />
-                Neue Veranstaltung
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Neue Veranstaltung erstellen</DialogTitle>
-              </DialogHeader>
-              <EventForm
-                onSubmit={(data) => createMutation.mutate(data)}
-                isPending={createMutation.isPending}
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            {/* AI Assistant Dialog */}
+            <Dialog open={aiDialogOpen} onOpenChange={(o) => { setAiDialogOpen(o); if (!o) aiMutation.reset(); }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-ai-fill-event">
+                  <Sparkles className="h-4 w-4 mr-2 text-violet-500" />
+                  KI-Assistent
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-violet-500" />
+                    Veranstaltung mit KI ausfüllen
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Geben Sie den Namen und das Datum ein — die KI sucht nach Informationen und füllt das Formular automatisch aus.
+                  </p>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Veranstaltungsname *</label>
+                    <input
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                      placeholder="z.B. Stadtfest Meißen 2026"
+                      value={aiEventName}
+                      onChange={(e) => setAiEventName(e.target.value)}
+                      data-testid="input-ai-event-name"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Datum & Uhrzeit (optional)</label>
+                    <input
+                      type="datetime-local"
+                      className="w-full border rounded-md px-3 py-2 text-sm"
+                      value={aiEventDate}
+                      onChange={(e) => setAiEventDate(e.target.value)}
+                      data-testid="input-ai-event-date"
+                    />
+                  </div>
+                  <Button
+                    className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                    disabled={!aiEventName.trim() || aiMutation.isPending}
+                    onClick={() => aiMutation.mutate({ name: aiEventName.trim(), date: aiEventDate })}
+                    data-testid="button-ai-fill-submit"
+                  >
+                    {aiMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />KI sucht…</>
+                    ) : (
+                      <><Sparkles className="h-4 w-4 mr-2" />Formular ausfüllen</>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); if (!o) setAiPrefilledValues(null); }}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-create-event">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Neue Veranstaltung
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {aiPrefilledValues ? (
+                      <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-violet-500" />Neue Veranstaltung (KI-Vorschlag)</span>
+                    ) : "Neue Veranstaltung erstellen"}
+                  </DialogTitle>
+                </DialogHeader>
+                <EventForm
+                  defaultValues={aiPrefilledValues ?? undefined}
+                  onSubmit={(data) => createMutation.mutate(data)}
+                  isPending={createMutation.isPending}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Birthdays section */}

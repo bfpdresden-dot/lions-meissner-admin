@@ -14,7 +14,7 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { Settings, MapPin, Mail, Phone, Building2, AtSign, CheckCircle2 } from "lucide-react";
+import { Settings, MapPin, Mail, Phone, Building2, AtSign, CheckCircle2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,6 +29,8 @@ const settingsSchema = z.object({
   clubEmail: z.string().email("Gültige E-Mail erforderlich").or(z.literal("")).optional(),
   senderName: z.string().optional(),
   senderEmail: z.string().email("Gültige Absender-E-Mail erforderlich").or(z.literal("")).optional(),
+  emailAiModel: z.string().optional(),
+  eventAiModel: z.string().optional(),
 });
 
 type SettingsValues = z.infer<typeof settingsSchema>;
@@ -42,6 +44,8 @@ const DEFAULTS: SettingsValues = {
   clubEmail: "schreiber1988@gmx.net",
   senderName: "Lions Club Meißner Land",
   senderEmail: "",
+  emailAiModel: "openai/gpt-4o-mini",
+  eventAiModel: "google/gemini-2.0-flash-001",
 };
 
 export default function SettingsPage() {
@@ -67,6 +71,8 @@ export default function SettingsPage() {
         clubEmail: saved.clubEmail ?? DEFAULTS.clubEmail,
         senderName: saved.senderName ?? DEFAULTS.senderName,
         senderEmail: saved.senderEmail ?? DEFAULTS.senderEmail,
+        emailAiModel: saved.emailAiModel ?? DEFAULTS.emailAiModel,
+        eventAiModel: saved.eventAiModel ?? DEFAULTS.eventAiModel,
       });
     }
   }, [saved]);
@@ -262,6 +268,49 @@ export default function SettingsPage() {
                         <FormDescription>
                           Die E-Mail-Adresse, von der Nachrichten versendet werden (muss bei Ihrem E-Mail-Anbieter verifiziert sein).
                         </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* AI Models */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    KI-Modelle
+                  </CardTitle>
+                  <CardDescription>
+                    Über OpenRouter verfügbare Modelle, z.B. <code className="text-xs bg-muted px-1 rounded">openai/gpt-4o-mini</code>, <code className="text-xs bg-muted px-1 rounded">google/gemini-2.0-flash-001</code>, <code className="text-xs bg-muted px-1 rounded">anthropic/claude-3-haiku</code>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="emailAiModel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Modell für E-Mail-Assistent</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="openai/gpt-4o-mini" data-testid="input-email-ai-model" />
+                        </FormControl>
+                        <FormDescription>Wird beim Verfassen von Mitglieder-E-Mails verwendet.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="eventAiModel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Modell für Veranstaltungs-Assistent</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="google/gemini-2.0-flash-001" data-testid="input-event-ai-model" />
+                        </FormControl>
+                        <FormDescription>Wird beim automatischen Ausfüllen von Veranstaltungen verwendet.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

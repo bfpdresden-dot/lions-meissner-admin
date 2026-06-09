@@ -510,7 +510,7 @@ WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten 
           "X-Title": clubName,
         },
         body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
+          model: settings.emailAiModel || "openai/gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: parsed.data.prompt + (parsed.data.subject ? `\n\nBetreff: ${parsed.data.subject}` : "") },
@@ -532,6 +532,87 @@ WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten 
     } catch (err: any) {
       console.error("OpenRouter error:", err);
       return res.status(500).json({ error: err.message || "Fehler bei der KI-Generierung" });
+    }
+  });
+
+  app.post("/api/ai/fill-event", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      eventName: z.string().min(1),
+      date: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
+
+    const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
+    if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY nicht konfiguriert" });
+
+    let settings: any = {};
+    try { settings = await storage.getSettings(); } catch {}
+    const model = settings.eventAiModel || "google/gemini-2.0-flash-001";
+    const clubName = settings.clubName || "Lions Club Meißner Land";
+
+    const { eventName, date } = parsed.data;
+    const dateInfo = date ? `Datum: ${date}` : "";
+
+    const systemPrompt = `Du bist ein hilfreicher Assistent für den ${clubName}.
+Deine Aufgabe: Suche in deinem Wissen nach der angegebenen Veranstaltung und gib strukturierte Informationen zurück.
+Antworte NUR mit einem gültigen JSON-Objekt — kein Markdown, keine Erklärungen, keine Codeblöcke.
+Das JSON muss genau diese Felder enthalten:
+{
+  "title": "Offizieller Titel der Veranstaltung",
+  "description": "Kurze Beschreibung der Veranstaltung auf Deutsch (2-4 Sätze)",
+  "location": "Veranstaltungsort mit Adresse (falls bekannt, sonst leer)",
+  "agenda": "Tagesordnung oder Programm (falls bekannt, sonst leer)"
+}
+Falls du keine konkreten Informationen findest, mache sinnvolle Vorschläge basierend auf dem Namen.`;
+
+    const userPrompt = `Veranstaltung: ${eventName}${dateInfo ? `\n${dateInfo}` : ""}`;
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://lions-meissnerland.replit.app",
+          "X-Title": clubName,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        let detail = "";
+        try { detail = JSON.parse(errText)?.error?.message || ""; } catch {}
+        return res.status(500).json({ error: `KI-Anfrage fehlgeschlagen${detail ? ": " + detail : ""}` });
+      }
+
+      const data = await response.json() as any;
+      const text = (data.choices?.[0]?.message?.content || "").trim();
+
+      let result: any = {};
+      try {
+        // Strip markdown code fences if present
+        const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+        result = JSON.parse(clean);
+      } catch {
+        return res.status(500).json({ error: "KI hat kein gültiges JSON zurückgegeben" });
+      }
+
+      return res.json({
+        title: result.title || eventName,
+        description: result.description || "",
+        location: result.location || "",
+        agenda: result.agenda || "",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Fehler bei der KI-Anfrage" });
     }
   });
 
