@@ -45,3 +45,8 @@ integrations = ["javascript_database:1.0.0", "sendgrid:1.0.0"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+WEBSERVER_UPLOAD_URL = "https://uploads.lions-club-meissner-land.de/upload.php"
