@@ -95,6 +95,7 @@ export default function PublicEventsPage() {
   }, []);
 
   const [registerEventId, setRegisterEventId] = useState<number | null>(null);
+  const [detailEventId, setDetailEventId] = useState<number | null>(null);
   const [successEvent, setSuccessEvent] = useState<string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
@@ -386,7 +387,7 @@ export default function PublicEventsPage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {(event as any).programPdf && (event as any).programPdfPublic && (
                             <Button
                               variant="outline"
@@ -400,6 +401,13 @@ export default function PublicEventsPage() {
                               </a>
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            onClick={() => setDetailEventId(event.id)}
+                            data-testid={`button-details-${event.id}`}
+                          >
+                            Details
+                          </Button>
                           <Button
                             onClick={() => handleOpenRegister(event.id)}
                             disabled={isFull || isAlreadyRegistered(event.id)}
@@ -432,6 +440,72 @@ export default function PublicEventsPage() {
             Jetzt anmelden
           </Button>
         </div>
+
+        {/* Event details dialog */}
+        {detailEventId !== null && (() => {
+          const ev = events?.find((e) => e.id === detailEventId);
+          if (!ev) return null;
+          const guests = guestCounts?.[ev.id] ?? 0;
+          const spotsLeft = ev.maxParticipants ? ev.maxParticipants - guests : null;
+          const isFull = spotsLeft !== null && spotsLeft <= 0;
+          return (
+            <Dialog open onOpenChange={(open) => !open && setDetailEventId(null)}>
+              <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-xl">{ev.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-1">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-2.5">
+                      <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        {format(new Date(ev.date), "EEEE, dd. MMMM yyyy", { locale: de })},{" "}
+                        {format(new Date(ev.date), "HH:mm", { locale: de })}
+                        {(ev as any).endDate ? ` – ${format(new Date((ev as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>{ev.location}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <Users className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        {guests} {guests === 1 ? "Gast" : "Gäste"} angemeldet
+                        {ev.maxParticipants && (
+                          <> · {isFull ? <span className="text-destructive font-medium">Ausgebucht</span> : <>{spotsLeft} {spotsLeft === 1 ? "Platz" : "Plätze"} frei</>}</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{ev.description}</p>
+                  </div>
+
+                  {(ev as any).programPdf && (ev as any).programPdfPublic && (
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <a href={`/uploads/${(ev as any).programPdf}`} target="_blank" rel="noopener noreferrer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Programm herunterladen (PDF)
+                      </a>
+                    </Button>
+                  )}
+
+                  <Button
+                    className="w-full"
+                    onClick={() => { setDetailEventId(null); handleOpenRegister(ev.id); }}
+                    disabled={isFull || isAlreadyRegistered(ev.id)}
+                    variant={isAlreadyRegistered(ev.id) ? "secondary" : "default"}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {isFull ? "Ausgebucht" : isAlreadyRegistered(ev.id) ? "Bereits angemeldet" : "Jetzt anmelden"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
 
         {/* Event registration success dialog */}
         {successEvent && (
