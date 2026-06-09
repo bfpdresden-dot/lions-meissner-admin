@@ -110,6 +110,7 @@ export default function MembersPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiEventId, setAiEventId] = useState<string>("");
+  const [aiStyle, setAiStyle] = useState<string>("formell");
   const { toast } = useToast();
   const { data: auth } = useAuth();
 
@@ -704,6 +705,21 @@ export default function MembersPage() {
                     </div>
                   )}
 
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Schreibstil</label>
+                    <Select value={aiStyle} onValueChange={setAiStyle}>
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-ai-style">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="formell">Formell (per Sie)</SelectItem>
+                        <SelectItem value="freundlich">Freundlich (per Sie)</SelectItem>
+                        <SelectItem value="kollegial">Kollegial (per Du)</SelectItem>
+                        <SelectItem value="locker">Locker &amp; herzlich (per Du)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Textarea
                     placeholder="z.B. Einladung mit Bitte um Rückmeldung bis zum 5. Juli"
                     value={aiPrompt}
@@ -732,6 +748,7 @@ export default function MembersPage() {
                           body: JSON.stringify({
                             prompt: aiPrompt + eventContext,
                             subject: emailSubject,
+                            style: aiStyle,
                           }),
                         });
                         const data = await res.json();
