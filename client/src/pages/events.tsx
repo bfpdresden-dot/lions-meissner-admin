@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration } from "@shared/schema";
@@ -72,7 +72,40 @@ export default function EventsPage() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewGuestsEventId, setViewGuestsEventId] = useState<number | null>(null);
+  const [pdfDialogEventId, setPdfDialogEventId] = useState<number | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const handlePdfUpload = async (eventId: number, file: File) => {
+    setPdfUploading(true);
+    try {
+      const form = new FormData();
+      form.append("pdf", file);
+      const res = await fetch(`/api/events/${eventId}/upload-pdf`, { method: "POST", body: form });
+      if (!res.ok) throw new Error("Upload fehlgeschlagen");
+      await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "PDF hochgeladen" });
+    } catch {
+      toast({ title: "Fehler beim Upload", variant: "destructive" });
+    } finally {
+      setPdfUploading(false);
+    }
+  };
+
+  const deletePdfMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/events/${id}/pdf`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "PDF entfernt" });
+    },
+  });
+
+  const togglePdfPublicMutation = useMutation({
+    mutationFn: ({ id, pub }: { id: number; pub: boolean }) =>
+      apiRequest("PATCH", `/api/events/${id}`, { programPdfPublic: pub }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events"] }),
+  });
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -481,6 +514,16 @@ export default function EventsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => setPdfDialogEventId(event.id)}
+                          data-testid={`button-pdf-${event.id}`}
+                          title="Programm-PDF verwalten"
+                          className={(event as any).programPdf ? "text-primary" : ""}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => handlePrintQR(event)}
                           data-testid={`button-print-qr-${event.id}`}
                           title="Anmeldeflyer drucken (DIN A4)"
@@ -695,6 +738,101 @@ export default function EventsPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* PDF management dialog */}
+        {pdfDialogEventId !== null && (() => {
+          const pdfEvent = events?.find((e) => e.id === pdfDialogEventId);
+          if (!pdfEvent) return null;
+          const currentPdf = (pdfEvent as any).programPdf as string | null;
+          const isPublic = (pdfEvent as any).programPdfPublic as boolean;
+          return (
+            <Dialog open onOpenChange={(open) => !open && setPdfDialogEventId(null)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Programm-PDF — {pdfEvent.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-1">
+                  {currentPdf ? (
+                    <div className="rounded-md border p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <a
+                          href={`/uploads/${currentPdf}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary flex items-center gap-1.5 hover:underline min-w-0 truncate"
+                        >
+                          <FileText className="h-4 w-4 shrink-0" />
+                          {currentPdf.replace(/^\d+-\d+-/, "")}
+                        </a>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive shrink-0"
+                          onClick={() => deletePdfMutation.mutate(pdfEvent.id)}
+                          disabled={deletePdfMutation.isPending}
+                          title="PDF entfernen"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1 border-t">
+                        <Button
+                          size="sm"
+                          variant={isPublic ? "default" : "outline"}
+                          className="flex-1 gap-1.5"
+                          onClick={() => togglePdfPublicMutation.mutate({ id: pdfEvent.id, pub: true })}
+                        >
+                          <Globe className="h-3.5 w-3.5" />
+                          Öffentlich
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={!isPublic ? "default" : "outline"}
+                          className="flex-1 gap-1.5"
+                          onClick={() => togglePdfPublicMutation.mutate({ id: pdfEvent.id, pub: false })}
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Nur Mitglieder
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Noch kein PDF hochgeladen.</p>
+                  )}
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">
+                      {currentPdf ? "PDF ersetzen" : "PDF hochladen"}
+                    </Label>
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handlePdfUpload(pdfEvent.id, file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={pdfUploading}
+                      onClick={() => pdfInputRef.current?.click()}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {pdfUploading ? "Wird hochgeladen…" : "PDF-Datei auswählen"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1.5">Maximal 10 MB · Nur PDF-Dateien</p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
       </div>
     </div>
   );

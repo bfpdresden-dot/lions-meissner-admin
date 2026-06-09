@@ -2,16 +2,70 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { insertEventSchema, insertSubscriberSchema, insertRegistrationSchema } from "@shared/schema";
 import { requireAdmin, hasAnyAdmin } from "./auth";
 import { sendPasswordResetEmail, sendCustomEmail, sendOptInEmail } from "./email";
 import { z } from "zod";
 
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const pdfUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      cb(null, `${unique}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype === "application/pdf");
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Serve uploaded files
+  const express = await import("express");
+  app.use("/uploads", express.default.static(uploadsDir));
+
+  // PDF upload for event
+  app.post("/api/events/:id/upload-pdf", requireAdmin, pdfUpload.single("pdf"), async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    if (!req.file) return res.status(400).json({ error: "Keine PDF-Datei" });
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    // Delete old PDF if exists
+    if ((event as any).programPdf) {
+      const old = path.join(uploadsDir, (event as any).programPdf);
+      if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+    const updated = await storage.updateEvent(id, { programPdf: req.file.filename } as any);
+    res.json(updated);
+  });
+
+  // Delete PDF for event
+  app.delete("/api/events/:id/pdf", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    if ((event as any).programPdf) {
+      const file = path.join(uploadsDir, (event as any).programPdf);
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
+    const updated = await storage.updateEvent(id, { programPdf: null, programPdfPublic: true } as any);
+    res.json(updated);
+  });
 
   // ── Auth ─────────────────────────────────────────────────────────────────
 

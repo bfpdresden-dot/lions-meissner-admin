@@ -33,6 +33,7 @@ import {
   QrCode,
   Copy,
   Check,
+  FileText,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +62,8 @@ type InternalEvent = {
   location: string;
   description: string;
   agenda: string | null;
+  programPdf: string | null;
+  programPdfPublic: boolean;
   maxParticipants: number | null;
 };
 
@@ -594,6 +597,19 @@ export default function PortalPage() {
                             <div className="mt-2 pt-2 border-t border-amber-200">
                               <p className="text-xs font-semibold text-amber-800 mb-1">Tagesordnung</p>
                               <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">{ev.agenda}</pre>
+                            </div>
+                          )}
+                          {ev.programPdf && (
+                            <div className="mt-2 pt-2 border-t border-amber-200">
+                              <a
+                                href={`/uploads/${ev.programPdf}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:underline"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                Programm herunterladen (PDF)
+                              </a>
                             </div>
                           )}
                         </div>

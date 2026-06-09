@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText } from "lucide-react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -386,15 +386,30 @@ export default function PublicEventsPage() {
                             </span>
                           )}
                         </div>
-                        <Button
-                          onClick={() => handleOpenRegister(event.id)}
-                          disabled={isFull || isAlreadyRegistered(event.id)}
-                          variant={isAlreadyRegistered(event.id) ? "secondary" : "default"}
-                          data-testid={`button-register-${event.id}`}
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          {isFull ? "Ausgebucht" : isAlreadyRegistered(event.id) ? "Bereits angemeldet" : "Anmelden"}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {(event as any).programPdf && (event as any).programPdfPublic && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              data-testid={`button-pdf-download-${event.id}`}
+                            >
+                              <a href={`/uploads/${(event as any).programPdf}`} target="_blank" rel="noopener noreferrer">
+                                <FileText className="h-4 w-4 mr-1.5" />
+                                Programm
+                              </a>
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => handleOpenRegister(event.id)}
+                            disabled={isFull || isAlreadyRegistered(event.id)}
+                            variant={isAlreadyRegistered(event.id) ? "secondary" : "default"}
+                            data-testid={`button-register-${event.id}`}
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            {isFull ? "Ausgebucht" : isAlreadyRegistered(event.id) ? "Bereits angemeldet" : "Anmelden"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

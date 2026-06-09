@@ -15,6 +15,8 @@ export const events = pgTable("events", {
   maxParticipants: integer("max_participants"),
   isActive: boolean("is_active").notNull().default(true),
   isInternal: boolean("is_internal").notNull().default(false),
+  programPdf: text("program_pdf"),
+  programPdfPublic: boolean("program_pdf_public").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
