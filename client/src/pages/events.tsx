@@ -393,7 +393,7 @@ export default function EventsPage() {
                 Neue Veranstaltung
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Neue Veranstaltung erstellen</DialogTitle>
               </DialogHeader>
@@ -553,7 +553,7 @@ export default function EventsPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="sm:max-w-lg">
+                          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle>Veranstaltung bearbeiten</DialogTitle>
                             </DialogHeader>
