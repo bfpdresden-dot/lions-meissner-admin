@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration } from "@shared/schema";
@@ -73,6 +73,7 @@ export default function EventsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewGuestsEventId, setViewGuestsEventId] = useState<number | null>(null);
   const [pdfDialogEventId, setPdfDialogEventId] = useState<number | null>(null);
+  const [detailEventId, setDetailEventId] = useState<number | null>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -517,11 +518,20 @@ export default function EventsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => setDetailEventId(event.id)}
+                          data-testid={`button-detail-event-${event.id}`}
+                          title="Details anzeigen"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => setViewGuestsEventId(event.id)}
                           data-testid={`button-view-guests-${event.id}`}
                           title="G&auml;steliste anzeigen"
                         >
-                          <Eye className="h-4 w-4" />
+                          <User className="h-4 w-4" />
                         </Button>
                         <Dialog
                           open={editingEvent?.id === event.id}
@@ -739,6 +749,84 @@ export default function EventsPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Event details dialog */}
+        {detailEventId !== null && (() => {
+          const ev = events?.find((e) => e.id === detailEventId);
+          if (!ev) return null;
+          const guestCount = getGuestCount(ev.id);
+          return (
+            <Dialog open onOpenChange={(open) => !open && setDetailEventId(null)}>
+              <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-lg">
+                    {ev.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-1 text-sm">
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2.5">
+                      <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        {format(new Date(ev.date), "EEEE, dd. MMMM yyyy", { locale: de })},{" "}
+                        {format(new Date(ev.date), "HH:mm", { locale: de })}
+                        {(ev as any).endDate ? ` – ${format(new Date((ev as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>{ev.location}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <Users className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        {guestCount} Gäste angemeldet
+                        {ev.maxParticipants && <> · Max. {ev.maxParticipants} Personen</>}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap pt-1">
+                      <Badge variant={ev.isActive ? "default" : "secondary"}>
+                        {ev.isActive ? "Aktiv" : "Inaktiv"}
+                      </Badge>
+                      {(ev as any).isInternal && (
+                        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
+                          <Lock className="h-3 w-3" />
+                          Intern
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-3 space-y-1">
+                    <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Beschreibung</p>
+                    <p className="leading-relaxed whitespace-pre-wrap">{ev.description}</p>
+                  </div>
+
+                  {(ev as any).agenda && (
+                    <div className="border-t pt-3 space-y-1">
+                      <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Tagesordnung</p>
+                      <pre className="whitespace-pre-wrap font-sans leading-relaxed">{(ev as any).agenda}</pre>
+                    </div>
+                  )}
+
+                  {(ev as any).programPdf && (
+                    <div className="border-t pt-3">
+                      <Button variant="outline" size="sm" asChild className="w-full">
+                        <a href={`/uploads/${(ev as any).programPdf}`} target="_blank" rel="noopener noreferrer">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Programm-PDF öffnen
+                          {!(ev as any).programPdfPublic && (
+                            <Badge variant="outline" className="ml-2 text-xs">Nur intern</Badge>
+                          )}
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
 
         {/* PDF management dialog */}
         {pdfDialogEventId !== null && (() => {
