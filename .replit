@@ -49,4 +49,4 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-WEBSERVER_UPLOAD_URL = "https://uploads.lions-club-meissner-land.de/upload.php"
+WEBSERVER_UPLOAD_URL = "https://uploads.lions-club-meissner-land.de/uploads.php"
