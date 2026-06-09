@@ -28,6 +28,7 @@ export interface IStorage {
   getAdmins(): Promise<Subscriber[]>;
   getSubscriber(id: number): Promise<Subscriber | undefined>;
   getSubscriberByEmail(email: string): Promise<Subscriber | undefined>;
+  getSubscriberByConfirmToken(token: string): Promise<Subscriber | undefined>;
   createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
   updateSubscriber(id: number, data: Partial<InsertSubscriber>): Promise<Subscriber | undefined>;
   deleteSubscriber(id: number): Promise<void>;
@@ -95,6 +96,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSubscriberByEmail(email: string): Promise<Subscriber | undefined> {
     const [sub] = await db.select().from(subscribers).where(eq(subscribers.email, email));
+    return sub || undefined;
+  }
+
+  async getSubscriberByConfirmToken(token: string): Promise<Subscriber | undefined> {
+    const [sub] = await db.select().from(subscribers).where(eq(subscribers.confirmToken, token));
     return sub || undefined;
   }
 

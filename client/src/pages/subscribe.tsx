@@ -120,11 +120,14 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-8 w-8 text-primary" />
+              <Mail className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-xl font-semibold mb-2">Erfolgreich angemeldet!</h1>
+            <h1 className="text-xl font-semibold mb-2">Fast geschafft!</h1>
             <p className="text-muted-foreground max-w-xs">
-              Vielen Dank f&uuml;r Ihre Anmeldung zum Newsletter des Lions Club Mei&szlig;ner Land.
+              Wir haben Ihnen eine Bestätigungs-E-Mail geschickt. Bitte klicken Sie auf den Link darin, um Ihre Anmeldung abzuschließen.
+            </p>
+            <p className="text-xs text-muted-foreground mt-3 max-w-xs">
+              Kein E-Mail erhalten? Bitte prüfen Sie auch Ihren Spam-Ordner.
             </p>
             <a href="/veranstaltungen" className="mt-6">
               <Button variant="secondary" data-testid="button-back-events">

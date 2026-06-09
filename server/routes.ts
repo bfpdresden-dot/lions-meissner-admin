@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { insertEventSchema, insertSubscriberSchema, insertRegistrationSchema } from "@shared/schema";
 import { requireAdmin, hasAnyAdmin } from "./auth";
-import { sendPasswordResetEmail, sendCustomEmail } from "./email";
+import { sendPasswordResetEmail, sendCustomEmail, sendOptInEmail } from "./email";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -630,6 +630,7 @@ WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten 
       }
     }
     const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    const confirmToken = crypto.randomBytes(32).toString("hex");
     const subscriber = await storage.createSubscriber({
       email: email.trim().toLowerCase(),
       firstName,
@@ -637,11 +638,32 @@ WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten 
       phone: phone || null,
       eventId: eventId || null,
       referredByMemberId: referredByMemberId || null,
-      isActive: true,
+      isActive: false,
       isMember: isMember || false,
       passwordHash,
+      confirmToken,
     });
-    res.status(201).json(subscriber);
+
+    // Send double opt-in email (fire and forget — don't block response on email failure)
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    sendOptInEmail(email.trim().toLowerCase(), firstName, confirmToken, baseUrl).catch((err) => {
+      console.error("[opt-in email]", err.message);
+    });
+
+    res.status(201).json({ pending: true, id: subscriber.id });
+  });
+
+  app.get("/api/subscribe/confirm/:token", async (req, res) => {
+    const { token } = req.params;
+    if (!token) return res.status(400).json({ error: "Kein Token angegeben" });
+    const subscriber = await storage.getSubscriberByConfirmToken(token);
+    if (!subscriber) return res.status(404).json({ error: "Ungültiger oder bereits verwendeter Bestätigungslink" });
+    await storage.updateSubscriber(subscriber.id, {
+      isActive: true,
+      confirmedAt: new Date(),
+      confirmToken: null,
+    } as any);
+    res.json({ ok: true, firstName: subscriber.firstName });
   });
 
   // ── Registrations ────────────────────────────────────────────────────────

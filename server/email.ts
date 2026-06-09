@@ -170,6 +170,88 @@ function buildCustomEmailHtml(subject: string, bodyHtml: string, clubName: strin
   `;
 }
 
+export async function sendOptInEmail(
+  toEmail: string,
+  firstName: string,
+  confirmToken: string,
+  baseUrl: string
+): Promise<void> {
+  const apiKey = await getSendGridApiKey();
+  const sender = await getSenderInfo();
+
+  if (!sender.email) {
+    throw new Error(
+      "Absender-E-Mail nicht konfiguriert. Bitte hinterlegen Sie die Absender-E-Mail unter Einstellungen."
+    );
+  }
+
+  sgMail.setApiKey(apiKey);
+
+  let settings: any = {};
+  try { settings = await storage.getSettings(); } catch {}
+  const clubName = settings.clubName || "Lions Club Meißner Land";
+  const address = [settings.clubStreet, settings.clubZip, settings.clubCity].filter(Boolean).join(", ");
+
+  const confirmUrl = `${baseUrl}/subscribe/confirm/${confirmToken}`;
+  const datenschutzUrl = `${baseUrl}/datenschutz`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
+        <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
+      </div>
+
+      <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
+        <h2 style="color: #1a3a5c; margin-top: 0;">Guten Tag, ${firstName},</h2>
+        <p style="color: #333; line-height: 1.6;">
+          vielen Dank für Ihre Anmeldung zum Newsletter des ${clubName}.
+          Bitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf den folgenden Button klicken:
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${confirmUrl}"
+             style="background-color: #1a3a5c; color: white; padding: 14px 28px;
+                    text-decoration: none; border-radius: 6px; font-size: 16px;
+                    display: inline-block;">
+            ✅ Anmeldung bestätigen
+          </a>
+        </div>
+
+        <p style="color: #333; line-height: 1.6;">
+          <strong>Hinweis zum Geburtstag:</strong> Falls Sie Ihren Geburtstag angegeben haben,
+          wird dieser ausschließlich für unsere interne Geburtstagsliste verwendet –
+          um Sie an Ihrem Geburtstag zu gratulieren. Er wird nicht für andere Zwecke
+          genutzt und nicht an Dritte weitergegeben.
+        </p>
+
+        <p style="color: #666; font-size: 14px; line-height: 1.6;">
+          Weitere Informationen zur Verarbeitung Ihrer Daten finden Sie in unserer
+          <a href="${datenschutzUrl}" style="color: #1a3a5c;">Datenschutzerklärung</a>.
+        </p>
+
+        <p style="color: #999; font-size: 12px; line-height: 1.6;">
+          Falls Sie sich nicht angemeldet haben, können Sie diese E-Mail einfach ignorieren.
+          Der Bestätigungslink ist 7 Tage gültig.<br/>
+          Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:<br/>
+          <span style="word-break: break-all;">${confirmUrl}</span>
+        </p>
+      </div>
+
+      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
+        ${clubName}${address ? " · " + address : ""}
+      </p>
+    </div>
+  `;
+
+  await sgMail.send({
+    to: toEmail,
+    from: { name: sender.name, email: sender.email },
+    subject: `Bitte bestätigen Sie Ihre Newsletter-Anmeldung – ${clubName}`,
+    html,
+  });
+}
+
 function buildResetEmailHtml(firstName: string, resetUrl: string, clubName: string, address: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

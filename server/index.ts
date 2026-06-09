@@ -43,6 +43,9 @@ pool.query(`
   ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS is_internal boolean NOT NULL DEFAULT false;
   ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS birthday text;
   ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS referred_by_member_id INTEGER;
+  ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS confirm_token text;
+  ALTER TABLE IF EXISTS subscribers ADD COLUMN IF NOT EXISTS confirmed_at timestamp;
+  CREATE UNIQUE INDEX IF NOT EXISTS subscribers_confirm_token_unique ON subscribers(confirm_token) WHERE confirm_token IS NOT NULL;
   CREATE TABLE IF NOT EXISTS "settings" (
     "key" text PRIMARY KEY,
     "value" text NOT NULL,

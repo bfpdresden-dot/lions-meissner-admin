@@ -30,6 +30,8 @@ export const subscribers = pgTable("subscribers", {
   passwordHash: text("password_hash"),
   eventId: integer("event_id"),
   referredByMemberId: integer("referred_by_member_id"),
+  confirmToken: text("confirm_token").unique(),
+  confirmedAt: timestamp("confirmed_at"),
   subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
 });
 

@@ -16,6 +16,7 @@ import MembersPage from "@/pages/members";
 import QRCodesPage from "@/pages/qr-codes";
 import SettingsPage from "@/pages/settings";
 import SubscribePage from "@/pages/subscribe";
+import SubscribeConfirmPage from "@/pages/subscribe-confirm";
 import SubscribeMemberPage from "@/pages/subscribe-member";
 import PublicEventsPage from "@/pages/public-events";
 import PortalPage from "@/pages/portal";
@@ -39,17 +40,6 @@ function AdminRouter() {
   );
 }
 
-function SubscribeRoute() {
-  const [match, params] = useRoute("/subscribe/:eventId");
-  if (!match || !params?.eventId) return null;
-  return <SubscribePage eventId={params.eventId} />;
-}
-
-function SubscribeMemberRoute() {
-  const [match, params] = useRoute("/subscribe/member/:memberId");
-  if (!match || !params?.memberId) return null;
-  return <SubscribeMemberPage memberId={params.memberId} />;
-}
 
 function AdminLayout() {
   const logout = useLogout();
@@ -138,32 +128,38 @@ function isAdminRoute(pathname: string): boolean {
   return ADMIN_ROUTE_PATTERNS.some((r) => r.test(pathname));
 }
 
+function matchPath(pattern: RegExp, pathname: string) {
+  const m = pathname.match(pattern);
+  return m ? m : null;
+}
+
 function App() {
-  const [isSubscribeMember] = useRoute("/subscribe/member/:memberId");
-  const [isSubscribe] = useRoute("/subscribe/:eventId");
-  const [isPublicEvents] = useRoute("/veranstaltungen");
-  const [isPortal] = useRoute("/mein-bereich");
-  const [isPasswordReset] = useRoute("/passwort-reset");
-  const [isDatenschutz] = useRoute("/datenschutz");
+  const pathname = window.location.pathname;
+
+  const memberMatch = matchPath(/^\/subscribe\/member\/([^/]+)$/, pathname);
+  const confirmMatch = matchPath(/^\/subscribe\/confirm\/([^/]+)$/, pathname);
+  const subscribeMatch = matchPath(/^\/subscribe\/([^/]+)$/, pathname);
+
+  const isPublicEvents = pathname === "/veranstaltungen";
+  const isPortal = pathname === "/mein-bereich";
+  const isPasswordReset = pathname === "/passwort-reset";
+  const isDatenschutz = pathname === "/datenschutz";
+  const isAdmin = isAdminRoute(pathname);
 
   const isKnownPublic =
-    isSubscribeMember ||
-    isSubscribe ||
-    isPublicEvents ||
-    isPortal ||
-    isPasswordReset ||
-    isDatenschutz;
-
-  const isAdmin = isAdminRoute(window.location.pathname);
+    !!memberMatch || !!confirmMatch || !!subscribeMatch ||
+    isPublicEvents || isPortal || isPasswordReset || isDatenschutz;
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        {isSubscribeMember ? (
-          <SubscribeMemberRoute />
-        ) : isSubscribe ? (
-          <SubscribeRoute />
+        {memberMatch ? (
+          <SubscribeMemberPage memberId={memberMatch[1]} />
+        ) : confirmMatch ? (
+          <SubscribeConfirmPage token={confirmMatch[1]} />
+        ) : subscribeMatch ? (
+          <SubscribePage eventId={subscribeMatch[1]} />
         ) : isPublicEvents ? (
           <PublicEventsPage />
         ) : isPortal ? (
