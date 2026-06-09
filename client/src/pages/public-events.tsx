@@ -358,11 +358,11 @@ export default function PublicEventsPage() {
                           <p className="text-muted-foreground">{event.description}</p>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-1">
                             <span className="flex items-center gap-1.5">
-                              <Calendar className="h-4 w-4" />
+                              <Calendar className="h-4 w-4 text-blue-500" />
                               {format(new Date(event.date), "EEEE, dd. MMMM yyyy", { locale: de })}, {format(new Date(event.date), "HH:mm", { locale: de })}{(event as any).endDate ? ` – ${format(new Date((event as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr
                             </span>
                             <span className="flex items-center gap-1.5">
-                              <MapPin className="h-4 w-4" />
+                              <MapPin className="h-4 w-4 text-rose-500" />
                               {event.location}
                             </span>
                           </div>
@@ -375,7 +375,7 @@ export default function PublicEventsPage() {
                       <div className="flex items-center justify-between gap-4 pt-2 border-t flex-wrap">
                         <div className="flex items-center gap-4 text-sm flex-wrap">
                           <span className="flex items-center gap-1.5" data-testid={`text-guests-${event.id}`}>
-                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <Users className="h-4 w-4 text-emerald-500" />
                             <span className="font-medium">{guests}</span>
                             <span className="text-muted-foreground">
                               {guests === 1 ? "Gast" : "Gäste"} angemeldet
@@ -396,7 +396,7 @@ export default function PublicEventsPage() {
                               data-testid={`button-pdf-download-${event.id}`}
                             >
                               <a href={`/uploads/${(event as any).programPdf}`} target="_blank" rel="noopener noreferrer">
-                                <FileText className="h-4 w-4 mr-1.5" />
+                                <FileText className="h-4 w-4 mr-1.5 text-amber-500" />
                                 Programm
                               </a>
                             </Button>
