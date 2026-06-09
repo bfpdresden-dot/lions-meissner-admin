@@ -24,3 +24,9 @@ id = "rH_cch6jx3clyJ0r379MI"
 uri = "file://attached_assets/image_search/logo4.jpg"
 type = "image"
 title = "Lions Logo 4"
+
+[[outputs]]
+id = "3g1nffD75aabPa0s9Yt01"
+uri = "file://client/public/images/lions-logo.png"
+type = "image"
+title = "lions-logo.png (zum Bearbeiten)"
