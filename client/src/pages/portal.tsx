@@ -37,6 +37,12 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
+
+function fileUrl(filenameOrUrl: string): string {
+  if (!filenameOrUrl) return "";
+  if (filenameOrUrl.startsWith("http://") || filenameOrUrl.startsWith("https://")) return filenameOrUrl;
+  return `/uploads/${filenameOrUrl}`;
+}
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -602,7 +608,7 @@ export default function PortalPage() {
                           {ev.programPdf && (
                             <div className="mt-2 pt-2 border-t border-amber-200">
                               <a
-                                href={`/uploads/${ev.programPdf}`}
+                                href={fileUrl(ev.programPdf ?? "")}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:underline"

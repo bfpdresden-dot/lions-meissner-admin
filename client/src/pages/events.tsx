@@ -50,6 +50,12 @@ import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, InsertEvent, Registration, EventPhoto } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
+
+function fileUrl(filenameOrUrl: string): string {
+  if (!filenameOrUrl) return "";
+  if (filenameOrUrl.startsWith("http://") || filenameOrUrl.startsWith("https://")) return filenameOrUrl;
+  return `/uploads/${filenameOrUrl}`;
+}
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -838,7 +844,7 @@ export default function EventsPage() {
                       {eventPhotos.map((photo) => (
                         <div key={photo.id} className="relative group rounded-md overflow-hidden border aspect-square">
                           <img
-                            src={`/uploads/${photo.filename}`}
+                            src={fileUrl(photo.filename)}
                             alt={photo.caption || "Event-Foto"}
                             className="w-full h-full object-cover"
                           />
@@ -929,7 +935,7 @@ export default function EventsPage() {
                   {(ev as any).programPdf && (
                     <div className="border-t pt-3">
                       <Button variant="outline" size="sm" asChild className="w-full">
-                        <a href={`/uploads/${(ev as any).programPdf}`} target="_blank" rel="noopener noreferrer">
+                        <a href={fileUrl((ev as any).programPdf)} target="_blank" rel="noopener noreferrer">
                           <FileText className="h-4 w-4 mr-2" />
                           Programm-PDF öffnen
                           {!(ev as any).programPdfPublic && (

@@ -34,6 +34,12 @@ import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, EventPhoto } from "@shared/schema";
+
+function fileUrl(filenameOrUrl: string): string {
+  if (!filenameOrUrl) return "";
+  if (filenameOrUrl.startsWith("http://") || filenameOrUrl.startsWith("https://")) return filenameOrUrl;
+  return `/uploads/${filenameOrUrl}`;
+}
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -402,7 +408,7 @@ export default function PublicEventsPage() {
                               asChild
                               data-testid={`button-pdf-download-${event.id}`}
                             >
-                              <a href={`/uploads/${(event as any).programPdf}`} target="_blank" rel="noopener noreferrer">
+                              <a href={fileUrl((event as any).programPdf)} target="_blank" rel="noopener noreferrer">
                                 <FileText className="h-4 w-4 mr-1.5 text-amber-500" />
                                 Programm
                               </a>
@@ -492,7 +498,7 @@ export default function PublicEventsPage() {
 
                   {(ev as any).programPdf && (ev as any).programPdfPublic && (
                     <Button variant="outline" size="sm" asChild className="w-full">
-                      <a href={`/uploads/${(ev as any).programPdf}`} target="_blank" rel="noopener noreferrer">
+                      <a href={fileUrl((ev as any).programPdf)} target="_blank" rel="noopener noreferrer">
                         <FileText className="h-4 w-4 mr-2 text-amber-500" />
                         Programm herunterladen (PDF)
                       </a>
@@ -506,13 +512,13 @@ export default function PublicEventsPage() {
                         {detailPhotos.map((photo) => (
                           <a
                             key={photo.id}
-                            href={`/uploads/${photo.filename}`}
+                            href={fileUrl(photo.filename)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block rounded-md overflow-hidden aspect-square border hover:opacity-90 transition-opacity"
                           >
                             <img
-                              src={`/uploads/${photo.filename}`}
+                              src={fileUrl(photo.filename)}
                               alt={photo.caption || "Event-Foto"}
                               className="w-full h-full object-cover"
                             />

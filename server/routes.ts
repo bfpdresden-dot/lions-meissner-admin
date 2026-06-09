@@ -14,6 +14,47 @@ import { z } from "zod";
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+async function pushToExternalServer(localFilePath: string, originalName: string, mimeType: string): Promise<string | null> {
+  const extUrl = process.env.WEBSERVER_UPLOAD_URL;
+  const extKey = process.env.WEBSERVER_UPLOAD_KEY;
+  if (!extUrl || !extKey) return null;
+  const fileBuffer = fs.readFileSync(localFilePath);
+  const boundary = "----LionsUpload" + Date.now().toString(16);
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${originalName}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    fileBuffer,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const res = await fetch(`${extUrl}?key=${encodeURIComponent(extKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+    body,
+  });
+  if (!res.ok) throw new Error(`External upload failed: ${res.status}`);
+  const data = await res.json() as { url?: string; error?: string };
+  if (!data.url) throw new Error(data.error || "No URL returned");
+  fs.unlinkSync(localFilePath);
+  return data.url;
+}
+
+async function deleteFromStorage(filenameOrUrl: string): Promise<void> {
+  if (filenameOrUrl.startsWith("http://") || filenameOrUrl.startsWith("https://")) {
+    const extUrl = process.env.WEBSERVER_UPLOAD_URL;
+    const extKey = process.env.WEBSERVER_UPLOAD_KEY;
+    if (extUrl && extKey) {
+      const body = new URLSearchParams({ url: filenameOrUrl });
+      await fetch(`${extUrl}?action=delete&key=${encodeURIComponent(extKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+      }).catch(() => {});
+    }
+  } else {
+    const file = path.join(uploadsDir, filenameOrUrl);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  }
+}
+
 const pdfUpload = multer({
   storage: multer.diskStorage({
     destination: uploadsDir,
@@ -59,12 +100,10 @@ export async function registerRoutes(
     if (!req.file) return res.status(400).json({ error: "Keine PDF-Datei" });
     const event = await storage.getEvent(id);
     if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
-    // Delete old PDF if exists
-    if ((event as any).programPdf) {
-      const old = path.join(uploadsDir, (event as any).programPdf);
-      if (fs.existsSync(old)) fs.unlinkSync(old);
-    }
-    const updated = await storage.updateEvent(id, { programPdf: req.file.filename } as any);
+    if ((event as any).programPdf) await deleteFromStorage((event as any).programPdf);
+    const externalUrl = await pushToExternalServer(req.file.path, req.file.originalname, "application/pdf").catch(() => null);
+    const stored = externalUrl ?? req.file.filename;
+    const updated = await storage.updateEvent(id, { programPdf: stored } as any);
     res.json(updated);
   });
 
@@ -74,10 +113,7 @@ export async function registerRoutes(
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
     const event = await storage.getEvent(id);
     if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
-    if ((event as any).programPdf) {
-      const file = path.join(uploadsDir, (event as any).programPdf);
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-    }
+    if ((event as any).programPdf) await deleteFromStorage((event as any).programPdf);
     const updated = await storage.updateEvent(id, { programPdf: null, programPdfPublic: true } as any);
     res.json(updated);
   });
@@ -103,7 +139,10 @@ export async function registerRoutes(
     }
     const caption = typeof req.body.caption === "string" ? req.body.caption : undefined;
     const saved = await Promise.all(
-      req.files.map((f) => storage.createEventPhoto(id, f.filename, caption))
+      req.files.map(async (f) => {
+        const externalUrl = await pushToExternalServer(f.path, f.originalname, f.mimetype).catch(() => null);
+        return storage.createEventPhoto(id, externalUrl ?? f.filename, caption);
+      })
     );
     res.json(saved);
   });
@@ -114,8 +153,7 @@ export async function registerRoutes(
     if (isNaN(photoId)) return res.status(400).json({ error: "Ungültige ID" });
     const deleted = await storage.deleteEventPhoto(photoId);
     if (!deleted) return res.status(404).json({ error: "Foto nicht gefunden" });
-    const file = path.join(uploadsDir, deleted.filename);
-    if (fs.existsSync(file)) fs.unlinkSync(file);
+    await deleteFromStorage(deleted.filename);
     res.json({ ok: true });
   });
 
