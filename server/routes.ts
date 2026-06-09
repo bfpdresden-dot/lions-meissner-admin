@@ -562,9 +562,12 @@ Das JSON muss genau diese Felder enthalten:
   "title": "Offizieller Titel der Veranstaltung",
   "description": "Kurze Beschreibung der Veranstaltung auf Deutsch (2-4 Sätze)",
   "location": "Veranstaltungsort mit Adresse (falls bekannt, sonst leer)",
-  "agenda": "Tagesordnung oder Programm (falls bekannt, sonst leer)"
+  "agenda": "Tagesordnung oder Programm (falls bekannt, sonst leer)",
+  "date": "Startdatum und -uhrzeit im Format YYYY-MM-DDTHH:mm (falls bekannt, sonst leer)",
+  "endDate": "Enddatum und -uhrzeit im Format YYYY-MM-DDTHH:mm (falls bekannt, sonst leer)"
 }
-Falls du keine konkreten Informationen findest, mache sinnvolle Vorschläge basierend auf dem Namen.`;
+Falls du keine konkreten Informationen findest, mache sinnvolle Vorschläge basierend auf dem Namen.
+WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T10:00`;
 
     const userPrompt = `Veranstaltung: ${eventName}${dateInfo ? `\n${dateInfo}` : ""}`;
 
@@ -610,6 +613,8 @@ Falls du keine konkreten Informationen findest, mache sinnvolle Vorschläge basi
         description: result.description || "",
         location: result.location || "",
         agenda: result.agenda || "",
+        date: result.date || "",
+        endDate: result.endDate || "",
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || "Fehler bei der KI-Anfrage" });

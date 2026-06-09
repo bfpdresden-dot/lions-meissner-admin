@@ -99,15 +99,19 @@ export default function EventsPage() {
     mutationFn: async ({ name, date }: { name: string; date: string }) => {
       const res = await apiRequest("POST", "/api/ai/fill-event", { eventName: name, date });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || "KI-Fehler"); }
-      return res.json() as Promise<{ title: string; description: string; location: string; agenda: string }>;
+      return res.json() as Promise<{ title: string; description: string; location: string; agenda: string; date: string; endDate: string }>;
     },
     onSuccess: (data) => {
+      // Use user-entered date first, fall back to AI-suggested date
+      const resolvedDate = aiEventDate || data.date || "";
+      const resolvedEndDate = data.endDate || "";
       setAiPrefilledValues({
         title: data.title || aiEventName,
         description: data.description || "",
         location: data.location || "",
         agenda: data.agenda || "",
-        date: aiEventDate,
+        date: resolvedDate,
+        endDate: resolvedEndDate,
       });
       setAiDialogOpen(false);
       setIsCreateOpen(true);
