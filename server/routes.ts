@@ -320,11 +320,13 @@ export async function registerRoutes(
     try { settings = await storage.getSettings(); } catch {}
     const clubName = settings.clubName || "Lions Club Meißner Land";
 
-    const systemPrompt = `Du bist ein hilfreicher Assistent für den ${clubName}. 
+    const systemPrompt = `Du bist ein hilfreicher Assistent für den ${clubName}.
 Schreibe E-Mail-Texte auf Deutsch im professionellen aber freundlichen Ton.
 Nutze {{Vorname}} als Platzhalter für die persönliche Anrede.
 Gib NUR den E-Mail-Text zurück, ohne Betreff, ohne Erklärungen, ohne Anführungszeichen.
-Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer passenden Grußformel.`;
+Beginne direkt mit der Anrede wie "Guten Tag {{Vorname}}," und beende mit einer passenden Grußformel.
+
+WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten oder erreichen soll (z.B. eine konkrete Bitte, eine Aufgabe, eine Ankündigung). Baue diesen Inhalt vollständig und deutlich in den E-Mail-Text ein. Wenn der Nutzer z.B. schreibt "Hilfe beim Aufbau unseres Standes", dann formuliere im E-Mail-Text eine freundliche aber klare Bitte an den Empfänger, beim Aufbau des Standes zu helfen.`;
 
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
