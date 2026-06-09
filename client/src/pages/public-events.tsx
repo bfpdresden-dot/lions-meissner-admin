@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,6 +80,20 @@ type RegisterFormValues = z.infer<typeof registerFormSchema>;
 type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
 
 export default function PublicEventsPage() {
+  useEffect(() => {
+    const prev = document.title;
+    const prevDesc = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
+    document.title = "Veranstaltungen | Lions Club Meißner Land";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Aktuelle Veranstaltungen des Lions Club Meißner Land – jetzt entdecken und anmelden.");
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + "/veranstaltungen");
+    return () => {
+      document.title = prev;
+      document.querySelector('meta[name="description"]')?.setAttribute("content", prevDesc);
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href", prevCanonical);
+    };
+  }, []);
+
   const [registerEventId, setRegisterEventId] = useState<number | null>(null);
   const [successEvent, setSuccessEvent] = useState<string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);

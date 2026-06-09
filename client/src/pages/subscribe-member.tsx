@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -36,6 +36,20 @@ type MemberRef = { id: number; firstName: string; lastName: string };
 
 export default function SubscribeMemberPage({ memberId }: { memberId: string }) {
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    const prev = document.title;
+    const prevDesc = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
+    document.title = "Newsletter anmelden | Lions Club Meißner Land";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Newsletter des Lions Club Meißner Land abonnieren und keine Veranstaltung verpassen.");
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + window.location.pathname);
+    return () => {
+      document.title = prev;
+      document.querySelector('meta[name="description"]')?.setAttribute("content", prevDesc);
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href", prevCanonical);
+    };
+  }, []);
 
   const { data: member, isLoading, error } = useQuery<MemberRef>({
     queryKey: ["/api/member-ref", memberId],

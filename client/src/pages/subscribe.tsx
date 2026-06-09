@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -42,6 +42,21 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
   const { data: event, isLoading, error } = useQuery<Event>({
     queryKey: ["/api/events", eventId],
   });
+
+  useEffect(() => {
+    const prev = document.title;
+    const prevDesc = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
+    const eventTitle = event?.title ? `${event.title} – Newsletter | Lions Club Meißner Land` : "Newsletter anmelden | Lions Club Meißner Land";
+    document.title = eventTitle;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", event?.title ? `Newsletter des Lions Club Meißner Land zur Veranstaltung „${event.title}" abonnieren.` : "Newsletter des Lions Club Meißner Land abonnieren.");
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + window.location.pathname);
+    return () => {
+      document.title = prev;
+      document.querySelector('meta[name="description"]')?.setAttribute("content", prevDesc);
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href", prevCanonical);
+    };
+  }, [event?.title]);
 
   const subscribeMutation = useMutation({
     mutationFn: async (data: SubscribeFormValues) => {

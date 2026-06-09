@@ -97,7 +97,8 @@ export async function setupVite(server: Server, app: Express) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       let page = await vite.transformIndexHtml(pathname, template);
-      page = await injectPageMeta(page, pathname);
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      page = await injectPageMeta(page, pathname, baseUrl);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);

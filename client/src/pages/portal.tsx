@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,6 +96,20 @@ type LoginValues = z.infer<typeof loginSchema>;
 type ProfileValues = z.infer<typeof profileSchema>;
 
 export default function PortalPage() {
+  useEffect(() => {
+    const prev = document.title;
+    const prevDesc = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
+    document.title = "Mein Bereich | Lions Club Meißner Land";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Ihr persönlicher Bereich beim Lions Club Meißner Land – Anmeldungen und Newsletter verwalten.");
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + "/mein-bereich");
+    return () => {
+      document.title = prev;
+      document.querySelector('meta[name="description"]')?.setAttribute("content", prevDesc);
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href", prevCanonical);
+    };
+  }, []);
+
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);

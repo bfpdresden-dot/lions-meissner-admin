@@ -1,8 +1,23 @@
+import { useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 
 export default function DatenschutzPage() {
+  useEffect(() => {
+    const prev = document.title;
+    const prevDesc = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
+    document.title = "Datenschutzerklärung | Lions Club Meißner Land";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Datenschutzerklärung des Lions Club Meißner Land gemäß DSGVO.");
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + window.location.pathname);
+    return () => {
+      document.title = prev;
+      document.querySelector('meta[name="description"]')?.setAttribute("content", prevDesc);
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href", prevCanonical);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background py-10 px-4">
       <div className="max-w-3xl mx-auto space-y-8">
