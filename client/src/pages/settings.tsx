@@ -45,7 +45,7 @@ const DEFAULTS: SettingsValues = {
   senderName: "Lions Club Meißner Land",
   senderEmail: "",
   emailAiModel: "openai/gpt-4o-mini",
-  eventAiModel: "google/gemini-2.0-flash-001",
+  eventAiModel: "google/gemini-2.0-flash-exp:free",
 };
 
 export default function SettingsPage() {

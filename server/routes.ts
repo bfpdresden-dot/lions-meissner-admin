@@ -548,7 +548,7 @@ WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten 
 
     let settings: any = {};
     try { settings = await storage.getSettings(); } catch {}
-    const model = settings.eventAiModel || "google/gemini-2.0-flash-001";
+    const model = settings.eventAiModel || "google/gemini-2.0-flash-exp:free";
     const clubName = settings.clubName || "Lions Club Meißner Land";
 
     const { eventName, date } = parsed.data;
