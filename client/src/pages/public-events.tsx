@@ -358,7 +358,7 @@ export default function PublicEventsPage() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-1">
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4" />
-                              {format(new Date(event.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr
+                              {format(new Date(event.date), "EEEE, dd. MMMM yyyy", { locale: de })}, {format(new Date(event.date), "HH:mm", { locale: de })}{(event as any).endDate ? ` – ${format(new Date((event as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr
                             </span>
                             <span className="flex items-center gap-1.5">
                               <MapPin className="h-4 w-4" />
@@ -461,7 +461,7 @@ export default function PublicEventsPage() {
                 <div className="p-3 rounded-md bg-muted/50 text-sm">
                   <p className="font-medium">{registerEvent.title}</p>
                   <p className="text-muted-foreground mt-0.5">
-                    {format(new Date(registerEvent.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr &middot; {registerEvent.location}
+                    {format(new Date(registerEvent.date), "EEEE, dd. MMMM yyyy", { locale: de })}, {format(new Date(registerEvent.date), "HH:mm", { locale: de })}{(registerEvent as any).endDate ? ` – ${format(new Date((registerEvent as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr &middot; {registerEvent.location}
                   </p>
                 </div>
 
