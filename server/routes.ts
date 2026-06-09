@@ -28,6 +28,21 @@ const pdfUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
+      cb(null, `photo-${unique}${ext}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    cb(null, ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.mimetype));
+  },
+  limits: { fileSize: 15 * 1024 * 1024 },
+});
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -65,6 +80,43 @@ export async function registerRoutes(
     }
     const updated = await storage.updateEvent(id, { programPdf: null, programPdfPublic: true } as any);
     res.json(updated);
+  });
+
+  // ── Event Photos ─────────────────────────────────────────────────────────
+
+  // List photos for event (public)
+  app.get("/api/events/:id/photos", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const photos = await storage.getEventPhotos(id);
+    res.json(photos);
+  });
+
+  // Upload photos for event (admin, up to 20 at once)
+  app.post("/api/events/:id/photos", requireAdmin, imageUpload.array("photos", 20), async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ error: "Keine Bilddateien" });
+    }
+    const caption = typeof req.body.caption === "string" ? req.body.caption : undefined;
+    const saved = await Promise.all(
+      req.files.map((f) => storage.createEventPhoto(id, f.filename, caption))
+    );
+    res.json(saved);
+  });
+
+  // Delete a photo (admin)
+  app.delete("/api/events/photos/:photoId", requireAdmin, async (req, res) => {
+    const photoId = parseInt(req.params.photoId, 10);
+    if (isNaN(photoId)) return res.status(400).json({ error: "Ungültige ID" });
+    const deleted = await storage.deleteEventPhoto(photoId);
+    if (!deleted) return res.status(404).json({ error: "Foto nicht gefunden" });
+    const file = path.join(uploadsDir, deleted.filename);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    res.json({ ok: true });
   });
 
   // ── Auth ─────────────────────────────────────────────────────────────────

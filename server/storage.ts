@@ -4,6 +4,7 @@ import {
   registrations,
   passwordResetTokens,
   settings,
+  eventPhotos,
   type Event,
   type InsertEvent,
   type Subscriber,
@@ -12,6 +13,7 @@ import {
   type InsertRegistration,
   type PasswordResetToken,
   type Setting,
+  type EventPhoto,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -41,6 +43,10 @@ export interface IStorage {
   deleteRegistration(id: number): Promise<void>;
   getGuestCountByEvent(eventId: number): Promise<number>;
   getAllGuestCounts(): Promise<Record<number, number>>;
+
+  getEventPhotos(eventId: number): Promise<EventPhoto[]>;
+  createEventPhoto(eventId: number, filename: string, caption?: string): Promise<EventPhoto>;
+  deleteEventPhoto(id: number): Promise<EventPhoto | undefined>;
 
   createPasswordResetToken(subscriberId: number, token: string, expiresAt: Date): Promise<PasswordResetToken>;
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
@@ -163,6 +169,20 @@ export class DatabaseStorage implements IStorage {
       counts[row.eventId] = Number(row.total);
     }
     return counts;
+  }
+
+  async getEventPhotos(eventId: number): Promise<EventPhoto[]> {
+    return db.select().from(eventPhotos).where(eq(eventPhotos.eventId, eventId)).orderBy(eventPhotos.uploadedAt);
+  }
+
+  async createEventPhoto(eventId: number, filename: string, caption?: string): Promise<EventPhoto> {
+    const [created] = await db.insert(eventPhotos).values({ eventId, filename, caption }).returning();
+    return created;
+  }
+
+  async deleteEventPhoto(id: number): Promise<EventPhoto | undefined> {
+    const [deleted] = await db.delete(eventPhotos).where(eq(eventPhotos.id, id)).returning();
+    return deleted || undefined;
   }
 
   async createPasswordResetToken(subscriberId: number, token: string, expiresAt: Date): Promise<PasswordResetToken> {

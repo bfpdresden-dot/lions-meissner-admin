@@ -45,10 +45,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
-import type { Event, InsertEvent, Registration } from "@shared/schema";
+import type { Event, InsertEvent, Registration, EventPhoto } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -74,6 +74,9 @@ export default function EventsPage() {
   const [viewGuestsEventId, setViewGuestsEventId] = useState<number | null>(null);
   const [pdfDialogEventId, setPdfDialogEventId] = useState<number | null>(null);
   const [detailEventId, setDetailEventId] = useState<number | null>(null);
+  const [photoDialogEventId, setPhotoDialogEventId] = useState<number | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -127,6 +130,37 @@ export default function EventsPage() {
     queryKey: ["/api/registrations/event", viewGuestsEventId],
     enabled: viewGuestsEventId !== null,
   });
+
+  const { data: eventPhotos, refetch: refetchPhotos } = useQuery<EventPhoto[]>({
+    queryKey: ["/api/events", photoDialogEventId, "photos"],
+    queryFn: () => fetch(`/api/events/${photoDialogEventId}/photos`).then((r) => r.json()),
+    enabled: photoDialogEventId !== null,
+  });
+
+  const deletePhotoMutation = useMutation({
+    mutationFn: (photoId: number) => apiRequest("DELETE", `/api/events/photos/${photoId}`),
+    onSuccess: () => {
+      refetchPhotos();
+      toast({ title: "Foto gelöscht" });
+    },
+  });
+
+  const handlePhotoUpload = async (eventId: number, files: FileList) => {
+    setPhotoUploading(true);
+    try {
+      const form = new FormData();
+      for (let i = 0; i < files.length; i++) form.append("photos", files[i]);
+      const res = await fetch(`/api/events/${eventId}/photos`, { method: "POST", body: form });
+      if (!res.ok) throw new Error("Upload fehlgeschlagen");
+      refetchPhotos();
+      toast({ title: `${files.length} Foto${files.length > 1 ? "s" : ""} hochgeladen` });
+    } catch {
+      toast({ title: "Fehler beim Upload", variant: "destructive" });
+    } finally {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
 
   const getGuestCount = (eventId: number) => {
     if (!guestCounts) return 0;
@@ -518,6 +552,15 @@ export default function EventsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => setPhotoDialogEventId(event.id)}
+                          data-testid={`button-photos-${event.id}`}
+                          title="Fotos verwalten"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => setDetailEventId(event.id)}
                           data-testid={`button-detail-event-${event.id}`}
                           title="Details anzeigen"
@@ -749,6 +792,80 @@ export default function EventsPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Photo management dialog */}
+        {photoDialogEventId !== null && (() => {
+          const ev = events?.find((e) => e.id === photoDialogEventId);
+          if (!ev) return null;
+          return (
+            <Dialog open onOpenChange={(open) => !open && setPhotoDialogEventId(null)}>
+              <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Camera className="h-5 w-5" />
+                    Fotos — {ev.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handlePhotoUpload(photoDialogEventId, e.target.files);
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoUploading}
+                      className="w-full"
+                      variant="outline"
+                      data-testid="button-upload-photos"
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      {photoUploading ? "Wird hochgeladen…" : "Fotos hochladen (mehrere möglich)"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1 text-center">JPG, PNG, WebP, GIF · max. 15 MB pro Datei</p>
+                  </div>
+
+                  {eventPhotos && eventPhotos.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {eventPhotos.map((photo) => (
+                        <div key={photo.id} className="relative group rounded-md overflow-hidden border aspect-square">
+                          <img
+                            src={`/uploads/${photo.filename}`}
+                            alt={photo.caption || "Event-Foto"}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              onClick={() => deletePhotoMutation.mutate(photo.id)}
+                              disabled={deletePhotoMutation.isPending}
+                              data-testid={`button-delete-photo-${photo.id}`}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-8 border rounded-md">
+                      Noch keine Fotos hochgeladen.
+                    </p>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
 
         {/* Event details dialog */}
         {detailEventId !== null && (() => {

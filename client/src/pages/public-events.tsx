@@ -29,11 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook } from "lucide-react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import type { Event } from "@shared/schema";
+import type { Event, EventPhoto } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -96,6 +96,7 @@ export default function PublicEventsPage() {
 
   const [registerEventId, setRegisterEventId] = useState<number | null>(null);
   const [detailEventId, setDetailEventId] = useState<number | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [successEvent, setSuccessEvent] = useState<string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
@@ -108,6 +109,12 @@ export default function PublicEventsPage() {
 
   const { data: guestCounts } = useQuery<Record<string, number>>({
     queryKey: ["/api/registrations/counts"],
+  });
+
+  const { data: detailPhotos } = useQuery<EventPhoto[]>({
+    queryKey: ["/api/events", detailEventId, "photos"],
+    queryFn: () => fetch(`/api/events/${detailEventId}/photos`).then((r) => r.json()),
+    enabled: detailEventId !== null,
   });
 
   const { data: portalSubscriber } = useQuery<PortalSubscriber | undefined>({
@@ -486,11 +493,97 @@ export default function PublicEventsPage() {
                   {(ev as any).programPdf && (ev as any).programPdfPublic && (
                     <Button variant="outline" size="sm" asChild className="w-full">
                       <a href={`/uploads/${(ev as any).programPdf}`} target="_blank" rel="noopener noreferrer">
-                        <FileText className="h-4 w-4 mr-2" />
+                        <FileText className="h-4 w-4 mr-2 text-amber-500" />
                         Programm herunterladen (PDF)
                       </a>
                     </Button>
                   )}
+
+                  {detailPhotos && detailPhotos.length > 0 && (
+                    <div className="border-t pt-4 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fotos</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {detailPhotos.map((photo) => (
+                          <a
+                            key={photo.id}
+                            href={`/uploads/${photo.filename}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-md overflow-hidden aspect-square border hover:opacity-90 transition-opacity"
+                          >
+                            <img
+                              src={`/uploads/${photo.filename}`}
+                              alt={photo.caption || "Event-Foto"}
+                              className="w-full h-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-4 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Share2 className="h-3.5 w-3.5" />
+                      Teilen
+                    </p>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {
+                          const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
+                          const url = window.location.href;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text + "\n" + url)}`, "_blank");
+                        }}
+                        data-testid={`button-share-whatsapp-${ev.id}`}
+                      >
+                        <MessageCircle className="h-4 w-4 text-green-500" />
+                        WhatsApp
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {
+                          const url = encodeURIComponent(window.location.href);
+                          window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+                        }}
+                        data-testid={`button-share-facebook-${ev.id}`}
+                      >
+                        <Facebook className="h-4 w-4 text-blue-600" />
+                        Facebook
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {
+                          const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
+                          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, "_blank");
+                        }}
+                        data-testid={`button-share-x-${ev.id}`}
+                      >
+                        <span className="font-bold text-sm leading-none">𝕏</span>
+                        X / Twitter
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(window.location.href);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        data-testid={`button-share-copy-${ev.id}`}
+                      >
+                        <Copy className="h-4 w-4" />
+                        {copiedLink ? "Kopiert!" : "Link kopieren"}
+                      </Button>
+                    </div>
+                  </div>
 
                   <Button
                     className="w-full"

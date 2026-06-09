@@ -54,6 +54,13 @@ pool.query(`
     "value" text NOT NULL,
     "updated_at" timestamp NOT NULL DEFAULT now()
   );
+  CREATE TABLE IF NOT EXISTS event_photos (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    caption TEXT,
+    uploaded_at TIMESTAMP NOT NULL DEFAULT now()
+  );
 `).then(() => {
   console.log("[session] table ready");
 }).catch((err) => {

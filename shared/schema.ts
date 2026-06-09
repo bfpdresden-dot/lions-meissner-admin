@@ -87,6 +87,18 @@ export const registrationsRelations = relations(registrations, ({ one }) => ({
   }),
 }));
 
+export const eventPhotos = pgTable("event_photos", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  filename: text("filename").notNull(),
+  caption: text("caption"),
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+});
+
+export type EventPhoto = typeof eventPhotos.$inferSelect;
+export const insertEventPhotoSchema = createInsertSchema(eventPhotos).omit({ id: true, uploadedAt: true });
+export type InsertEventPhoto = z.infer<typeof insertEventPhotoSchema>;
+
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
   createdAt: true,
