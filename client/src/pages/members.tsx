@@ -677,7 +677,18 @@ export default function MembersPage() {
                   {upcomingEvents.length > 0 && (
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground">Veranstaltungsbezug (optional)</label>
-                      <Select value={aiEventId} onValueChange={setAiEventId}>
+                      <Select
+                        value={aiEventId}
+                        onValueChange={(val) => {
+                          setAiEventId(val);
+                          if (val && val !== "none") {
+                            const ev = upcomingEvents.find((e) => String(e.id) === val);
+                            if (ev && !emailSubject.trim()) {
+                              setEmailSubject(`Einladung: ${ev.title}`);
+                            }
+                          }
+                        }}
+                      >
                         <SelectTrigger className="h-8 text-xs" data-testid="select-ai-event">
                           <SelectValue placeholder="Veranstaltung auswählen…" />
                         </SelectTrigger>
