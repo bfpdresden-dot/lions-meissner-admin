@@ -34,6 +34,14 @@ async function pushToExternalServer(localFilePath: string, originalName: string,
   const data = await res.json() as { url?: string; error?: string };
   if (!data.url) throw new Error(data.error || "No URL returned");
   fs.unlinkSync(localFilePath);
+  // Sanitize URL: extract clean base + /uploads/filename in case PHP script
+  // returned a malformed URL when the secret key contained special chars
+  const urlMatch = data.url.match(/\/uploads\/([^?#]+)$/);
+  if (urlMatch) {
+    const extUrl2 = process.env.WEBSERVER_UPLOAD_URL!;
+    const base = new URL(extUrl2).origin;
+    return `${base}/uploads/${urlMatch[1]}`;
+  }
   return data.url;
 }
 

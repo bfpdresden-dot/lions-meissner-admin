@@ -78,7 +78,7 @@ if (!move_uploaded_file($file['tmp_name'], $uploadDir . $safeName)) {
 }
 
 $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$baseUrl = $proto . '://' . $_SERVER['HTTP_HOST'] . rtrim(dirname($_SERVER['REQUEST_URI']), '/');
+$baseUrl = $proto . '://' . $_SERVER['HTTP_HOST'];
 $fileUrl = $baseUrl . '/uploads/' . $safeName;
 
 echo json_encode(['url' => $fileUrl]);
