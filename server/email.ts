@@ -36,16 +36,23 @@ async function getSendGridApiKey(): Promise<string> {
   return apiKey;
 }
 
+function sanitizeEmail(raw: string): string {
+  // trim whitespace, take first token, remove trailing punctuation
+  const cleaned = raw.trim().split(/\s+/)[0].replace(/[.,;]+$/, "");
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned) ? cleaned : "";
+}
+
 async function getSenderInfo(): Promise<{ name: string; email: string }> {
   try {
     const settings = await storage.getSettings();
-    const email = settings.senderEmail || process.env.SENDGRID_FROM_EMAIL || "";
+    const rawEmail = settings.senderEmail || process.env.SENDGRID_FROM_EMAIL || "";
+    const email = sanitizeEmail(rawEmail);
     const name = settings.senderName || settings.clubName || "Lions Club Meißner Land";
     if (email) return { name, email };
   } catch {
     // fall through to env var
   }
-  const email = process.env.SENDGRID_FROM_EMAIL || "";
+  const email = sanitizeEmail(process.env.SENDGRID_FROM_EMAIL || "");
   return { name: "Lions Club Meißner Land", email };
 }
 
