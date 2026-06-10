@@ -37,7 +37,6 @@ async function getSendGridApiKey(): Promise<string> {
 }
 
 function sanitizeEmail(raw: string): string {
-  // trim whitespace, take first token, remove trailing punctuation
   const cleaned = raw.trim().split(/\s+/)[0].replace(/[.,;]+$/, "");
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned) ? cleaned : "";
 }
@@ -56,6 +55,91 @@ async function getSenderInfo(): Promise<{ name: string; email: string }> {
   return { name: "Lions Club Meißner Land", email };
 }
 
+// ── Shared layout ─────────────────────────────────────────────────────────────
+
+function buildEmailBase(content: string, clubName: string, address: string): string {
+  return `<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:40px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <!-- Header -->
+      <tr>
+        <td style="background-color:#1a3a5c;border-radius:8px 8px 0 0;padding:32px 40px;text-align:center;">
+          <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">${clubName}</p>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#c8a84b;letter-spacing:2px;text-transform:uppercase;font-style:italic;">We Serve</p>
+        </td>
+      </tr>
+
+      <!-- Gold divider -->
+      <tr>
+        <td style="background-color:#c8a84b;height:3px;line-height:3px;font-size:0;">&nbsp;</td>
+      </tr>
+
+      <!-- Content -->
+      <tr>
+        <td style="background-color:#ffffff;padding:40px;border-radius:0 0 8px 8px;">
+          ${content}
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="padding:24px 40px;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+            ${clubName}${address ? `&nbsp;&middot;&nbsp;${address}` : ""}
+          </p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function btn(href: string, label: string): string {
+  return `<table cellpadding="0" cellspacing="0" style="margin:32px auto;">
+    <tr>
+      <td style="background-color:#1a3a5c;border-radius:6px;">
+        <a href="${href}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">${label}</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function detailRow(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;width:110px;vertical-align:top;">
+      <span style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">${label}</span>
+    </td>
+    <td style="padding:8px 0 8px 16px;border-bottom:1px solid #f3f4f6;vertical-align:top;">
+      <span style="font-size:14px;color:#1f2937;">${value}</span>
+    </td>
+  </tr>`;
+}
+
+function greeting(firstName: string): string {
+  return `<p style="font-size:18px;font-weight:600;color:#1a3a5c;margin:0 0 16px 0;">Guten Tag, ${firstName},</p>`;
+}
+
+function footnote(text: string): string {
+  return `<p style="font-size:12px;color:#9ca3af;line-height:1.6;margin:24px 0 0 0;text-align:center;">${text}</p>`;
+}
+
+function fallbackLink(url: string): string {
+  return `<p style="font-size:11px;color:#9ca3af;margin:8px 0 0 0;text-align:center;">
+    Falls der Button nicht funktioniert, kopieren Sie diesen Link:<br/>
+    <span style="word-break:break-all;color:#6b7280;">${url}</span>
+  </p>`;
+}
+
+// ── sendPasswordResetEmail ────────────────────────────────────────────────────
+
 export async function sendPasswordResetEmail(
   toEmail: string,
   firstName: string,
@@ -73,33 +157,42 @@ export async function sendPasswordResetEmail(
 
   sgMail.setApiKey(apiKey);
 
+  let settings: any = {};
+  try { settings = await storage.getSettings(); } catch {}
+  const clubName = settings.clubName || sender.name;
+  const address = [settings.clubStreet, `${settings.clubZip || ""} ${settings.clubCity || ""}`.trim()]
+    .filter(Boolean).join(" · ");
+
   const resetUrl = `${baseUrl}/passwort-reset?token=${resetToken}`;
 
-  const clubStreet = "";
-  const clubZip = "";
-  const clubCity = "";
+  const content = `
+    ${greeting(firstName)}
+    <p style="font-size:14px;color:#4b5563;line-height:1.7;margin:0 0 8px 0;">
+      Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts für den Mitgliederbereich gestellt.
+      Klicken Sie auf den Button um ein neues Passwort zu vergeben:
+    </p>
+    ${btn(resetUrl, "Neues Passwort vergeben")}
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0;">
+      Dieser Link ist <strong>1 Stunde</strong> gültig. Falls Sie kein neues Passwort angefordert haben, können Sie diese E-Mail ignorieren.
+    </p>
+    ${fallbackLink(resetUrl)}
+  `;
 
   try {
-    const settings = await storage.getSettings();
-    const address = [
-      settings.clubStreet,
-      `${settings.clubZip || ""} ${settings.clubCity || ""}`.trim(),
-    ].filter(Boolean).join(" · ");
-
     await sgMail.send({
       to: toEmail,
       from: { name: sender.name, email: sender.email },
-      subject: `Passwort zurücksetzen – ${sender.name}`,
-      html: buildResetEmailHtml(firstName, resetUrl, sender.name, address),
-      text: `Guten Tag, ${firstName},\n\nSie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.\n\nBitte klicken Sie auf folgenden Link (gültig für 1 Stunde):\n${resetUrl}\n\nFalls Sie kein neues Passwort angefordert haben, ignorieren Sie diese E-Mail.\n\nMit freundlichen Grüßen\n${sender.name}`,
+      subject: `Passwort zurücksetzen – ${clubName}`,
+      html: buildEmailBase(content, clubName, address),
+      text: `Guten Tag, ${firstName},\n\nSie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.\n\nBitte klicken Sie auf folgenden Link (gültig für 1 Stunde):\n${resetUrl}\n\nFalls Sie kein neues Passwort angefordert haben, ignorieren Sie diese E-Mail.\n\nMit freundlichen Grüßen\n${clubName}`,
     });
   } catch (err: any) {
-    if (err?.response?.body) {
-      throw new Error(JSON.stringify(err.response.body));
-    }
+    if (err?.response?.body) throw new Error(JSON.stringify(err.response.body));
     throw err;
   }
 }
+
+// ── sendCustomEmail ───────────────────────────────────────────────────────────
 
 export async function sendCustomEmail(
   recipients: { email: string; firstName: string }[],
@@ -123,25 +216,27 @@ export async function sendCustomEmail(
   const address = [settings.clubStreet, `${settings.clubZip || ""} ${settings.clubCity || ""}`.trim()]
     .filter(Boolean).join(" · ");
 
-  const bodyHtml = body
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br/>");
+  const bodyToHtml = (text: string) =>
+    text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
 
   let sent = 0;
   let failed = 0;
 
   for (const recipient of recipients) {
     try {
-      const personalizedHtml = bodyHtml.replace(/\{\{vorname\}\}/gi, recipient.firstName);
-      const personalizedText = body.replace(/\{\{vorname\}\}/gi, recipient.firstName);
+      const personalizedBody = body.replace(/\{\{vorname\}\}/gi, recipient.firstName);
+      const personalizedHtml = bodyToHtml(personalizedBody);
+      const content = `
+        ${greeting(recipient.firstName)}
+        <div style="font-size:15px;color:#374151;line-height:1.8;">${personalizedHtml}</div>
+        ${footnote(`Sie erhalten diese E-Mail, weil Sie den Newsletter des ${clubName} abonniert haben.`)}
+      `;
       await sgMail.send({
         to: recipient.email,
         from: { name: sender.name, email: sender.email },
         subject,
-        html: buildCustomEmailHtml(subject, personalizedHtml, clubName, address),
-        text: personalizedText,
+        html: buildEmailBase(content, clubName, address),
+        text: personalizedBody,
       });
       sent++;
     } catch {
@@ -152,23 +247,7 @@ export async function sendCustomEmail(
   return { sent, failed };
 }
 
-function buildCustomEmailHtml(subject: string, bodyHtml: string, clubName: string, address: string): string {
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
-        <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
-      </div>
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
-        <h2 style="color: #1a3a5c; margin-top: 0;">${subject}</h2>
-        <div style="color: #333; line-height: 1.7;">${bodyHtml}</div>
-      </div>
-      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
-        ${clubName}${address ? " · " + address : ""}
-      </p>
-    </div>
-  `;
-}
+// ── sendEventNotification ─────────────────────────────────────────────────────
 
 export async function sendEventNotification(
   event: { id: number; title: string; date: string | Date; endDate?: string | Date | null; location: string; description?: string | null },
@@ -204,36 +283,35 @@ export async function sendEventNotification(
   let failed = 0;
 
   for (const sub of subscribers) {
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
-          <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
-        </div>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
-          <h2 style="color: #1a3a5c; margin-top: 0;">Guten Tag, ${sub.firstName},</h2>
-          <p style="color: #333; line-height: 1.6;">wir freuen uns, Sie zu unserer nächsten Veranstaltung einzuladen:</p>
-          <div style="background: white; border-left: 4px solid #b8860b; border-radius: 4px; padding: 20px; margin: 20px 0;">
-            <h3 style="color: #1a3a5c; margin: 0 0 12px 0; font-size: 20px;">${event.title}</h3>
-            <p style="margin: 6px 0; color: #444;">📅 <strong>${dateStr}</strong></p>
-            <p style="margin: 6px 0; color: #444;">🕐 ${timeDisplay}</p>
-            <p style="margin: 6px 0; color: #444;">📍 <a href="${mapsLink}" style="color: #1a3a5c;">${event.location}</a></p>
-            ${descHtml ? `<p style="margin: 16px 0 0 0; color: #555; line-height: 1.7;">${descHtml}</p>` : ""}
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${registerLink}" style="background-color: #1a3a5c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-size: 16px; display: inline-block;">
-              Jetzt anmelden
-            </a>
-          </div>
-          <p style="color: #999; font-size: 12px; text-align: center; line-height: 1.6;">
-            Sie erhalten diese E-Mail, weil Sie den Newsletter des ${clubName} abonniert haben.
-          </p>
-        </div>
-        <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
-          ${clubName}${address ? " · " + address : ""}
-        </p>
-      </div>
+    const content = `
+      ${greeting(sub.firstName)}
+      <p style="font-size:15px;color:#4b5563;line-height:1.7;margin:0 0 24px 0;">
+        wir freuen uns, Sie zu unserer nächsten Veranstaltung einladen zu dürfen.
+      </p>
+
+      <!-- Event card -->
+      <table cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8f9fb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <tr>
+          <td style="background-color:#1a3a5c;border-radius:8px 8px 0 0;padding:16px 24px;">
+            <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;">${event.title}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 24px;">
+            <table cellpadding="0" cellspacing="0" width="100%">
+              ${detailRow("Datum", dateStr)}
+              ${detailRow("Uhrzeit", timeDisplay)}
+              ${detailRow("Ort", `<a href="${mapsLink}" style="color:#1a3a5c;text-decoration:underline;">${event.location}</a>`)}
+              ${descHtml ? detailRow("Details", `<span style="line-height:1.7;">${descHtml}</span>`) : ""}
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      ${btn(registerLink, "Jetzt zur Veranstaltung anmelden")}
+      ${footnote(`Sie erhalten diese E-Mail, weil Sie den Newsletter des ${clubName} abonniert haben.`)}
     `;
+
     const subject = `Einladung: ${event.title} – ${clubName}`;
     let success = true;
     try {
@@ -241,7 +319,7 @@ export async function sendEventNotification(
         to: sub.email,
         from: { name: sender.name, email: sender.email },
         subject,
-        html,
+        html: buildEmailBase(content, clubName, address),
         text: `Guten Tag, ${sub.firstName},\n\nwir laden Sie ein zur Veranstaltung:\n\n${event.title}\n${dateStr}, ${timeDisplay}\n${event.location}\n\n${event.description || ""}\n\nJetzt anmelden: ${registerLink}\n\n${clubName}`,
       });
       sent++;
@@ -262,6 +340,8 @@ export async function sendEventNotification(
 
   return { sent, failed };
 }
+
+// ── sendOptInEmail ────────────────────────────────────────────────────────────
 
 export async function sendOptInEmail(
   toEmail: string,
@@ -288,103 +368,32 @@ export async function sendOptInEmail(
   const confirmUrl = `${baseUrl}/subscribe/confirm/${confirmToken}`;
   const datenschutzUrl = `${baseUrl}/datenschutz`;
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
-        <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
-      </div>
-
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
-        <h2 style="color: #1a3a5c; margin-top: 0;">Guten Tag, ${firstName},</h2>
-        <p style="color: #333; line-height: 1.6;">
-          vielen Dank für Ihre Anmeldung zum Newsletter des ${clubName}.
-          Bitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf den folgenden Button klicken:
-        </p>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${confirmUrl}"
-             style="background-color: #1a3a5c; color: white; padding: 14px 28px;
-                    text-decoration: none; border-radius: 6px; font-size: 16px;
-                    display: inline-block;">
-            ✅ Anmeldung bestätigen
-          </a>
-        </div>
-
-        <p style="color: #333; line-height: 1.6;">
-          <strong>Hinweis zum Geburtstag:</strong> Falls Sie Ihren Geburtstag angegeben haben,
-          wird dieser ausschließlich für unsere interne Geburtstagsliste verwendet –
-          um Sie an Ihrem Geburtstag zu gratulieren. Er wird nicht für andere Zwecke
-          genutzt und nicht an Dritte weitergegeben.
-        </p>
-
-        <p style="color: #666; font-size: 14px; line-height: 1.6;">
-          Weitere Informationen zur Verarbeitung Ihrer Daten finden Sie in unserer
-          <a href="${datenschutzUrl}" style="color: #1a3a5c;">Datenschutzerklärung</a>.
-        </p>
-
-        <p style="color: #999; font-size: 12px; line-height: 1.6;">
-          Falls Sie sich nicht angemeldet haben, können Sie diese E-Mail einfach ignorieren.
-          Der Bestätigungslink ist 7 Tage gültig.<br/>
-          Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:<br/>
-          <span style="word-break: break-all;">${confirmUrl}</span>
-        </p>
-      </div>
-
-      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
-        ${clubName}${address ? " · " + address : ""}
-      </p>
-    </div>
+  const content = `
+    ${greeting(firstName)}
+    <p style="font-size:15px;color:#4b5563;line-height:1.7;margin:0 0 8px 0;">
+      vielen Dank für Ihre Anmeldung. Bitte bestätigen Sie Ihre E-Mail-Adresse mit einem Klick auf den Button:
+    </p>
+    ${btn(confirmUrl, "Anmeldung bestätigen")}
+    <table cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8f9fb;border-radius:6px;border:1px solid #e5e7eb;margin-bottom:8px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#374151;">Hinweis zum Datenschutz</p>
+          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
+            Ein ggf. angegebener Geburtstag wird ausschließlich für unsere interne Geburtstagsliste genutzt und nicht an Dritte weitergegeben.
+            Weitere Informationen finden Sie in unserer <a href="${datenschutzUrl}" style="color:#1a3a5c;">Datenschutzerklärung</a>.
+          </p>
+        </td>
+      </tr>
+    </table>
+    ${footnote("Falls Sie sich nicht angemeldet haben, können Sie diese E-Mail ignorieren. Der Link ist 7 Tage gültig.")}
+    ${fallbackLink(confirmUrl)}
   `;
 
   await sgMail.send({
     to: toEmail,
     from: { name: sender.name, email: sender.email },
-    subject: `Bitte bestätigen Sie Ihre Newsletter-Anmeldung – ${clubName}`,
-    html,
+    subject: `Bitte bestätigen Sie Ihre Anmeldung – ${clubName}`,
+    html: buildEmailBase(content, clubName, address),
+    text: `Guten Tag, ${firstName},\n\nBitte bestätigen Sie Ihre Anmeldung:\n${confirmUrl}\n\nDer Link ist 7 Tage gültig.\n\n${clubName}`,
   });
-}
-
-function buildResetEmailHtml(firstName: string, resetUrl: string, clubName: string, address: string): string {
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
-        <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
-      </div>
-
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
-        <h2 style="color: #1a3a5c; margin-top: 0;">Guten Tag, ${firstName},</h2>
-        <p style="color: #333; line-height: 1.6;">
-          Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts für den Mitgliederbereich gestellt.
-        </p>
-        <p style="color: #333; line-height: 1.6;">
-          Klicken Sie auf den folgenden Button, um ein neues Passwort zu vergeben:
-        </p>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}"
-             style="background-color: #1a3a5c; color: white; padding: 14px 28px;
-                    text-decoration: none; border-radius: 6px; font-size: 16px;
-                    display: inline-block;">
-            Neues Passwort vergeben
-          </a>
-        </div>
-
-        <p style="color: #666; font-size: 14px; line-height: 1.6;">
-          Dieser Link ist <strong>1 Stunde</strong> gültig. Falls Sie kein neues Passwort angefordert haben,
-          können Sie diese E-Mail ignorieren.
-        </p>
-
-        <p style="color: #999; font-size: 12px; word-break: break-all;">
-          Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:<br/>
-          ${resetUrl}
-        </p>
-      </div>
-
-      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
-        ${clubName}${address ? " · " + address : ""}
-      </p>
-    </div>
-  `;
 }
