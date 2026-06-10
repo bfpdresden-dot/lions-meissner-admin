@@ -161,14 +161,14 @@ export default function Dashboard() {
                         className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
                         data-testid={`event-upcoming-${event.id}`}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium truncate">{event.title}</p>
                           <p className="text-sm text-muted-foreground">
                             {format(new Date(event.date), "dd. MMM yyyy, HH:mm", { locale: de })} Uhr
                           </p>
+                          <p className="text-xs text-muted-foreground truncate">{event.location}</p>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="secondary">{event.location}</Badge>
+                        <div className="shrink-0">
                           <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                       </div>

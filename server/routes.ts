@@ -506,7 +506,7 @@ WICHTIG: Der Nutzer gibt dir eine Beschreibung dessen, was die E-Mail enthalten 
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://lions-meissnerland.replit.app",
+          "HTTP-Referer": "https://lions-club-meissner-land.de",
           "X-Title": clubName,
         },
         body: JSON.stringify({
@@ -577,7 +577,7 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://lions-meissnerland.replit.app",
+          "HTTP-Referer": "https://lions-club-meissner-land.de",
           "X-Title": clubName,
         },
         body: JSON.stringify({
