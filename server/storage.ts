@@ -5,6 +5,7 @@ import {
   passwordResetTokens,
   settings,
   eventPhotos,
+  emailLogs,
   type Event,
   type InsertEvent,
   type Subscriber,
@@ -14,6 +15,7 @@ import {
   type PasswordResetToken,
   type Setting,
   type EventPhoto,
+  type EmailLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -44,6 +46,9 @@ export interface IStorage {
   deleteRegistration(id: number): Promise<void>;
   getGuestCountByEvent(eventId: number): Promise<number>;
   getAllGuestCounts(): Promise<Record<number, number>>;
+
+  createEmailLog(log: { eventId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void>;
+  getEmailLogsByEvent(eventId: number): Promise<import("@shared/schema").EmailLog[]>;
 
   getEventPhotos(eventId: number): Promise<EventPhoto[]>;
   createEventPhoto(eventId: number, filename: string, caption?: string): Promise<EventPhoto>;
@@ -175,6 +180,14 @@ export class DatabaseStorage implements IStorage {
       counts[row.eventId] = Number(row.total);
     }
     return counts;
+  }
+
+  async createEmailLog(log: { eventId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void> {
+    await db.insert(emailLogs).values(log);
+  }
+
+  async getEmailLogsByEvent(eventId: number): Promise<EmailLog[]> {
+    return db.select().from(emailLogs).where(eq(emailLogs.eventId, eventId)).orderBy(emailLogs.sentAt);
   }
 
   async getEventPhotos(eventId: number): Promise<EventPhoto[]> {

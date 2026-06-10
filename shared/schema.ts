@@ -99,6 +99,18 @@ export type EventPhoto = typeof eventPhotos.$inferSelect;
 export const insertEventPhotoSchema = createInsertSchema(eventPhotos).omit({ id: true, uploadedAt: true });
 export type InsertEventPhoto = z.infer<typeof insertEventPhotoSchema>;
 
+export const emailLogs = pgTable("email_logs", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id"),
+  recipientEmail: text("recipient_email").notNull(),
+  recipientName: text("recipient_name").notNull(),
+  subject: text("subject").notNull(),
+  success: boolean("success").notNull().default(true),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+});
+
+export type EmailLog = typeof emailLogs.$inferSelect;
+
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
   createdAt: true,

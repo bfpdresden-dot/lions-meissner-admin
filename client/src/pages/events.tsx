@@ -55,7 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Event, InsertEvent, Registration, EventPhoto, Subscriber } from "@shared/schema";
+import type { Event, InsertEvent, Registration, EventPhoto, Subscriber, EmailLog } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
 
 function fileUrl(filenameOrUrl: string): string {
@@ -241,6 +241,12 @@ export default function EventsPage() {
   const { data: eventGuests } = useQuery<Registration[]>({
     queryKey: ["/api/registrations/event", viewGuestsEventId],
     enabled: viewGuestsEventId !== null,
+  });
+
+  const { data: emailLogEntries } = useQuery<EmailLog[]>({
+    queryKey: ["/api/events", detailEventId, "email-logs"],
+    queryFn: () => fetch(`/api/events/${detailEventId}/email-logs`).then((r) => r.json()),
+    enabled: detailEventId !== null,
   });
 
   const { data: eventPhotos, refetch: refetchPhotos } = useQuery<EventPhoto[]>({
@@ -1203,6 +1209,28 @@ export default function EventsPage() {
                           )}
                         </a>
                       </Button>
+                    </div>
+                  )}
+
+                  {/* E-Mail-Protokoll */}
+                  {emailLogEntries && emailLogEntries.length > 0 && (
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <Bell className="h-3.5 w-3.5" />
+                        Versand-Protokoll ({emailLogEntries.length} E-Mails)
+                      </p>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {emailLogEntries.map((log) => (
+                          <div key={log.id} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                            <span className={log.success ? "text-foreground" : "text-destructive line-through"}>
+                              {log.recipientName} — {log.recipientEmail}
+                            </span>
+                            <span className="text-muted-foreground shrink-0 ml-2">
+                              {format(new Date(log.sentAt), "dd.MM.yy HH:mm", { locale: de })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

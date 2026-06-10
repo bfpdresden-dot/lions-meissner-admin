@@ -961,6 +961,13 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.status(201).json(registration);
   });
 
+  app.get("/api/events/:id/email-logs", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const logs = await storage.getEmailLogsByEvent(id);
+    res.json(logs);
+  });
+
   app.post("/api/events/:id/notify", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });

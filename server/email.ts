@@ -234,18 +234,30 @@ export async function sendEventNotification(
         </p>
       </div>
     `;
+    const subject = `Einladung: ${event.title} – ${clubName}`;
+    let success = true;
     try {
       await sgMail.send({
         to: sub.email,
         from: { name: sender.name, email: sender.email },
-        subject: `Einladung: ${event.title} – ${clubName}`,
+        subject,
         html,
         text: `Guten Tag, ${sub.firstName},\n\nwir laden Sie ein zur Veranstaltung:\n\n${event.title}\n${dateStr}, ${timeDisplay}\n${event.location}\n\n${event.description || ""}\n\nJetzt anmelden: ${registerLink}\n\n${clubName}`,
       });
       sent++;
     } catch {
       failed++;
+      success = false;
     }
+    try {
+      await storage.createEmailLog({
+        eventId: event.id,
+        recipientEmail: sub.email,
+        recipientName: sub.firstName,
+        subject,
+        success,
+      });
+    } catch {}
   }
 
   return { sent, failed };
