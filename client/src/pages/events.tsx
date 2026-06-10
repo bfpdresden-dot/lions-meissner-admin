@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -113,6 +113,15 @@ export default function EventsPage() {
   const { data: allMembers } = useQuery<Subscriber[]>({
     queryKey: ["/api/members"],
     enabled: viewGuestsEventId !== null,
+  });
+
+  const notifyMutation = useMutation({
+    mutationFn: (eventId: number) => apiRequest("POST", `/api/events/${eventId}/notify`, {}),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      toast({ title: `✉️ ${data.sent} von ${data.total} E-Mails versendet${data.failed > 0 ? ` (${data.failed} fehlgeschlagen)` : ""}` });
+    },
+    onError: () => toast({ title: "Fehler beim Versenden", variant: "destructive" }),
   });
 
   const updateRegCountMutation = useMutation({
@@ -793,6 +802,36 @@ export default function EventsPage() {
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              disabled={notifyMutation.isPending}
+                              data-testid={`button-notify-event-${event.id}`}
+                              title="Abonnenten benachrichtigen"
+                            >
+                              {notifyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Abonnenten benachrichtigen?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Alle aktiven Newsletter-Abonnenten erhalten eine Einladungs-E-Mail zur Veranstaltung &quot;{event.title}&quot;.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => notifyMutation.mutate(event.id)}
+                                data-testid={`button-confirm-notify-${event.id}`}
+                              >
+                                E-Mails versenden
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button

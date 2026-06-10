@@ -961,6 +961,20 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.status(201).json(registration);
   });
 
+  app.post("/api/events/:id/notify", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    const allSubs = await storage.getSubscribers();
+    const activeSubs = allSubs.filter((s) => s.isActive);
+    if (activeSubs.length === 0) return res.json({ sent: 0, failed: 0, total: 0 });
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const { sendEventNotification } = await import("./email");
+    const result = await sendEventNotification(event as any, activeSubs, baseUrl);
+    res.json({ ...result, total: activeSubs.length });
+  });
+
   app.patch("/api/registrations/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });

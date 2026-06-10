@@ -170,6 +170,87 @@ function buildCustomEmailHtml(subject: string, bodyHtml: string, clubName: strin
   `;
 }
 
+export async function sendEventNotification(
+  event: { id: number; title: string; date: string | Date; endDate?: string | Date | null; location: string; description?: string | null },
+  subscribers: { email: string; firstName: string }[],
+  baseUrl: string
+): Promise<{ sent: number; failed: number }> {
+  const apiKey = await getSendGridApiKey();
+  const sender = await getSenderInfo();
+
+  if (!sender.email) {
+    throw new Error(
+      "Absender-E-Mail nicht konfiguriert. Bitte hinterlegen Sie die Absender-E-Mail unter Einstellungen im Admin-Bereich."
+    );
+  }
+
+  sgMail.setApiKey(apiKey);
+
+  let settings: any = {};
+  try { settings = await storage.getSettings(); } catch {}
+  const clubName = settings.clubName || sender.name;
+  const address = [settings.clubStreet, `${settings.clubZip || ""} ${settings.clubCity || ""}`.trim()]
+    .filter(Boolean).join(" · ");
+
+  const dateStr = new Date(event.date).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  const timeStr = new Date(event.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  const endTimeStr = event.endDate ? new Date(event.endDate).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
+  const timeDisplay = endTimeStr ? `${timeStr} – ${endTimeStr} Uhr` : `${timeStr} Uhr`;
+  const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
+  const registerLink = `${baseUrl}/veranstaltungen`;
+  const descHtml = (event.description || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const sub of subscribers) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1a3a5c; font-size: 24px; margin: 0;">${clubName}</h1>
+          <p style="color: #b8860b; margin: 5px 0 0 0; font-style: italic;">We Serve</p>
+        </div>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 30px;">
+          <h2 style="color: #1a3a5c; margin-top: 0;">Guten Tag, ${sub.firstName},</h2>
+          <p style="color: #333; line-height: 1.6;">wir freuen uns, Sie zu unserer nächsten Veranstaltung einzuladen:</p>
+          <div style="background: white; border-left: 4px solid #b8860b; border-radius: 4px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #1a3a5c; margin: 0 0 12px 0; font-size: 20px;">${event.title}</h3>
+            <p style="margin: 6px 0; color: #444;">📅 <strong>${dateStr}</strong></p>
+            <p style="margin: 6px 0; color: #444;">🕐 ${timeDisplay}</p>
+            <p style="margin: 6px 0; color: #444;">📍 <a href="${mapsLink}" style="color: #1a3a5c;">${event.location}</a></p>
+            ${descHtml ? `<p style="margin: 16px 0 0 0; color: #555; line-height: 1.7;">${descHtml}</p>` : ""}
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${registerLink}" style="background-color: #1a3a5c; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-size: 16px; display: inline-block;">
+              Jetzt anmelden
+            </a>
+          </div>
+          <p style="color: #999; font-size: 12px; text-align: center; line-height: 1.6;">
+            Sie erhalten diese E-Mail, weil Sie den Newsletter des ${clubName} abonniert haben.
+          </p>
+        </div>
+        <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
+          ${clubName}${address ? " · " + address : ""}
+        </p>
+      </div>
+    `;
+    try {
+      await sgMail.send({
+        to: sub.email,
+        from: { name: sender.name, email: sender.email },
+        subject: `Einladung: ${event.title} – ${clubName}`,
+        html,
+        text: `Guten Tag, ${sub.firstName},\n\nwir laden Sie ein zur Veranstaltung:\n\n${event.title}\n${dateStr}, ${timeDisplay}\n${event.location}\n\n${event.description || ""}\n\nJetzt anmelden: ${registerLink}\n\n${clubName}`,
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return { sent, failed };
+}
+
 export async function sendOptInEmail(
   toEmail: string,
   firstName: string,
