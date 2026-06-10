@@ -1088,7 +1088,7 @@ export default function EventsPage() {
                     <div className="flex items-start gap-2.5">
                       <Users className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       <span>
-                        {guestCount} Gäste angemeldet
+                        {guestCount} Teilnehmer angemeldet
                         {ev.maxParticipants && <> · Max. {ev.maxParticipants} Personen</>}
                       </span>
                     </div>
