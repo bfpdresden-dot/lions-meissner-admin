@@ -640,7 +640,8 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
 
     try {
       const recipients = targets.map((m) => ({ email: m.email, firstName: m.firstName }));
-      const result = await sendCustomEmail(recipients, subject, body);
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const result = await sendCustomEmail(recipients, subject, body, baseUrl);
       return res.json(result);
     } catch (err: any) {
       console.error("Send email error:", err);

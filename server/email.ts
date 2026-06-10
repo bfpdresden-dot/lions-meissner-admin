@@ -57,7 +57,8 @@ async function getSenderInfo(): Promise<{ name: string; email: string }> {
 
 // ── Shared layout ─────────────────────────────────────────────────────────────
 
-function buildEmailBase(content: string, clubName: string, address: string): string {
+function buildEmailBase(content: string, clubName: string, address: string, baseUrl?: string): string {
+  const logoUrl = baseUrl ? `${baseUrl}/images/lions-logo.png` : "";
   return `<!DOCTYPE html>
 <html lang="de">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -68,7 +69,8 @@ function buildEmailBase(content: string, clubName: string, address: string): str
 
       <!-- Header -->
       <tr>
-        <td style="background-color:#1a3a5c;border-radius:8px 8px 0 0;padding:32px 40px;text-align:center;">
+        <td style="background-color:#1a3a5c;border-radius:8px 8px 0 0;padding:28px 40px;text-align:center;">
+          ${logoUrl ? `<img src="${logoUrl}" alt="${clubName}" width="80" height="80" style="display:block;margin:0 auto 14px auto;border-radius:50%;border:2px solid #c8a84b;object-fit:cover;" />` : ""}
           <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">${clubName}</p>
           <p style="margin:6px 0 0 0;font-size:13px;color:#c8a84b;letter-spacing:2px;text-transform:uppercase;font-style:italic;">We Serve</p>
         </td>
@@ -183,7 +185,7 @@ export async function sendPasswordResetEmail(
       to: toEmail,
       from: { name: sender.name, email: sender.email },
       subject: `Passwort zurücksetzen – ${clubName}`,
-      html: buildEmailBase(content, clubName, address),
+      html: buildEmailBase(content, clubName, address, baseUrl),
       text: `Guten Tag, ${firstName},\n\nSie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.\n\nBitte klicken Sie auf folgenden Link (gültig für 1 Stunde):\n${resetUrl}\n\nFalls Sie kein neues Passwort angefordert haben, ignorieren Sie diese E-Mail.\n\nMit freundlichen Grüßen\n${clubName}`,
     });
   } catch (err: any) {
@@ -197,7 +199,8 @@ export async function sendPasswordResetEmail(
 export async function sendCustomEmail(
   recipients: { email: string; firstName: string }[],
   subject: string,
-  body: string
+  body: string,
+  baseUrl?: string
 ): Promise<{ sent: number; failed: number }> {
   const apiKey = await getSendGridApiKey();
   const sender = await getSenderInfo();
@@ -235,7 +238,7 @@ export async function sendCustomEmail(
         to: recipient.email,
         from: { name: sender.name, email: sender.email },
         subject,
-        html: buildEmailBase(content, clubName, address),
+        html: buildEmailBase(content, clubName, address, baseUrl),
         text: personalizedBody,
       });
       sent++;
@@ -319,7 +322,7 @@ export async function sendEventNotification(
         to: sub.email,
         from: { name: sender.name, email: sender.email },
         subject,
-        html: buildEmailBase(content, clubName, address),
+        html: buildEmailBase(content, clubName, address, baseUrl),
         text: `Guten Tag, ${sub.firstName},\n\nwir laden Sie ein zur Veranstaltung:\n\n${event.title}\n${dateStr}, ${timeDisplay}\n${event.location}\n\n${event.description || ""}\n\nJetzt anmelden: ${registerLink}\n\n${clubName}`,
       });
       sent++;
@@ -393,7 +396,7 @@ export async function sendOptInEmail(
     to: toEmail,
     from: { name: sender.name, email: sender.email },
     subject: `Bitte bestätigen Sie Ihre Anmeldung – ${clubName}`,
-    html: buildEmailBase(content, clubName, address),
+    html: buildEmailBase(content, clubName, address, baseUrl),
     text: `Guten Tag, ${firstName},\n\nBitte bestätigen Sie Ihre Anmeldung:\n${confirmUrl}\n\nDer Link ist 7 Tage gültig.\n\n${clubName}`,
   });
 }
