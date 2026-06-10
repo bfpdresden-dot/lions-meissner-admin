@@ -898,11 +898,19 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     if (!token) return res.status(400).json({ error: "Kein Token angegeben" });
     const subscriber = await storage.getSubscriberByConfirmToken(token);
     if (!subscriber) return res.status(404).json({ error: "Ungültiger oder bereits verwendeter Bestätigungslink" });
-    await storage.updateSubscriber(subscriber.id, {
-      isActive: true,
-      confirmedAt: new Date(),
-      confirmToken: null,
-    } as any);
+    res.json({ valid: true, firstName: subscriber.firstName, hasPassword: !!subscriber.passwordHash });
+  });
+
+  app.post("/api/subscribe/confirm/:token", async (req, res) => {
+    const { token } = req.params;
+    if (!token) return res.status(400).json({ error: "Kein Token angegeben" });
+    const subscriber = await storage.getSubscriberByConfirmToken(token);
+    if (!subscriber) return res.status(404).json({ error: "Ungültiger oder bereits verwendeter Bestätigungslink" });
+    const updates: any = { isActive: true, confirmedAt: new Date(), confirmToken: null };
+    if (req.body.password) {
+      updates.passwordHash = await bcrypt.hash(req.body.password, 10);
+    }
+    await storage.updateSubscriber(subscriber.id, updates);
     res.json({ ok: true, firstName: subscriber.firstName });
   });
 
