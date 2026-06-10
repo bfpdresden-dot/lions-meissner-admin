@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus } from "lucide-react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +43,13 @@ function fileUrl(filenameOrUrl: string): string {
 
 function mapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
+function googleCalUrl(ev: { title: string; date: string | Date; endDate?: string | Date | null; description?: string | null; location: string }): string {
+  const fmt = (d: string | Date) => format(new Date(d), "yyyyMMdd'T'HHmmss");
+  const start = fmt(ev.date);
+  const end = ev.endDate ? fmt(ev.endDate) : start;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title)}&dates=${start}/${end}&details=${encodeURIComponent(ev.description || "")}&location=${encodeURIComponent(ev.location)}`;
 }
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -499,6 +506,13 @@ export default function PublicEventsPage() {
                   <div className="border-t pt-4">
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{ev.description}</p>
                   </div>
+
+                  <Button variant="outline" size="sm" asChild className="w-full">
+                    <a href={googleCalUrl(ev)} target="_blank" rel="noopener noreferrer" data-testid={`button-gcal-public-${ev.id}`}>
+                      <CalendarPlus className="h-4 w-4 mr-2 text-blue-500" />
+                      Zu Google Kalender hinzufügen
+                    </a>
+                  </Button>
 
                   {(ev as any).programPdf && (ev as any).programPdfPublic && (
                     <Button variant="outline" size="sm" asChild className="w-full">

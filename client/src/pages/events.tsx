@@ -45,10 +45,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
-import type { Event, InsertEvent, Registration, EventPhoto } from "@shared/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Event, InsertEvent, Registration, EventPhoto, Subscriber } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
 
 function fileUrl(filenameOrUrl: string): string {
@@ -59,6 +66,13 @@ function fileUrl(filenameOrUrl: string): string {
 
 function mapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
+function googleCalUrl(ev: { title: string; date: string | Date; endDate?: string | Date | null; description?: string | null; location: string }): string {
+  const fmt = (d: string | Date) => format(new Date(d), "yyyyMMdd'T'HHmmss");
+  const start = fmt(ev.date);
+  const end = ev.endDate ? fmt(ev.endDate) : start;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title)}&dates=${start}/${end}&details=${encodeURIComponent(ev.description || "")}&location=${encodeURIComponent(ev.location)}`;
 }
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -93,7 +107,35 @@ export default function EventsPage() {
   const [aiEventName, setAiEventName] = useState("");
   const [aiEventDate, setAiEventDate] = useState("");
   const [aiPrefilledValues, setAiPrefilledValues] = useState<Partial<EventFormValues> | null>(null);
+  const [addMemberSelected, setAddMemberSelected] = useState<string>("");
   const { toast } = useToast();
+
+  const { data: allMembers } = useQuery<Subscriber[]>({
+    queryKey: ["/api/members"],
+    enabled: viewGuestsEventId !== null,
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: async (member: Subscriber) => {
+      const res = await apiRequest("POST", "/api/registrations", {
+        eventId: viewGuestsEventId,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        email: member.email,
+        phone: member.phone || "",
+        guestCount: 1,
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Fehler"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/event", viewGuestsEventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
+      setAddMemberSelected("");
+      toast({ title: "Mitglied angemeldet" });
+    },
+    onError: (err: Error) => toast({ title: "Fehler", description: err.message, variant: "destructive" }),
+  });
 
   const aiMutation = useMutation({
     mutationFn: async ({ name, date }: { name: string; date: string }) => {
@@ -903,6 +945,42 @@ export default function EventsPage() {
                 ({eventGuests.length} {eventGuests.length === 1 ? "Anmeldung" : "Anmeldungen"})
               </div>
             )}
+
+            {/* Add member section */}
+            {(() => {
+              const registeredEmails = new Set((eventGuests || []).map((r) => r.email.toLowerCase()));
+              const unregistered = (allMembers || []).filter((m) => !registeredEmails.has(m.email.toLowerCase()));
+              const selectedMember = unregistered.find((m) => String(m.id) === addMemberSelected);
+              return (
+                <div className="border-t pt-3 space-y-2">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <UserPlus className="h-4 w-4" />
+                    Mitglied anmelden
+                  </p>
+                  <div className="flex gap-2">
+                    <Select value={addMemberSelected} onValueChange={setAddMemberSelected}>
+                      <SelectTrigger className="flex-1" data-testid="select-add-member">
+                        <SelectValue placeholder={unregistered.length === 0 ? "Alle Mitglieder angemeldet" : "Mitglied auswählen…"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unregistered.map((m) => (
+                          <SelectItem key={m.id} value={String(m.id)}>
+                            {m.firstName} {m.lastName} — {m.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      disabled={!selectedMember || addMemberMutation.isPending}
+                      onClick={() => selectedMember && addMemberMutation.mutate(selectedMember)}
+                      data-testid="button-add-member"
+                    >
+                      {addMemberMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Anmelden"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 
@@ -1038,6 +1116,15 @@ export default function EventsPage() {
                       <pre className="whitespace-pre-wrap font-sans leading-relaxed">{(ev as any).agenda}</pre>
                     </div>
                   )}
+
+                  <div className="border-t pt-3">
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <a href={googleCalUrl(ev)} target="_blank" rel="noopener noreferrer" data-testid={`button-gcal-detail-${ev.id}`}>
+                        <CalendarPlus className="h-4 w-4 mr-2 text-blue-500" />
+                        Zu Google Kalender hinzufügen
+                      </a>
+                    </Button>
+                  </div>
 
                   {(ev as any).programPdf && (
                     <div className="border-t pt-3">
