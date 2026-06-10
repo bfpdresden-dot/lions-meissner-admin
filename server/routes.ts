@@ -8,7 +8,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { insertEventSchema, insertSubscriberSchema, insertRegistrationSchema } from "@shared/schema";
 import { requireAdmin, hasAnyAdmin } from "./auth";
-import { sendPasswordResetEmail, sendCustomEmail, sendOptInEmail } from "./email";
+import { sendPasswordResetEmail, sendCustomEmail, sendOptInEmail, sendRegistrationConfirmation } from "./email";
 import { z } from "zod";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -885,13 +885,16 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
       confirmToken,
     });
 
-    // Send double opt-in email (fire and forget — don't block response on email failure)
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    sendOptInEmail(email.trim().toLowerCase(), firstName, confirmToken, baseUrl).catch((err) => {
+    let emailSent = false;
+    try {
+      await sendOptInEmail(email.trim().toLowerCase(), firstName, confirmToken, baseUrl);
+      emailSent = true;
+    } catch (err: any) {
       console.error("[opt-in email]", err.message);
-    });
+    }
 
-    res.status(201).json({ pending: true, id: subscriber.id });
+    res.status(201).json({ pending: true, id: subscriber.id, emailSent });
   });
 
   app.get("/api/subscribe/confirm/:token", async (req, res) => {
@@ -967,6 +970,15 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
       phone: phone || null,
       guestCount: guestCount || 1,
     });
+
+    // Send confirmation email (fire and forget)
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    sendRegistrationConfirmation(
+      { firstName, lastName, email, guestCount: guestCount || 1 },
+      event as any,
+      baseUrl
+    ).catch((err) => console.error("[registration confirmation]", err.message));
+
     res.status(201).json(registration);
   });
 

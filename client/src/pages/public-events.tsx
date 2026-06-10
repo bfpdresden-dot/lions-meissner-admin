@@ -193,9 +193,16 @@ export default function PublicEventsPage() {
       });
       return res.json();
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       setSubscribeSuccess(!!variables.password);
       subscribeForm.reset();
+      if (data?.emailSent === false) {
+        toast({
+          title: "Anmeldung gespeichert",
+          description: "Ihre Daten wurden gespeichert, aber die Bestätigungs-E-Mail konnte nicht zugestellt werden. Bitte wenden Sie sich an den Administrator.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       if (error.message.includes("409")) {

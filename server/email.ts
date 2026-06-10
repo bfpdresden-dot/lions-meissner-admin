@@ -344,6 +344,74 @@ export async function sendEventNotification(
   return { sent, failed };
 }
 
+// ── sendRegistrationConfirmation ─────────────────────────────────────────────
+
+export async function sendRegistrationConfirmation(
+  registration: { firstName: string; lastName: string; email: string; guestCount: number },
+  event: { title: string; date: string | Date; endDate?: string | Date | null; location: string; description?: string | null },
+  baseUrl: string
+): Promise<void> {
+  const apiKey = await getSendGridApiKey();
+  const sender = await getSenderInfo();
+  if (!sender.email) return;
+
+  sgMail.setApiKey(apiKey);
+
+  let settings: any = {};
+  try { settings = await storage.getSettings(); } catch {}
+  const clubName = settings.clubName || sender.name;
+  const address = [settings.clubStreet, `${settings.clubZip || ""} ${settings.clubCity || ""}`.trim()]
+    .filter(Boolean).join(" · ");
+
+  const dateStr = new Date(event.date).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  const timeStr = new Date(event.date).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  const endTimeStr = event.endDate ? new Date(event.endDate).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
+  const timeDisplay = endTimeStr ? `${timeStr} – ${endTimeStr} Uhr` : `${timeStr} Uhr`;
+  const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
+  const calLink = `${baseUrl}/veranstaltungen`;
+
+  const content = `
+    ${greeting(registration.firstName)}
+    <p style="font-size:15px;color:#4b5563;line-height:1.7;margin:0 0 24px 0;">
+      Ihre Anmeldung ist eingegangen. Wir freuen uns auf Ihren Besuch!
+    </p>
+
+    <!-- Event card -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8f9fb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+      <tr>
+        <td style="background-color:#1a3a5c;border-radius:8px 8px 0 0;padding:16px 24px;">
+          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;">${event.title}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 24px;">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            ${detailRow("Datum", dateStr)}
+            ${detailRow("Uhrzeit", timeDisplay)}
+            ${detailRow("Ort", `<a href="${mapsLink}" style="color:#1a3a5c;text-decoration:underline;">${event.location}</a>`)}
+            ${detailRow("Personen", String(registration.guestCount))}
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0 0 24px 0;">
+      Bei Fragen zur Veranstaltung wenden Sie sich bitte direkt an den ${clubName}.
+    </p>
+    ${footnote(`Diese Bestätigung wurde automatisch verschickt – bitte nicht antworten.`)}
+  `;
+
+  await sgMail.send({
+    to: registration.email,
+    from: { name: sender.name, email: sender.email },
+    subject: `Anmeldebestätigung: ${event.title} – ${clubName}`,
+    html: buildEmailBase(content, clubName, address, baseUrl),
+    text: `Guten Tag, ${registration.firstName},\n\nIhre Anmeldung für "${event.title}" ist eingegangen.\n\nDatum: ${dateStr}\nUhrzeit: ${timeDisplay}\nOrt: ${event.location}\nPersonen: ${registration.guestCount}\n\nWir freuen uns auf Ihren Besuch!\n\n${clubName}`,
+  }).catch((err) => {
+    console.error("[registration confirmation email]", err?.response?.body || err.message);
+  });
+}
+
 // ── sendOptInEmail ────────────────────────────────────────────────────────────
 
 export async function sendOptInEmail(

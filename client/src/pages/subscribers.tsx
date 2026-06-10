@@ -237,9 +237,13 @@ export default function SubscribersPage() {
                         {format(new Date(sub.subscribedAt), "dd.MM.yyyy", { locale: de })}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={sub.isActive ? "default" : "secondary"}>
-                          {sub.isActive ? "Aktiv" : "Inaktiv"}
-                        </Badge>
+                        {sub.isActive ? (
+                          <Badge variant="default">Aktiv</Badge>
+                        ) : (sub as any).confirmToken ? (
+                          <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50">Ausstehend</Badge>
+                        ) : (
+                          <Badge variant="secondary">Inaktiv</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <button
