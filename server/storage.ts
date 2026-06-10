@@ -40,6 +40,7 @@ export interface IStorage {
   getRegistrationsByEmail(email: string): Promise<Registration[]>;
   getRegistrationByEmailAndEvent(email: string, eventId: number): Promise<Registration | undefined>;
   createRegistration(registration: InsertRegistration): Promise<Registration>;
+  updateRegistration(id: number, guestCount: number): Promise<Registration>;
   deleteRegistration(id: number): Promise<void>;
   getGuestCountByEvent(eventId: number): Promise<number>;
   getAllGuestCounts(): Promise<Record<number, number>>;
@@ -146,6 +147,11 @@ export class DatabaseStorage implements IStorage {
   async createRegistration(registration: InsertRegistration): Promise<Registration> {
     const [created] = await db.insert(registrations).values(registration).returning();
     return created;
+  }
+
+  async updateRegistration(id: number, guestCount: number): Promise<Registration> {
+    const [updated] = await db.update(registrations).set({ guestCount }).where(eq(registrations.id, id)).returning();
+    return updated;
   }
 
   async deleteRegistration(id: number): Promise<void> {

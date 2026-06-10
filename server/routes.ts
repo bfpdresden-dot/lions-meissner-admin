@@ -961,6 +961,15 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.status(201).json(registration);
   });
 
+  app.patch("/api/registrations/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const guestCount = parseInt(req.body.guestCount, 10);
+    if (isNaN(guestCount) || guestCount < 1) return res.status(400).json({ error: "Ungültige Personenanzahl" });
+    const updated = await storage.updateRegistration(id, guestCount);
+    res.json(updated);
+  });
+
   app.delete("/api/registrations/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });

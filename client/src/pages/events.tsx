@@ -115,6 +115,16 @@ export default function EventsPage() {
     enabled: viewGuestsEventId !== null,
   });
 
+  const updateRegCountMutation = useMutation({
+    mutationFn: ({ id, guestCount }: { id: number; guestCount: number }) =>
+      apiRequest("PATCH", `/api/registrations/${id}`, { guestCount }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/event", viewGuestsEventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
+    },
+    onError: () => toast({ title: "Fehler beim Speichern", variant: "destructive" }),
+  });
+
   const addMemberMutation = useMutation({
     mutationFn: async (member: Subscriber) => {
       const res = await apiRequest("POST", "/api/registrations", {
@@ -900,7 +910,24 @@ export default function EventsPage() {
                       <TableCell className="font-medium">{reg.firstName} {reg.lastName}</TableCell>
                       <TableCell>{reg.email}</TableCell>
                       <TableCell>{reg.phone || "-"}</TableCell>
-                      <TableCell className="text-right">{reg.guestCount}</TableCell>
+                      <TableCell className="text-right">
+                        <input
+                          type="number"
+                          min={1}
+                          defaultValue={reg.guestCount}
+                          className="w-14 text-right border rounded px-1 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                          onBlur={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 1 && val !== reg.guestCount) {
+                              updateRegCountMutation.mutate({ id: reg.id, guestCount: val });
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                          }}
+                          data-testid={`input-guestcount-${reg.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="text-right">
                         {format(new Date(reg.registeredAt), "dd.MM.yyyy", { locale: de })}
                       </TableCell>
