@@ -398,6 +398,26 @@ export async function sendRegistrationConfirmation(
     <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0 0 24px 0;">
       Bei Fragen zur Veranstaltung wenden Sie sich bitte direkt an den ${clubName}.
     </p>
+
+    <!-- Newsletter CTA -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8f9fb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px;">
+      <tr>
+        <td style="padding:20px 24px;text-align:center;">
+          <p style="margin:0 0 6px 0;font-size:14px;font-weight:600;color:#1a3a5c;">Zukünftige Veranstaltungen nicht verpassen</p>
+          <p style="margin:0 0 16px 0;font-size:13px;color:#6b7280;line-height:1.6;">
+            Melden Sie sich für unseren Newsletter an und erhalten Sie Einladungen zu allen kommenden Veranstaltungen des ${clubName}.
+          </p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td style="background-color:#c8a84b;border-radius:6px;">
+                <a href="${baseUrl}/veranstaltungen" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">Newsletter abonnieren</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
     ${footnote(`Diese Bestätigung wurde automatisch verschickt – bitte nicht antworten.`)}
   `;
 
@@ -406,7 +426,7 @@ export async function sendRegistrationConfirmation(
     from: { name: sender.name, email: sender.email },
     subject: `Anmeldebestätigung: ${event.title} – ${clubName}`,
     html: buildEmailBase(content, clubName, address, baseUrl),
-    text: `Guten Tag, ${registration.firstName},\n\nIhre Anmeldung für "${event.title}" ist eingegangen.\n\nDatum: ${dateStr}\nUhrzeit: ${timeDisplay}\nOrt: ${event.location}\nPersonen: ${registration.guestCount}\n\nWir freuen uns auf Ihren Besuch!\n\n${clubName}`,
+    text: `Guten Tag, ${registration.firstName},\n\nIhre Anmeldung für "${event.title}" ist eingegangen.\n\nDatum: ${dateStr}\nUhrzeit: ${timeDisplay}\nOrt: ${event.location}\nPersonen: ${registration.guestCount}\n\nWir freuen uns auf Ihren Besuch!\n\nMöchten Sie zukünftige Einladungen erhalten? Hier können Sie den Newsletter abonnieren:\n${baseUrl}/veranstaltungen\n\n${clubName}`,
   }).catch((err) => {
     console.error("[registration confirmation email]", err?.response?.body || err.message);
   });
