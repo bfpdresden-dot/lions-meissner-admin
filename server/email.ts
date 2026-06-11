@@ -304,7 +304,7 @@ export async function sendEventNotification(
             <table cellpadding="0" cellspacing="0" width="100%">
               ${detailRow("Datum", dateStr)}
               ${detailRow("Uhrzeit", timeDisplay)}
-              ${detailRow("Ort", `<a href="${mapsLink}" style="color:#1a3a5c;text-decoration:underline;">${event.location}</a>`)}
+              ${detailRow("Ort", `<a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="color:#1a3a5c;text-decoration:underline;">${event.location}</a>`)}
               ${descHtml ? detailRow("Details", `<span style="line-height:1.7;">${descHtml}</span>`) : ""}
             </table>
           </td>
@@ -388,7 +388,7 @@ export async function sendRegistrationConfirmation(
           <table cellpadding="0" cellspacing="0" width="100%">
             ${detailRow("Datum", dateStr)}
             ${detailRow("Uhrzeit", timeDisplay)}
-            ${detailRow("Ort", `<a href="${mapsLink}" style="color:#1a3a5c;text-decoration:underline;">${event.location}</a>`)}
+            ${detailRow("Ort", `<a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="color:#1a3a5c;text-decoration:underline;">${event.location}</a>`)}
             ${detailRow("Personen", String(registration.guestCount))}
           </table>
         </td>
