@@ -70,6 +70,7 @@ const registerFormSchema = z.object({
   email: z.string().email("Bitte geben Sie eine gültige E-Mail-Adresse ein"),
   phone: z.string().optional(),
   guestCount: z.string().default("1"),
+  subscribeNewsletter: z.boolean().default(false),
   consent: z.boolean().refine((v) => v === true, {
     message: "Bitte stimmen Sie der Datenschutzerklärung zu.",
   }),
@@ -167,7 +168,20 @@ export default function PublicEventsPage() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async (_result, variables) => {
+      // Also subscribe to newsletter if checkbox was checked
+      if (variables.subscribeNewsletter) {
+        try {
+          await apiRequest("POST", "/api/subscribe", {
+            email: variables.email,
+            firstName: variables.firstName,
+            lastName: variables.lastName,
+            phone: variables.phone || undefined,
+          });
+        } catch {
+          // Silently ignore — e.g. already subscribed
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
       setSuccessEvent(registerEvent?.title || "");
       setRegisterEventId(null);
@@ -221,6 +235,7 @@ export default function PublicEventsPage() {
       email: "",
       phone: "",
       guestCount: "1",
+      subscribeNewsletter: false,
       consent: false,
     },
   });
@@ -240,10 +255,11 @@ export default function PublicEventsPage() {
         email: portalSubscriber.email,
         phone: portalSubscriber.phone || "",
         guestCount: "1",
+        subscribeNewsletter: false,
         consent: false,
       });
     } else {
-      form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1", consent: false });
+      form.reset({ firstName: "", lastName: "", email: "", phone: "", guestCount: "1", subscribeNewsletter: false, consent: false });
     }
     setRegisterEventId(eventId);
   };
@@ -798,6 +814,27 @@ export default function PublicEventsPage() {
                               </Select>
                             </FormControl>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="subscribeNewsletter"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-start gap-3 rounded-md border border-primary/20 bg-primary/5 p-3">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="checkbox-reg-subscribe"
+                                />
+                              </FormControl>
+                              <div className="text-xs leading-relaxed">
+                                <span className="font-medium text-foreground">Ich möchte zukünftige Einladungen erhalten</span>
+                                <span className="text-muted-foreground"> — Ich abonniere den Newsletter und erhalte eine Bestätigungs-E-Mail.</span>
+                              </div>
+                            </div>
                           </FormItem>
                         )}
                       />
