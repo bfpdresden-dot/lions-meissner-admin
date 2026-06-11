@@ -666,7 +666,7 @@ export default function PublicEventsPage() {
 
         {/* Event registration dialog */}
         <Dialog open={registerEventId !== null && !successEvent} onOpenChange={(open) => !open && setRegisterEventId(null)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Anmeldung: {registerEvent?.title}</DialogTitle>
             </DialogHeader>
