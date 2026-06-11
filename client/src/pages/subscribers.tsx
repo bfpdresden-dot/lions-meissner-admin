@@ -43,7 +43,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Mail, Download, Trash2, UserX, UserCheck, Star, KeyRound, Pencil, UserPlus, Clock } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Mail, Download, Trash2, UserX, UserCheck, Star, KeyRound, Pencil, UserPlus, Clock, Send, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Subscriber, Event } from "@shared/schema";
 import { format } from "date-fns";
@@ -72,6 +80,14 @@ type EditValues = z.infer<typeof editSchema>;
 export default function SubscribersPage() {
   const [portalPasswordSub, setPortalPasswordSub] = useState<Subscriber | null>(null);
   const [editSub, setEditSub] = useState<Subscriber | null>(null);
+  const [emailTarget, setEmailTarget] = useState<Subscriber | "all" | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiStyle, setAiStyle] = useState("formell");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiEventId, setAiEventId] = useState("none");
   const { toast } = useToast();
 
   const { data: subscribers, isLoading } = useQuery<Subscriber[]>({
@@ -175,6 +191,31 @@ export default function SubscribersPage() {
     },
   });
 
+  const sendEmailMutation = useMutation({
+    mutationFn: async ({ subscriberIds, subject, body }: { subscriberIds?: number[]; subject: string; body: string }) => {
+      const res = await apiRequest("POST", "/api/subscribers/send-email", { subscriberIds, subject, body });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Fehler beim Senden");
+      }
+      return res.json() as Promise<{ sent: number; failed: number }>;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "E-Mail gesendet",
+        description: `${data.sent} erfolgreich${data.failed > 0 ? `, ${data.failed} fehlgeschlagen` : ""}`,
+      });
+      setEmailTarget(null);
+      setEmailSubject("");
+      setEmailBody("");
+      setAiOpen(false);
+      setAiPrompt("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleExport = async () => {
     try {
       const res = await fetch("/api/subscribers/export");
@@ -224,15 +265,26 @@ export default function SubscribersPage() {
             <h1 className="text-2xl font-bold" data-testid="text-subscribers-title">Abonnenten</h1>
             <p className="text-muted-foreground mt-1">Verwalten Sie Ihre Newsletter-Abonnenten</p>
           </div>
-          <Button
-            variant="secondary"
-            onClick={handleExport}
-            disabled={!confirmedSubscribers.length}
-            data-testid="button-export-subscribers"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            CSV Export
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              disabled={!confirmedSubscribers.length}
+              data-testid="button-export-subscribers"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              CSV Export
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => { setEmailTarget("all"); setEmailSubject(""); setEmailBody(""); setAiOpen(false); setAiPrompt(""); }}
+              disabled={!confirmedSubscribers.length}
+              data-testid="button-email-all-subscribers"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              E-Mail an alle
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="subscribers">
@@ -298,6 +350,9 @@ export default function SubscribersPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => { setEmailTarget(sub); setEmailSubject(""); setEmailBody(""); setAiOpen(false); setAiPrompt(""); }} title="E-Mail senden" data-testid={`button-email-subscriber-${sub.id}`}>
+                                <Mail className="h-4 w-4" />
+                              </Button>
                               {/* Portal password */}
                               <Dialog open={portalPasswordSub?.id === sub.id} onOpenChange={(open) => !open && setPortalPasswordSub(null)}>
                                 <DialogTrigger asChild>
@@ -464,6 +519,169 @@ export default function SubscribersPage() {
 
         {/* Edit dialog (shared state) */}
       </div>
+
+      {/* E-Mail Dialog */}
+      <Dialog open={emailTarget !== null} onOpenChange={(open) => !open && setEmailTarget(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {emailTarget === "all"
+                ? `E-Mail an alle Abonnenten (${confirmedSubscribers.length} aktiv)`
+                : emailTarget
+                ? `E-Mail an ${(emailTarget as Subscriber).firstName} ${(emailTarget as Subscriber).lastName}`
+                : "E-Mail senden"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            {/* KI-Assistent */}
+            <div className="rounded-lg border border-primary/30 bg-primary/5">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-primary"
+                onClick={() => setAiOpen((v) => !v)}
+                data-testid="button-toggle-ai-sub"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  KI-Assistent — Text generieren lassen
+                </span>
+                {aiOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              {aiOpen && (
+                <div className="px-3 pb-3 space-y-2 border-t border-primary/20 pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    Beschreiben Sie kurz, was die E-Mail enthalten soll — die KI erstellt den Text auf Deutsch.
+                  </p>
+                  {events && events.filter((e) => new Date(e.date) >= new Date()).length > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Veranstaltungsbezug (optional)</label>
+                      <Select value={aiEventId} onValueChange={(val) => {
+                        setAiEventId(val);
+                        if (val && val !== "none") {
+                          const ev = events.find((e) => String(e.id) === val);
+                          if (ev && !emailSubject.trim()) setEmailSubject(`Einladung: ${ev.title}`);
+                        }
+                      }}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-ai-event-sub">
+                          <SelectValue placeholder="Veranstaltung auswählen…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein Bezug</SelectItem>
+                          {events.filter((e) => new Date(e.date) >= new Date()).map((ev) => (
+                            <SelectItem key={ev.id} value={String(ev.id)}>
+                              {format(new Date(ev.date), "dd.MM.yy", { locale: de })} · {ev.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Schreibstil</label>
+                    <Select value={aiStyle} onValueChange={setAiStyle}>
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-ai-style-sub">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="formell">Formell (per Sie)</SelectItem>
+                        <SelectItem value="freundlich">Freundlich (per Sie)</SelectItem>
+                        <SelectItem value="kollegial">Kollegial (per Du)</SelectItem>
+                        <SelectItem value="locker">Locker &amp; herzlich (per Du)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Textarea
+                    placeholder="z.B. Einladung mit Bitte um Rückmeldung bis zum 5. Juli"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    rows={3}
+                    data-testid="input-ai-prompt-sub"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    disabled={!aiPrompt.trim() || aiLoading}
+                    onClick={async () => {
+                      const selectedEvent = aiEventId && aiEventId !== "none"
+                        ? events?.find((e) => String(e.id) === aiEventId)
+                        : null;
+                      const eventContext = selectedEvent
+                        ? `\n\nVeranstaltungsdetails:\n- Titel: ${selectedEvent.title}\n- Datum: ${format(new Date(selectedEvent.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr\n- Ort: ${selectedEvent.location}${selectedEvent.description ? `\n- Beschreibung: ${selectedEvent.description}` : ""}`
+                        : "";
+                      setAiLoading(true);
+                      try {
+                        const res = await fetch("/api/ai/generate-email", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ prompt: aiPrompt + eventContext, subject: emailSubject, style: aiStyle }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || "Fehler");
+                        setEmailBody(data.text);
+                        setAiOpen(false);
+                      } catch (err: any) {
+                        toast({ title: "KI-Fehler", description: err.message, variant: "destructive" });
+                      } finally {
+                        setAiLoading(false);
+                      }
+                    }}
+                    data-testid="button-ai-generate-sub"
+                  >
+                    {aiLoading ? (
+                      <><Sparkles className="h-4 w-4 mr-2 animate-pulse" />Generiere…</>
+                    ) : (
+                      <><Sparkles className="h-4 w-4 mr-2" />Text generieren</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Betreff</label>
+              <Input
+                placeholder="z.B. Einladung zur nächsten Veranstaltung"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                data-testid="input-email-subject-sub"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Nachricht</label>
+              <Textarea
+                placeholder={"Guten Tag {{Vorname}},\n\n..."}
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                rows={8}
+                data-testid="input-email-body-sub"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tipp: <code className="bg-muted px-1 rounded">{"{{Vorname}}"}</code> wird automatisch durch den Vornamen des Abonnenten ersetzt.
+              </p>
+            </div>
+            <Button
+              className="w-full"
+              disabled={!emailSubject.trim() || !emailBody.trim() || sendEmailMutation.isPending}
+              onClick={() => {
+                const ids = emailTarget === "all"
+                  ? undefined
+                  : [(emailTarget as Subscriber).id];
+                sendEmailMutation.mutate({ subscriberIds: ids, subject: emailSubject, body: emailBody });
+              }}
+              data-testid="button-send-email-sub"
+            >
+              {sendEmailMutation.isPending ? (
+                "Wird gesendet..."
+              ) : (
+                <><Send className="h-4 w-4 mr-2" />E-Mail senden</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

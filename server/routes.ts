@@ -621,6 +621,34 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     }
   });
 
+  app.post("/api/subscribers/send-email", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      subscriberIds: z.array(z.number()).optional(),
+      subject: z.string().min(1),
+      body: z.string().min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
+
+    const { subscriberIds, subject, body } = parsed.data;
+    const allSubs = await storage.getSubscribers();
+    const targets = subscriberIds && subscriberIds.length > 0
+      ? allSubs.filter((s) => subscriberIds.includes(s.id) && s.isActive)
+      : allSubs.filter((s) => s.isActive);
+
+    if (targets.length === 0) return res.status(400).json({ error: "Keine aktiven Empfänger gefunden" });
+
+    try {
+      const recipients = targets.map((s) => ({ email: s.email, firstName: s.firstName }));
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const result = await sendCustomEmail(recipients, subject, body, baseUrl);
+      return res.json(result);
+    } catch (err: any) {
+      console.error("Send subscriber email error:", err);
+      return res.status(500).json({ error: err.message || "E-Mail konnte nicht gesendet werden." });
+    }
+  });
+
   app.post("/api/members/send-email", requireAdmin, async (req, res) => {
     const schema = z.object({
       memberIds: z.array(z.number()).optional(),
