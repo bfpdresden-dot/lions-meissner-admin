@@ -639,7 +639,7 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     if (targets.length === 0) return res.status(400).json({ error: "Keine aktiven Empfänger gefunden" });
 
     try {
-      const recipients = targets.map((s) => ({ email: s.email, firstName: s.firstName }));
+      const recipients = targets.map((s) => ({ email: s.email, firstName: s.firstName, subscriberId: s.id }));
       const baseUrl = `${req.protocol}://${req.get("host")}`;
       const result = await sendCustomEmail(recipients, subject, body, baseUrl);
       return res.json(result);
@@ -647,6 +647,13 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
       console.error("Send subscriber email error:", err);
       return res.status(500).json({ error: err.message || "E-Mail konnte nicht gesendet werden." });
     }
+  });
+
+  app.get("/api/subscribers/:id/email-logs", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const logs = await storage.getEmailLogsBySubscriber(id);
+    return res.json(logs);
   });
 
   app.post("/api/members/send-email", requireAdmin, async (req, res) => {

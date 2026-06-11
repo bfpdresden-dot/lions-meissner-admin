@@ -18,7 +18,7 @@ import {
   type EmailLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   getEvents(): Promise<Event[]>;
@@ -47,8 +47,9 @@ export interface IStorage {
   getGuestCountByEvent(eventId: number): Promise<number>;
   getAllGuestCounts(): Promise<Record<number, number>>;
 
-  createEmailLog(log: { eventId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void>;
+  createEmailLog(log: { eventId?: number; subscriberId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void>;
   getEmailLogsByEvent(eventId: number): Promise<import("@shared/schema").EmailLog[]>;
+  getEmailLogsBySubscriber(subscriberId: number): Promise<import("@shared/schema").EmailLog[]>;
 
   getEventPhotos(eventId: number): Promise<EventPhoto[]>;
   createEventPhoto(eventId: number, filename: string, caption?: string): Promise<EventPhoto>;
@@ -182,12 +183,16 @@ export class DatabaseStorage implements IStorage {
     return counts;
   }
 
-  async createEmailLog(log: { eventId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void> {
+  async createEmailLog(log: { eventId?: number; subscriberId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void> {
     await db.insert(emailLogs).values(log);
   }
 
   async getEmailLogsByEvent(eventId: number): Promise<EmailLog[]> {
-    return db.select().from(emailLogs).where(eq(emailLogs.eventId, eventId)).orderBy(emailLogs.sentAt);
+    return db.select().from(emailLogs).where(eq(emailLogs.eventId, eventId)).orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getEmailLogsBySubscriber(subscriberId: number): Promise<EmailLog[]> {
+    return db.select().from(emailLogs).where(eq(emailLogs.subscriberId, subscriberId)).orderBy(desc(emailLogs.sentAt));
   }
 
   async getEventPhotos(eventId: number): Promise<EventPhoto[]> {

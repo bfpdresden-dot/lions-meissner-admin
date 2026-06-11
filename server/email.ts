@@ -197,7 +197,7 @@ export async function sendPasswordResetEmail(
 // ── sendCustomEmail ───────────────────────────────────────────────────────────
 
 export async function sendCustomEmail(
-  recipients: { email: string; firstName: string }[],
+  recipients: { email: string; firstName: string; subscriberId?: number }[],
   subject: string,
   body: string,
   baseUrl?: string
@@ -242,8 +242,10 @@ export async function sendCustomEmail(
         text: personalizedBody,
       });
       sent++;
+      storage.createEmailLog({ subscriberId: recipient.subscriberId, recipientEmail: recipient.email, recipientName: recipient.firstName, subject, success: true }).catch(() => {});
     } catch {
       failed++;
+      storage.createEmailLog({ subscriberId: recipient.subscriberId, recipientEmail: recipient.email, recipientName: recipient.firstName, subject, success: false }).catch(() => {});
     }
   }
 

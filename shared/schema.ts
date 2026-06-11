@@ -102,6 +102,7 @@ export type InsertEventPhoto = z.infer<typeof insertEventPhotoSchema>;
 export const emailLogs = pgTable("email_logs", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id"),
+  subscriberId: integer("subscriber_id"),
   recipientEmail: text("recipient_email").notNull(),
   recipientName: text("recipient_name").notNull(),
   subject: text("subject").notNull(),

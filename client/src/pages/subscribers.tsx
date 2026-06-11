@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/select";
 import { Mail, Download, Trash2, UserX, UserCheck, Star, KeyRound, Pencil, UserPlus, Clock, Send, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Subscriber, Event } from "@shared/schema";
+import type { Subscriber, Event, EmailLog } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { z } from "zod";
@@ -80,6 +80,7 @@ type EditValues = z.infer<typeof editSchema>;
 export default function SubscribersPage() {
   const [portalPasswordSub, setPortalPasswordSub] = useState<Subscriber | null>(null);
   const [editSub, setEditSub] = useState<Subscriber | null>(null);
+  const [journalSub, setJournalSub] = useState<Subscriber | null>(null);
   const [emailTarget, setEmailTarget] = useState<Subscriber | "all" | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -189,6 +190,11 @@ export default function SubscribersPage() {
     onError: (error: Error) => {
       toast({ title: "Fehler", description: error.message, variant: "destructive" });
     },
+  });
+
+  const { data: journalLogs, isLoading: journalLoading } = useQuery<EmailLog[]>({
+    queryKey: ["/api/subscribers", journalSub?.id, "email-logs"],
+    enabled: journalSub !== null,
   });
 
   const sendEmailMutation = useMutation({
@@ -332,7 +338,15 @@ export default function SubscribersPage() {
                     <TableBody>
                       {confirmedSubscribers.map((sub) => (
                         <TableRow key={sub.id} data-testid={`row-subscriber-${sub.id}`}>
-                          <TableCell className="font-medium">{sub.firstName} {sub.lastName}</TableCell>
+                          <TableCell className="font-medium">
+                            <button
+                              className="hover:underline text-left focus:outline-none"
+                              onClick={() => setJournalSub(sub)}
+                              data-testid={`button-journal-${sub.id}`}
+                            >
+                              {sub.firstName} {sub.lastName}
+                            </button>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">{sub.email}</TableCell>
                           <TableCell><span className="text-sm text-muted-foreground">{getSource(sub)}</span></TableCell>
                           <TableCell className="text-muted-foreground text-sm">
@@ -519,6 +533,57 @@ export default function SubscribersPage() {
 
         {/* Edit dialog (shared state) */}
       </div>
+
+      {/* Journal Dialog */}
+      <Dialog open={journalSub !== null} onOpenChange={(open) => !open && setJournalSub(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              E-Mail-Journal: {journalSub?.firstName} {journalSub?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-sm text-muted-foreground">{journalSub?.email}</p>
+            {journalLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+              </div>
+            ) : !journalLogs || journalLogs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Mail className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
+                <p className="text-sm font-medium">Noch keine E-Mails gesendet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  E-Mails die über „E-Mail senden" verschickt werden, erscheinen hier.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {journalLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`rounded-md border p-3 text-sm ${log.success ? "border-border bg-muted/30" : "border-red-200 bg-red-50"}`}
+                    data-testid={`journal-entry-${log.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-snug">{log.subject}</p>
+                      <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${log.success ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                        {log.success ? "Gesendet" : "Fehlgeschlagen"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {format(new Date(log.sentAt), "dd. MMMM yyyy, HH:mm 'Uhr'", { locale: de })}
+                    </p>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground text-center pt-1">
+                  {journalLogs.length} {journalLogs.length === 1 ? "E-Mail" : "E-Mails"} insgesamt
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* E-Mail Dialog */}
       <Dialog open={emailTarget !== null} onOpenChange={(open) => !open && setEmailTarget(null)}>
