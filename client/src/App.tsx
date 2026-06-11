@@ -24,6 +24,7 @@ import PasswordResetPage from "@/pages/password-reset";
 import LoginPage from "@/pages/login";
 import SetupPage from "@/pages/setup";
 import DatenschutzPage from "@/pages/datenschutz";
+import AbmeldenPage from "@/pages/abmelden";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 
 function AdminRouter() {
@@ -144,11 +145,12 @@ function App() {
   const isPortal = pathname === "/mein-bereich";
   const isPasswordReset = pathname === "/passwort-reset";
   const isDatenschutz = pathname === "/datenschutz";
+  const isAbmelden = pathname === "/abmelden";
   const isAdmin = isAdminRoute(pathname);
 
   const isKnownPublic =
     !!memberMatch || !!confirmMatch || !!subscribeMatch ||
-    isPublicEvents || isPortal || isPasswordReset || isDatenschutz;
+    isPublicEvents || isPortal || isPasswordReset || isDatenschutz || isAbmelden;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -168,6 +170,8 @@ function App() {
           <PasswordResetPage />
         ) : isDatenschutz ? (
           <DatenschutzPage />
+        ) : isAbmelden ? (
+          <AbmeldenPage />
         ) : isAdmin || isKnownPublic ? (
           <AuthGate />
         ) : (

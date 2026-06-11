@@ -133,6 +133,14 @@ function footnote(text: string): string {
   return `<p style="font-size:12px;color:#9ca3af;line-height:1.6;margin:24px 0 0 0;text-align:center;">${text}</p>`;
 }
 
+function unsubscribeFooter(email: string, baseUrl: string): string {
+  const token = Buffer.from(email).toString("base64url");
+  const url = `${baseUrl}/abmelden?token=${token}`;
+  return `<p style="font-size:11px;color:#c4c9d4;line-height:1.6;margin:16px 0 0 0;text-align:center;">
+    <a href="${url}" style="color:#c4c9d4;text-decoration:underline;">Newsletter abbestellen</a>
+  </p>`;
+}
+
 function fallbackLink(url: string): string {
   return `<p style="font-size:11px;color:#9ca3af;margin:8px 0 0 0;text-align:center;">
     Falls der Button nicht funktioniert, kopieren Sie diesen Link:<br/>
@@ -178,6 +186,7 @@ export async function sendPasswordResetEmail(
       Dieser Link ist <strong>1 Stunde</strong> gültig. Falls Sie kein neues Passwort angefordert haben, können Sie diese E-Mail ignorieren.
     </p>
     ${fallbackLink(resetUrl)}
+    ${unsubscribeFooter(toEmail, baseUrl)}
   `;
 
   try {
@@ -233,6 +242,7 @@ export async function sendCustomEmail(
         ${greeting(recipient.firstName)}
         <div style="font-size:15px;color:#374151;line-height:1.8;">${personalizedHtml}</div>
         ${footnote(`Sie erhalten diese E-Mail, weil Sie den Newsletter des ${clubName} abonniert haben.`)}
+        ${baseUrl ? unsubscribeFooter(recipient.email, baseUrl) : ""}
       `;
       await sgMail.send({
         to: recipient.email,
@@ -315,6 +325,7 @@ export async function sendEventNotification(
 
       ${btn(registerLink, "Jetzt zur Veranstaltung anmelden")}
       ${footnote(`Sie erhalten diese E-Mail, weil Sie den Newsletter des ${clubName} abonniert haben.`)}
+      ${unsubscribeFooter(sub.email, baseUrl)}
     `;
 
     const subject = `Einladung: ${event.title} – ${clubName}`;
@@ -406,6 +417,7 @@ export async function sendRegistrationConfirmation(
       <a href="${baseUrl}/veranstaltungen" target="_blank" rel="noopener noreferrer" style="color:#1a3a5c;">Jetzt Newsletter abonnieren</a>
     </p>
     ${footnote(`Diese Bestätigung wurde automatisch verschickt – bitte nicht antworten.`)}
+    ${unsubscribeFooter(registration.email, baseUrl)}
   `;
 
   await sgMail.send({
@@ -465,6 +477,7 @@ export async function sendOptInEmail(
     </table>
     ${footnote("Falls Sie sich nicht angemeldet haben, können Sie diese E-Mail ignorieren. Der Link ist 7 Tage gültig.")}
     ${fallbackLink(confirmUrl)}
+    ${unsubscribeFooter(toEmail, baseUrl)}
   `;
 
   await sgMail.send({

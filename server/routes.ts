@@ -649,6 +649,22 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     }
   });
 
+  app.get("/api/unsubscribe", async (req, res) => {
+    const token = req.query.token as string;
+    if (!token) return res.status(400).json({ error: "Kein Token" });
+    let email: string;
+    try {
+      email = Buffer.from(token, "base64url").toString("utf8");
+    } catch {
+      return res.status(400).json({ error: "Ungültiger Token" });
+    }
+    const allSubs = await storage.getSubscribers();
+    const sub = allSubs.find((s) => s.email.toLowerCase() === email.toLowerCase());
+    if (!sub) return res.status(404).json({ error: "E-Mail-Adresse nicht gefunden" });
+    await storage.updateSubscriber(sub.id, { isActive: false });
+    return res.json({ success: true, firstName: sub.firstName });
+  });
+
   app.get("/api/subscribers/:id/email-logs", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
