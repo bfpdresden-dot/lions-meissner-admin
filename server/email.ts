@@ -291,7 +291,7 @@ export async function sendEventNotification(
   const endTimeStr = event.endDate ? new Date(event.endDate).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
   const timeDisplay = endTimeStr ? `${timeStr} – ${endTimeStr} Uhr` : `${timeStr} Uhr`;
   const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
-  const registerLink = `${baseUrl}/veranstaltungen`;
+  const registerLink = `${baseUrl}/`;
   const descHtml = (event.description || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
 
   let sent = 0;
@@ -381,7 +381,7 @@ export async function sendRegistrationConfirmation(
   const endTimeStr = event.endDate ? new Date(event.endDate).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
   const timeDisplay = endTimeStr ? `${timeStr} – ${endTimeStr} Uhr` : `${timeStr} Uhr`;
   const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
-  const calLink = `${baseUrl}/veranstaltungen`;
+  const calLink = `${baseUrl}/`;
 
   const content = `
     ${greeting(registration.firstName)}
@@ -414,7 +414,7 @@ export async function sendRegistrationConfirmation(
 
     <p style="font-size:12px;color:#9ca3af;line-height:1.6;margin:0 0 8px 0;text-align:center;">
       Möchten Sie zukünftige Einladungen erhalten?
-      <a href="${baseUrl}/veranstaltungen" target="_blank" rel="noopener noreferrer" style="color:#1a3a5c;">Jetzt Newsletter abonnieren</a>
+      <a href="${baseUrl}/" target="_blank" rel="noopener noreferrer" style="color:#1a3a5c;">Jetzt Newsletter abonnieren</a>
     </p>
     ${footnote(`Diese Bestätigung wurde automatisch verschickt – bitte nicht antworten.`)}
     ${unsubscribeFooter(registration.email, baseUrl)}
@@ -425,7 +425,7 @@ export async function sendRegistrationConfirmation(
     from: { name: sender.name, email: sender.email },
     subject: `Anmeldebestätigung: ${event.title} – ${clubName}`,
     html: buildEmailBase(content, clubName, address, baseUrl),
-    text: `Guten Tag, ${registration.firstName},\n\nIhre Anmeldung für "${event.title}" ist eingegangen.\n\nDatum: ${dateStr}\nUhrzeit: ${timeDisplay}\nOrt: ${event.location}\nPersonen: ${registration.guestCount}\n\nWir freuen uns auf Ihren Besuch!\n\nMöchten Sie zukünftige Einladungen erhalten? Hier können Sie den Newsletter abonnieren:\n${baseUrl}/veranstaltungen\n\n${clubName}`,
+    text: `Guten Tag, ${registration.firstName},\n\nIhre Anmeldung für "${event.title}" ist eingegangen.\n\nDatum: ${dateStr}\nUhrzeit: ${timeDisplay}\nOrt: ${event.location}\nPersonen: ${registration.guestCount}\n\nWir freuen uns auf Ihren Besuch!\n\nMöchten Sie zukünftige Einladungen erhalten? Hier können Sie den Newsletter abonnieren:\n${baseUrl}/\n\n${clubName}`,
   }).catch((err) => {
     console.error("[registration confirmation email]", err?.response?.body || err.message);
   });

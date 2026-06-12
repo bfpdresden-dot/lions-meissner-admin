@@ -119,7 +119,7 @@ export default function SubscribeMemberPage({ memberId }: { memberId: string }) 
             <p className="text-muted-foreground max-w-xs">
               Vielen Dank für Ihre Anmeldung zum Newsletter des Lions Club Meißner Land.
             </p>
-            <a href="/veranstaltungen" className="mt-6">
+            <a href="/" className="mt-6">
               <Button variant="secondary" data-testid="button-back-events">
                 Zu den Veranstaltungen
               </Button>

@@ -61,7 +61,7 @@ export default function Dashboard() {
               <p className="text-muted-foreground mt-0.5">Verwaltungs-Dashboard</p>
             </div>
           </div>
-          <a href="/veranstaltungen" target="_blank" rel="noopener noreferrer">
+          <a href="/" target="_blank" rel="noopener noreferrer">
             <Button variant="secondary" data-testid="button-public-page">
               <ExternalLink className="h-4 w-4 mr-2" />
               &Ouml;ffentliche Seite
@@ -76,7 +76,7 @@ export default function Dashboard() {
             subtitle="Gesamt"
             icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
             testId="stat-events-total"
-            href="/events"
+            href="/admin/events"
           />
           <StatCard
             title="Aktive Events"
@@ -84,7 +84,7 @@ export default function Dashboard() {
             subtitle="Derzeit aktiv"
             icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
             testId="stat-events-active"
-            href="/events"
+            href="/admin/events"
           />
           <StatCard
             title="Abonnenten"
@@ -92,7 +92,7 @@ export default function Dashboard() {
             subtitle="Gesamt"
             icon={<Mail className="h-4 w-4 text-muted-foreground" />}
             testId="stat-subscribers-total"
-            href="/subscribers"
+            href="/admin/subscribers"
           />
           <StatCard
             title="Aktive Abonnenten"
@@ -100,7 +100,7 @@ export default function Dashboard() {
             subtitle="Newsletter-Empf&auml;nger"
             icon={<Users className="h-4 w-4 text-muted-foreground" />}
             testId="stat-subscribers-active"
-            href="/subscribers"
+            href="/admin/subscribers"
           />
           <StatCard
             title="Anmeldungen"
@@ -108,7 +108,7 @@ export default function Dashboard() {
             subtitle="Event-Registrierungen"
             icon={<UserPlus className="h-4 w-4 text-muted-foreground" />}
             testId="stat-registrations-total"
-            href="/events"
+            href="/admin/events"
           />
           <StatCard
             title="G&auml;ste gesamt"
@@ -116,7 +116,7 @@ export default function Dashboard() {
             subtitle="Alle Veranstaltungen"
             icon={<Users className="h-4 w-4 text-muted-foreground" />}
             testId="stat-guests-total"
-            href="/events"
+            href="/admin/events"
           />
           <StatCard
             title="Mitglieder"
@@ -124,7 +124,7 @@ export default function Dashboard() {
             subtitle="Lions Club Mitglieder"
             icon={<Star className="h-4 w-4 text-muted-foreground" />}
             testId="stat-members-total"
-            href="/members"
+            href="/admin/members"
           />
         </div>
 
@@ -132,7 +132,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
               <CardTitle className="text-lg">N&auml;chste Veranstaltungen</CardTitle>
-              <Link href="/events">
+              <Link href="/admin/events">
                 <Button variant="ghost" size="sm" data-testid="link-all-events">
                   Alle anzeigen
                 </Button>
@@ -146,7 +146,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               ) : upcomingEvents.length === 0 ? (
-                <Link href="/events">
+                <Link href="/admin/events">
                   <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground rounded-md hover:bg-muted/50 transition-colors cursor-pointer">
                     <Calendar className="h-10 w-10 mx-auto mb-2 opacity-40" />
                     <p>Keine anstehenden Veranstaltungen</p>
@@ -156,7 +156,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-2">
                   {upcomingEvents.slice(0, 4).map((event) => (
-                    <Link key={event.id} href="/events">
+                    <Link key={event.id} href="/admin/events">
                       <div
                         className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
                         data-testid={`event-upcoming-${event.id}`}
@@ -182,7 +182,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
               <CardTitle className="text-lg">Neueste Abonnenten</CardTitle>
-              <Link href="/subscribers">
+              <Link href="/admin/subscribers">
                 <Button variant="ghost" size="sm" data-testid="link-all-subscribers">
                   Alle anzeigen
                 </Button>
@@ -196,7 +196,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               ) : recentSubscribers.length === 0 ? (
-                <Link href="/qr-codes">
+                <Link href="/admin/qr-codes">
                   <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground rounded-md hover:bg-muted/50 transition-colors cursor-pointer">
                     <Mail className="h-10 w-10 mx-auto mb-2 opacity-40" />
                     <p>Noch keine Abonnenten</p>
@@ -206,7 +206,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-2">
                   {recentSubscribers.map((sub) => (
-                    <Link key={sub.id} href="/subscribers">
+                    <Link key={sub.id} href="/admin/subscribers">
                       <div
                         className="flex items-center justify-between gap-3 p-3 rounded-md bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
                         data-testid={`subscriber-recent-${sub.id}`}
@@ -233,7 +233,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <a href="/veranstaltungen" target="_blank" rel="noopener noreferrer" className="block group">
+          <a href="/" target="_blank" rel="noopener noreferrer" className="block group">
             <Card className="h-full hover:shadow-md transition-shadow cursor-pointer border-2 border-transparent hover:border-primary/20">
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -248,7 +248,7 @@ export default function Dashboard() {
             </Card>
           </a>
 
-          <Link href="/qr-codes" className="block group">
+          <Link href="/admin/qr-codes" className="block group">
             <Card className="h-full hover:shadow-md transition-shadow cursor-pointer border-2 border-transparent hover:border-primary/20">
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -263,7 +263,7 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          <Link href="/subscribers" className="block group">
+          <Link href="/admin/subscribers" className="block group">
             <Card className="h-full hover:shadow-md transition-shadow cursor-pointer border-2 border-transparent hover:border-primary/20">
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">

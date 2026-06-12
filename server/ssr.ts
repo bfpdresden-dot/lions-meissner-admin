@@ -2,11 +2,7 @@ import { storage } from "./storage";
 
 export const KNOWN_ROUTE_PATTERNS: RegExp[] = [
   /^\/$/,
-  /^\/events$/,
-  /^\/subscribers$/,
-  /^\/members$/,
-  /^\/qr-codes$/,
-  /^\/settings$/,
+  /^\/admin(\/.*)?$/,
   /^\/veranstaltungen$/,
   /^\/datenschutz$/,
   /^\/subscribe\/member\/[^/]+$/,
@@ -40,7 +36,7 @@ interface PageMeta {
 async function resolvePageMeta(pathname: string): Promise<PageMeta> {
   const site = "Lions Club Meißner Land";
 
-  if (pathname === "/veranstaltungen") {
+  if (pathname === "/" || pathname === "/veranstaltungen") {
     let eventItems = "";
     try {
       const evts = await storage.getEvents();
@@ -62,7 +58,7 @@ async function resolvePageMeta(pathname: string): Promise<PageMeta> {
     return {
       title: `Veranstaltungen – ${site}`,
       description: `Aktuelle Veranstaltungen des ${site}. Informieren Sie sich und melden Sie sich online an.`,
-      canonicalPath: "/veranstaltungen",
+      canonicalPath: "/",
       preContent: `<h1>Veranstaltungen</h1><p>${site}</p>${eventItems ? `<ul>${eventItems}</ul>` : ""}`,
     };
   }

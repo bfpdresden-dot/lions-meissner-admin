@@ -1333,25 +1333,26 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
 
     const body = [
       "User-agent: *",
-      "Allow: /veranstaltungen",
+      "Allow: /",
       "Allow: /datenschutz",
       "Allow: /subscribe/",
       "Allow: /sitemap.xml",
       "Allow: /llms.txt",
       "Disallow: /api/",
+      "Disallow: /admin",
       "",
       "User-agent: GPTBot",
-      "Allow: /veranstaltungen",
+      "Allow: /",
       "Allow: /datenschutz",
       "Allow: /subscribe/",
       "",
       "User-agent: ClaudeBot",
-      "Allow: /veranstaltungen",
+      "Allow: /",
       "Allow: /datenschutz",
       "Allow: /subscribe/",
       "",
       "User-agent: PerplexityBot",
-      "Allow: /veranstaltungen",
+      "Allow: /",
       "Allow: /datenschutz",
       "Allow: /subscribe/",
       "",
@@ -1371,7 +1372,7 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     const base = `${proto}://${host}`;
 
     const staticUrls = [
-      { loc: "/veranstaltungen", priority: "1.0", changefreq: "daily" },
+      { loc: "/", priority: "1.0", changefreq: "daily" },
       { loc: "/datenschutz", priority: "0.3", changefreq: "yearly" },
     ];
 

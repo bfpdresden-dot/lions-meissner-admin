@@ -448,7 +448,7 @@ export default function PortalPage() {
             <h1 className="text-2xl font-bold">Mein Bereich</h1>
             <p className="text-sm opacity-75 mt-0.5">Lions Club Meißner Land</p>
           </div>
-          <Link href="/veranstaltungen">
+          <Link href="/">
             <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
               <ChevronLeft className="h-4 w-4 mr-1" />
               Zurück zu den Veranstaltungen
@@ -524,7 +524,7 @@ export default function PortalPage() {
               </Form>
               <p className="mt-4 text-xs text-muted-foreground text-center">
                 Noch kein Konto?{" "}
-                <Link href="/veranstaltungen" className="underline hover:text-foreground">
+                <Link href="/" className="underline hover:text-foreground">
                   Melden Sie sich für den Newsletter an
                 </Link>{" "}
                 und vergeben Sie dabei ein Passwort.
@@ -832,7 +832,7 @@ export default function PortalPage() {
                 ) : (registrations || []).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
                     Sie sind noch für keine Veranstaltung angemeldet.{" "}
-                    <Link href="/veranstaltungen" className="underline hover:text-foreground">
+                    <Link href="/" className="underline hover:text-foreground">
                       Veranstaltungen ansehen
                     </Link>
                   </p>

@@ -105,7 +105,7 @@ export default function PublicEventsPage() {
     const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
     document.title = "Veranstaltungen | Lions Club Meißner Land";
     document.querySelector('meta[name="description"]')?.setAttribute("content", "Aktuelle Veranstaltungen des Lions Club Meißner Land – jetzt entdecken und anmelden.");
-    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + "/veranstaltungen");
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", window.location.origin + "/");
     return () => {
       document.title = prev;
       document.querySelector('meta[name="description"]')?.setAttribute("content", prevDesc);
@@ -135,7 +135,7 @@ export default function PublicEventsPage() {
   };
 
   const eventDeepLink = (id: number) =>
-    `${window.location.origin}/veranstaltungen?event=${id}`;
+    `${window.location.origin}/?event=${id}`;
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],

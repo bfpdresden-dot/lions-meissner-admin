@@ -144,7 +144,7 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
             <p className="text-xs text-muted-foreground mt-3 max-w-xs">
               Kein E-Mail erhalten? Bitte prüfen Sie auch Ihren Spam-Ordner.
             </p>
-            <a href="/veranstaltungen" className="mt-6">
+            <a href="/" className="mt-6">
               <Button variant="secondary" data-testid="button-back-events">
                 Zur&uuml;ck zu den Veranstaltungen
               </Button>

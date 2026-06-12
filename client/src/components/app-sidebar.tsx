@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Veranstaltungen", url: "/events", icon: Calendar },
-  { title: "Mitglieder", url: "/members", icon: Users },
-  { title: "Abonnenten", url: "/subscribers", icon: Mail },
-  { title: "QR-Codes", url: "/qr-codes", icon: QrCode },
-  { title: "Einstellungen", url: "/settings", icon: Settings },
+  { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
+  { title: "Veranstaltungen", url: "/admin/events", icon: Calendar },
+  { title: "Mitglieder", url: "/admin/members", icon: Users },
+  { title: "Abonnenten", url: "/admin/subscribers", icon: Mail },
+  { title: "QR-Codes", url: "/admin/qr-codes", icon: QrCode },
+  { title: "Einstellungen", url: "/admin/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -50,7 +50,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => {
                 const isActive = location === item.url ||
-                  (item.url !== "/" && location.startsWith(item.url));
+                  (item.url !== "/admin" && location.startsWith(item.url));
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -58,7 +58,7 @@ export function AppSidebar() {
                       data-active={isActive}
                       className="data-[active=true]:bg-sidebar-accent"
                     >
-                      <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "dashboard"}`}>
+                      <Link href={item.url} data-testid={`nav-${item.url.replace("/admin", "").replace("/", "") || "dashboard"}`}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -86,6 +86,12 @@ export function AppSidebar() {
             <Mail className="h-3 w-3 shrink-0" />
             <a href="mailto:schreiber1988@gmx.net" className="hover:underline truncate" data-testid="link-email">schreiber1988@gmx.net</a>
           </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-sidebar-border">
+          <a href="/" target="_blank" rel="noopener noreferrer" className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1.5 transition-opacity">
+            <Calendar className="h-3 w-3" />
+            Öffentliche Seite ansehen
+          </a>
         </div>
       </SidebarFooter>
     </Sidebar>

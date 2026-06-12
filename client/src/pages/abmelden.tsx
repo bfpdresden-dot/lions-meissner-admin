@@ -64,7 +64,7 @@ export default function AbmeldenPage() {
                     keine weiteren E-Mails vom Lions Club Meißner Land.
                   </p>
                 </div>
-                <Link href="/veranstaltungen">
+                <Link href="/">
                   <Button variant="outline" size="sm" className="mt-2" data-testid="button-back-to-events">
                     Zur Veranstaltungsseite
                   </Button>

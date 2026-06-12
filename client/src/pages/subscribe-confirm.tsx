@@ -160,7 +160,7 @@ export default function SubscribeConfirmPage({ token }: { token: string }) {
               <p className="text-muted-foreground max-w-xs text-sm">
                 Ihre E-Mail-Adresse wurde bestätigt. Sie erhalten ab sofort unseren Newsletter.
               </p>
-              <a href="/veranstaltungen" className="mt-2">
+              <a href="/" className="mt-2">
                 <Button data-testid="button-confirm-events">Zu den Veranstaltungen</Button>
               </a>
             </div>
@@ -175,7 +175,7 @@ export default function SubscribeConfirmPage({ token }: { token: string }) {
               <p className="text-muted-foreground max-w-xs text-sm">
                 {errorMsg || "Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet. Bitte melden Sie sich erneut an oder kontaktieren Sie uns."}
               </p>
-              <a href="/veranstaltungen" className="mt-2">
+              <a href="/" className="mt-2">
                 <Button variant="secondary" data-testid="button-confirm-back">Zur Startseite</Button>
               </a>
             </div>

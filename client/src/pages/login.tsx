@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { useLogin } from "@/hooks/use-auth";
 import { Link } from "wouter";
-import { LogIn, ShieldAlert, Users } from "lucide-react";
+import { LogIn, ShieldAlert } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Bitte gültige E-Mail-Adresse eingeben"),
@@ -69,19 +69,6 @@ export default function LoginPage({ setupRequired }: { setupRequired?: boolean }
             </div>
           </div>
         )}
-
-        <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4 text-sm">
-          <Users className="h-5 w-5 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
-          <div className="text-blue-800 dark:text-blue-300">
-            <p className="font-semibold mb-1">Mitglieder-Login</p>
-            <p>
-              Wenn Sie Mitglied sind, gelangen Sie hier zu Ihrem persönlichen Bereich:{" "}
-              <Link href="/mein-bereich" className="underline font-medium hover:text-blue-600">
-                Zum Mitglieder-Portal →
-              </Link>
-            </p>
-          </div>
-        </div>
 
         <Card>
           <CardHeader>

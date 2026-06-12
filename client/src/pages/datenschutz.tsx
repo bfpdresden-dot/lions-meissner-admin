@@ -22,7 +22,7 @@ export default function DatenschutzPage() {
     <div className="min-h-screen bg-background py-10 px-4">
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="flex items-center gap-3">
-          <Link href="/veranstaltungen">
+          <Link href="/">
             <Button variant="ghost" size="sm">
               <ChevronLeft className="h-4 w-4 mr-1" />
               Zurück

@@ -1,4 +1,4 @@
-import { Switch, Route, useRoute } from "wouter";
+import { Switch, Route, useRoute, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,21 +27,21 @@ import DatenschutzPage from "@/pages/datenschutz";
 import AbmeldenPage from "@/pages/abmelden";
 import SchichtplanPage from "@/pages/schichtplan";
 import { useAuth, useLogout } from "@/hooks/use-auth";
+import { useEffect } from "react";
 
 function AdminRouter() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/events" component={EventsPage} />
-      <Route path="/subscribers" component={SubscribersPage} />
-      <Route path="/members" component={MembersPage} />
-      <Route path="/qr-codes" component={QRCodesPage} />
-      <Route path="/settings" component={SettingsPage} />
+      <Route path="/admin" component={Dashboard} />
+      <Route path="/admin/events" component={EventsPage} />
+      <Route path="/admin/subscribers" component={SubscribersPage} />
+      <Route path="/admin/members" component={MembersPage} />
+      <Route path="/admin/qr-codes" component={QRCodesPage} />
+      <Route path="/admin/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );
 }
-
 
 function AdminLayout() {
   const logout = useLogout();
@@ -97,7 +97,6 @@ function AuthGate() {
     );
   }
 
-  // No admins exist yet → show first-time setup wizard
   if (auth?.setupRequired) {
     return (
       <SetupPage
@@ -109,7 +108,6 @@ function AuthGate() {
     );
   }
 
-  // Admins exist but user not logged in → show login
   if (!auth?.authenticated) {
     return <LoginPage />;
   }
@@ -117,54 +115,43 @@ function AuthGate() {
   return <AdminLayout />;
 }
 
-const ADMIN_ROUTE_PATTERNS = [
-  /^\/$/,
-  /^\/events$/,
-  /^\/subscribers$/,
-  /^\/members$/,
-  /^\/qr-codes$/,
-  /^\/settings$/,
-];
-
-function isAdminRoute(pathname: string): boolean {
-  return ADMIN_ROUTE_PATTERNS.some((r) => r.test(pathname));
-}
-
-function matchPath(pattern: RegExp, pathname: string) {
-  const m = pathname.match(pattern);
-  return m ? m : null;
+function RedirectToHome() {
+  useEffect(() => {
+    window.history.replaceState(null, "", "/");
+    window.location.reload();
+  }, []);
+  return null;
 }
 
 function App() {
   const pathname = window.location.pathname;
 
-  const memberMatch = matchPath(/^\/subscribe\/member\/([^/]+)$/, pathname);
-  const confirmMatch = matchPath(/^\/subscribe\/confirm\/([^/]+)$/, pathname);
-  const subscribeMatch = matchPath(/^\/subscribe\/([^/]+)$/, pathname);
+  const memberMatch = pathname.match(/^\/subscribe\/member\/([^/]+)$/);
+  const confirmMatch = pathname.match(/^\/subscribe\/confirm\/([^/]+)$/);
+  const subscribeMatch = pathname.match(/^\/subscribe\/([^/]+)$/);
+  const schichtplanMatch = pathname.match(/^\/schichtplan\/([^/]+)$/);
 
-  const isPublicEvents = pathname === "/veranstaltungen";
+  const isRoot = pathname === "/";
+  const isVeranstaltungen = pathname === "/veranstaltungen";
   const isPortal = pathname === "/mein-bereich";
   const isPasswordReset = pathname === "/passwort-reset";
   const isDatenschutz = pathname === "/datenschutz";
   const isAbmelden = pathname === "/abmelden";
-  const schichtplanMatch = matchPath(/^\/schichtplan\/([^/]+)$/, pathname);
-  const isAdmin = isAdminRoute(pathname);
-
-  const isKnownPublic =
-    !!memberMatch || !!confirmMatch || !!subscribeMatch ||
-    isPublicEvents || isPortal || isPasswordReset || isDatenschutz || isAbmelden || !!schichtplanMatch;
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        {memberMatch ? (
+        {isVeranstaltungen ? (
+          <RedirectToHome />
+        ) : memberMatch ? (
           <SubscribeMemberPage memberId={memberMatch[1]} />
         ) : confirmMatch ? (
           <SubscribeConfirmPage token={confirmMatch[1]} />
         ) : subscribeMatch ? (
           <SubscribePage eventId={subscribeMatch[1]} />
-        ) : isPublicEvents ? (
+        ) : isRoot ? (
           <PublicEventsPage />
         ) : isPortal ? (
           <PortalPage />
@@ -176,7 +163,7 @@ function App() {
           <AbmeldenPage />
         ) : schichtplanMatch ? (
           <SchichtplanPage eventId={schichtplanMatch[1]} />
-        ) : isAdmin || isKnownPublic ? (
+        ) : isAdmin ? (
           <AuthGate />
         ) : (
           <NotFound />
