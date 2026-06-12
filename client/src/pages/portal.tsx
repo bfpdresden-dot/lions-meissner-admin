@@ -38,7 +38,13 @@ import {
   Mail as MailIcon,
   Search,
   X,
+  Send,
+  Lightbulb,
+  Zap,
+  Minus,
+  Plus,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -142,6 +148,20 @@ export default function PortalPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<PortalMember | null>(null);
+  // Quick register
+  const [quickGuestCounts, setQuickGuestCounts] = useState<Record<number, number>>({});
+  const [quickRegistered, setQuickRegistered] = useState<Set<number>>(new Set());
+  // Contact form
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactSent, setContactSent] = useState(false);
+  const [contactSending, setContactSending] = useState(false);
+  // Proposal form
+  const [proposalTitle, setProposalTitle] = useState("");
+  const [proposalDescription, setProposalDescription] = useState("");
+  const [proposalCategory, setProposalCategory] = useState("");
+  const [proposalSent, setProposalSent] = useState(false);
+  const [proposalSending, setProposalSending] = useState(false);
   const { toast } = useToast();
 
   const { data: subscriber, isLoading, isError } = useQuery<PortalSubscriber>({
@@ -230,6 +250,18 @@ export default function PortalPage() {
     },
   });
 
+  const { data: publicEvents } = useQuery<{ id: number; title: string; date: string; endDate: string | null; location: string; maxParticipants: number | null; isActive: boolean }[]>({
+    queryKey: ["/api/events"],
+    enabled: !!subscriber,
+    staleTime: 1000 * 60,
+  });
+
+  const { data: guestCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/registrations/counts"],
+    enabled: !!subscriber,
+    staleTime: 1000 * 60,
+  });
+
   const { data: internalEvents } = useQuery<InternalEvent[]>({
     queryKey: ["/api/portal/events"],
     enabled: !!subscriber,
@@ -251,6 +283,71 @@ export default function PortalPage() {
     retry: false,
     staleTime: 1000 * 60,
   });
+
+  const quickRegisterMutation = useMutation({
+    mutationFn: async ({ eventId, guestCount }: { eventId: number; guestCount: number }) => {
+      if (!subscriber) throw new Error("Nicht angemeldet");
+      const res = await apiRequest("POST", "/api/registrations", {
+        eventId,
+        firstName: subscriber.firstName,
+        lastName: subscriber.lastName,
+        email: subscriber.email,
+        phone: subscriber.phone || "",
+        guestCount,
+      });
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/registrations"] });
+      setQuickRegistered((prev) => new Set([...prev, vars.eventId]));
+      toast({ title: "Erfolgreich angemeldet!" });
+    },
+    onError: (err: Error) => {
+      if (err.message.includes("409")) {
+        toast({ title: "Bereits angemeldet", description: "Sie sind schon für diese Veranstaltung registriert.", variant: "destructive" });
+      } else {
+        toast({ title: "Fehler", description: "Anmeldung nicht möglich.", variant: "destructive" });
+      }
+    },
+  });
+
+  const handleContact = async () => {
+    if (!contactSubject.trim() || !contactMessage.trim()) {
+      toast({ title: "Bitte Betreff und Nachricht ausfüllen", variant: "destructive" });
+      return;
+    }
+    setContactSending(true);
+    try {
+      await apiRequest("POST", "/api/portal/contact", { subject: contactSubject, message: contactMessage });
+      setContactSent(true);
+      setContactSubject("");
+      setContactMessage("");
+    } catch {
+      toast({ title: "Fehler", description: "Nachricht konnte nicht gesendet werden.", variant: "destructive" });
+    } finally {
+      setContactSending(false);
+    }
+  };
+
+  const handleProposal = async () => {
+    if (!proposalTitle.trim() || !proposalDescription.trim()) {
+      toast({ title: "Bitte Titel und Beschreibung ausfüllen", variant: "destructive" });
+      return;
+    }
+    setProposalSending(true);
+    try {
+      await apiRequest("POST", "/api/portal/proposal", { title: proposalTitle, description: proposalDescription, category: proposalCategory });
+      setProposalSent(true);
+      setProposalTitle("");
+      setProposalDescription("");
+      setProposalCategory("");
+    } catch {
+      toast({ title: "Fehler", description: "Vorschlag konnte nicht gesendet werden.", variant: "destructive" });
+    } finally {
+      setProposalSending(false);
+    }
+  };
 
   const startEdit = () => {
     profileForm.reset({
@@ -730,6 +827,244 @@ export default function PortalPage() {
               </CardContent>
             </Card>
 
+            {/* ── 1-Klick-Anmeldung ── */}
+            {(() => {
+              const registeredEventIds = new Set((registrations || []).map((r) => r.eventId));
+              const upcoming = (publicEvents || [])
+                .filter((e) => e.isActive && new Date(e.date) >= new Date())
+                .filter((e) => !registeredEventIds.has(e.id) && !quickRegistered.has(e.id))
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+              if (!upcoming.length) return null;
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Zap className="h-5 w-5 text-amber-500" />
+                      1-Klick-Anmeldung
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">Ihre Daten sind bereits hinterlegt — einfach Personenzahl wählen und anmelden.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {upcoming.map((ev) => {
+                      const taken = guestCounts?.[String(ev.id)] ?? 0;
+                      const spotsLeft = ev.maxParticipants ? ev.maxParticipants - taken : null;
+                      const isFull = spotsLeft !== null && spotsLeft <= 0;
+                      const count = quickGuestCounts[ev.id] ?? 1;
+                      return (
+                        <div key={ev.id} className="rounded-md border p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" data-testid={`quick-reg-${ev.id}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{ev.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                              <Calendar className="h-3 w-3 shrink-0" />
+                              {format(new Date(ev.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr
+                              <span className="mx-1">·</span>
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {ev.location}
+                            </p>
+                            {spotsLeft !== null && (
+                              <p className="text-xs mt-0.5">
+                                {isFull
+                                  ? <span className="text-destructive font-medium">Ausgebucht</span>
+                                  : <span className="text-muted-foreground">{spotsLeft} {spotsLeft === 1 ? "Platz" : "Plätze"} frei</span>}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center border rounded-md overflow-hidden">
+                              <button
+                                className="px-2 py-1.5 hover:bg-muted transition-colors disabled:opacity-40"
+                                onClick={() => setQuickGuestCounts((p) => ({ ...p, [ev.id]: Math.max(1, count - 1) }))}
+                                disabled={count <= 1}
+                                data-testid={`button-qr-dec-${ev.id}`}
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="px-3 text-sm font-medium select-none w-8 text-center">{count}</span>
+                              <button
+                                className="px-2 py-1.5 hover:bg-muted transition-colors disabled:opacity-40"
+                                onClick={() => setQuickGuestCounts((p) => ({ ...p, [ev.id]: Math.min(10, count + 1) }))}
+                                disabled={count >= 10}
+                                data-testid={`button-qr-inc-${ev.id}`}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => quickRegisterMutation.mutate({ eventId: ev.id, guestCount: count })}
+                              disabled={isFull || quickRegisterMutation.isPending}
+                              data-testid={`button-quick-reg-${ev.id}`}
+                            >
+                              <Zap className="h-3.5 w-3.5 mr-1.5" />
+                              {isFull ? "Ausgebucht" : "Anmelden"}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* ── Persönlicher Empfehlungs-QR-Code (alle Abonnenten) ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <QrCode className="h-5 w-5" />
+                  Mein Empfehlungs-QR-Code
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Teilen Sie diesen Link, damit Freunde den Newsletter abonnieren — neue Anmeldungen werden Ihnen zugeordnet.
+                </p>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-4">
+                <div className="bg-white p-4 rounded-xl border">
+                  <QRCodeSVG
+                    value={`${window.location.origin}/subscribe/member/${subscriber.id}`}
+                    size={160}
+                    level="M"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center break-all px-2">
+                  {window.location.origin}/subscribe/member/{subscriber.id}
+                </p>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/subscribe/member/${subscriber.id}`);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 2000);
+                  }}
+                  data-testid="button-copy-referral-link"
+                >
+                  {linkCopied ? (
+                    <><Check className="h-4 w-4 mr-2 text-green-600" />Link kopiert!</>
+                  ) : (
+                    <><Copy className="h-4 w-4 mr-2" />Link kopieren</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ── E-Mail an Club ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MailIcon className="h-5 w-5" />
+                  E-Mail an den Club schreiben
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Ihre Nachricht wird direkt an die Clubleitung weitergeleitet.</p>
+              </CardHeader>
+              <CardContent>
+                {contactSent ? (
+                  <div className="flex flex-col items-center gap-3 py-6 text-center">
+                    <CheckCircle2 className="h-10 w-10 text-green-500" />
+                    <p className="font-medium">Nachricht gesendet!</p>
+                    <p className="text-sm text-muted-foreground">Die Clubleitung wird sich bei Ihnen melden.</p>
+                    <Button variant="outline" size="sm" onClick={() => setContactSent(false)} data-testid="button-contact-reset">
+                      Weitere Nachricht schreiben
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Betreff</label>
+                      <Input
+                        value={contactSubject}
+                        onChange={(e) => setContactSubject(e.target.value)}
+                        placeholder="z.B. Frage zur Veranstaltung"
+                        data-testid="input-contact-subject"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Nachricht</label>
+                      <Textarea
+                        value={contactMessage}
+                        onChange={(e) => setContactMessage(e.target.value)}
+                        placeholder="Ihre Nachricht..."
+                        rows={4}
+                        data-testid="textarea-contact-message"
+                      />
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={handleContact}
+                      disabled={contactSending || !contactSubject.trim() || !contactMessage.trim()}
+                      data-testid="button-contact-send"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {contactSending ? "Wird gesendet..." : "Nachricht senden"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ── Projektvorschlag ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Lightbulb className="h-5 w-5 text-amber-500" />
+                  Projektvorschlag einreichen
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Haben Sie eine Idee für ein Lions-Projekt oder eine Aktion? Teilen Sie sie mit uns!</p>
+              </CardHeader>
+              <CardContent>
+                {proposalSent ? (
+                  <div className="flex flex-col items-center gap-3 py-6 text-center">
+                    <CheckCircle2 className="h-10 w-10 text-green-500" />
+                    <p className="font-medium">Vorschlag eingereicht!</p>
+                    <p className="text-sm text-muted-foreground">Vielen Dank für Ihre Idee. Wir werden sie im Club besprechen.</p>
+                    <Button variant="outline" size="sm" onClick={() => setProposalSent(false)} data-testid="button-proposal-reset">
+                      Weiteren Vorschlag einreichen
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Projekttitel *</label>
+                      <Input
+                        value={proposalTitle}
+                        onChange={(e) => setProposalTitle(e.target.value)}
+                        placeholder="z.B. Schulbücher für Kinder in der Region"
+                        data-testid="input-proposal-title"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Kategorie (optional)</label>
+                      <Input
+                        value={proposalCategory}
+                        onChange={(e) => setProposalCategory(e.target.value)}
+                        placeholder="z.B. Bildung, Soziales, Umwelt, Gesundheit..."
+                        data-testid="input-proposal-category"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">Beschreibung *</label>
+                      <Textarea
+                        value={proposalDescription}
+                        onChange={(e) => setProposalDescription(e.target.value)}
+                        placeholder="Beschreiben Sie Ihre Idee: Was soll erreicht werden? Wer profitiert davon? Wie könnte es umgesetzt werden?"
+                        rows={5}
+                        data-testid="textarea-proposal-description"
+                      />
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={handleProposal}
+                      disabled={proposalSending || !proposalTitle.trim() || !proposalDescription.trim()}
+                      data-testid="button-proposal-submit"
+                    >
+                      <Lightbulb className="h-4 w-4 mr-2" />
+                      {proposalSending ? "Wird eingereicht..." : "Vorschlag einreichen"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Member directory — only for members */}
             {subscriber.isMember && portalMembers && (
               <Card>
@@ -859,51 +1194,6 @@ export default function PortalPage() {
               </div>
             )}
 
-            {/* Personal QR code card — only for members */}
-            {subscriber.isMember && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <QrCode className="h-5 w-5" />
-                    Mein Empfehlungs-QR-Code
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    Teilen Sie diesen Code, um neue Newsletter-Abonnenten zu gewinnen.
-                    Neue Anmeldungen werden Ihnen zugeordnet.
-                  </p>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center gap-4">
-                  <div className="bg-white p-4 rounded-xl border">
-                    <QRCodeSVG
-                      value={`${window.location.origin}/subscribe/member/${subscriber.id}`}
-                      size={180}
-                      level="M"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center break-all px-2">
-                    {window.location.origin}/subscribe/member/{subscriber.id}
-                  </p>
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        `${window.location.origin}/subscribe/member/${subscriber.id}`
-                      );
-                      setLinkCopied(true);
-                      setTimeout(() => setLinkCopied(false), 2000);
-                    }}
-                    data-testid="button-copy-referral-link"
-                  >
-                    {linkCopied ? (
-                      <><Check className="h-4 w-4 mr-2 text-green-600" />Link kopiert!</>
-                    ) : (
-                      <><Copy className="h-4 w-4 mr-2" />Link kopieren</>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
           </>
         )}
       </div>

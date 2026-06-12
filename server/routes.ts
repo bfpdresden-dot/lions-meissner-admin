@@ -8,7 +8,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { insertEventSchema, insertSubscriberSchema, insertRegistrationSchema } from "@shared/schema";
 import { requireAdmin, hasAnyAdmin } from "./auth";
-import { sendPasswordResetEmail, sendCustomEmail, sendOptInEmail, sendRegistrationConfirmation } from "./email";
+import { sendPasswordResetEmail, sendCustomEmail, sendOptInEmail, sendRegistrationConfirmation, sendToClubAdmin } from "./email";
 import { z } from "zod";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -1018,6 +1018,49 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
       })
     );
     res.json(enriched);
+  });
+
+  // Portal: send message to club admin
+  app.post("/api/portal/contact", async (req, res) => {
+    if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub) return res.status(401).json({ error: "Konto nicht gefunden" });
+    const { subject, message } = req.body;
+    if (!subject?.trim() || !message?.trim()) return res.status(400).json({ error: "Betreff und Nachricht sind erforderlich" });
+    const settings = await storage.getSettings().catch(() => ({} as any));
+    const adminEmail = settings.contactEmail || process.env.SENDGRID_FROM_EMAIL || "schreiber1988@gmx.net";
+    const clubName = settings.clubName || "Lions Club Meißner Land";
+    const html = `<p><strong>Von:</strong> ${sub.firstName} ${sub.lastName} &lt;${sub.email}&gt;</p><p><strong>Betreff:</strong> ${subject}</p><hr/><p style="white-space:pre-wrap">${message.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br/>")}</p>`;
+    const text = `Von: ${sub.firstName} ${sub.lastName} <${sub.email}>\nBetreff: ${subject}\n\n${message}`;
+    try {
+      await sendToClubAdmin({ adminEmail, subject: `[${clubName}] Nachricht von ${sub.firstName} ${sub.lastName}: ${subject}`, senderName: `${sub.firstName} ${sub.lastName}`, senderEmail: sub.email, html, text });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("Contact email error:", err);
+      res.status(500).json({ error: "E-Mail konnte nicht gesendet werden" });
+    }
+  });
+
+  // Portal: submit project proposal
+  app.post("/api/portal/proposal", async (req, res) => {
+    if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub) return res.status(401).json({ error: "Konto nicht gefunden" });
+    const { title, description, category } = req.body;
+    if (!title?.trim() || !description?.trim()) return res.status(400).json({ error: "Titel und Beschreibung sind erforderlich" });
+    const settings = await storage.getSettings().catch(() => ({} as any));
+    const adminEmail = settings.contactEmail || process.env.SENDGRID_FROM_EMAIL || "schreiber1988@gmx.net";
+    const clubName = settings.clubName || "Lions Club Meißner Land";
+    const catLine = category ? `<p><strong>Kategorie:</strong> ${category}</p>` : "";
+    const html = `<p><strong>Projektvorschlag von:</strong> ${sub.firstName} ${sub.lastName} &lt;${sub.email}&gt;</p><p><strong>Titel:</strong> ${title}</p>${catLine}<p><strong>Beschreibung:</strong></p><p style="white-space:pre-wrap">${description.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br/>")}</p>`;
+    const text = `Projektvorschlag von: ${sub.firstName} ${sub.lastName} <${sub.email}>\nTitel: ${title}${category ? `\nKategorie: ${category}` : ""}\n\n${description}`;
+    try {
+      await sendToClubAdmin({ adminEmail, subject: `[${clubName}] Projektvorschlag: ${title}`, senderName: `${sub.firstName} ${sub.lastName}`, senderEmail: sub.email, html, text });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("Proposal email error:", err);
+      res.status(500).json({ error: "E-Mail konnte nicht gesendet werden" });
+    }
   });
 
   // Public subscribe (no auth needed)

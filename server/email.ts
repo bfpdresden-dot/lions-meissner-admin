@@ -488,3 +488,27 @@ export async function sendOptInEmail(
     text: `Guten Tag, ${firstName},\n\nBitte bestätigen Sie Ihre Anmeldung:\n${confirmUrl}\n\nDer Link ist 7 Tage gültig.\n\n${clubName}`,
   });
 }
+
+// ── sendToClubAdmin ───────────────────────────────────────────────────────────
+
+export async function sendToClubAdmin(opts: {
+  adminEmail: string;
+  subject: string;
+  senderName: string;
+  senderEmail: string;
+  html: string;
+  text: string;
+}): Promise<void> {
+  const apiKey = await getSendGridApiKey();
+  const sender = await getSenderInfo();
+  if (!sender.email) throw new Error("Absender-E-Mail nicht konfiguriert");
+  sgMail.setApiKey(apiKey);
+  await sgMail.send({
+    to: opts.adminEmail,
+    from: { name: sender.name, email: sender.email },
+    replyTo: { name: opts.senderName, email: opts.senderEmail },
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+  });
+}
