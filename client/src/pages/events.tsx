@@ -714,7 +714,7 @@ export default function EventsPage() {
                     <div className="space-y-2">
                       {/* Buttons — eigene Zeile, ganz oben rechtsbündig */}
                       <div className="flex justify-end">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 flex-wrap justify-end max-w-full">
                         <Button
                           size="icon"
                           variant="ghost"
