@@ -1365,70 +1365,14 @@ export default function EventsPage() {
 
 interface ShiftFormState { title: string; date: string; startTime: string; endTime: string; maxVolunteers: string; note: string; }
 
-function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () => void }) {
-  const { toast } = useToast();
-  const [editingShift, setEditingShift] = useState<ShiftWithSignups | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<ShiftFormState>({ title: "", date: "", startTime: "", endTime: "", maxVolunteers: "2", note: "" });
-
-  const { data: shifts, isLoading } = useQuery<ShiftWithSignups[]>({
-    queryKey: ["/api/events", event.id, "shifts"],
-    queryFn: () => fetch(`/api/events/${event.id}/shifts`).then((r) => r.json()),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: ShiftFormState) => apiRequest("POST", `/api/events/${event.id}/shifts`, {
-      ...data, maxVolunteers: parseInt(data.maxVolunteers) || 1,
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
-      setShowForm(false);
-      setForm({ title: "", date: "", startTime: "", endTime: "", maxVolunteers: "2", note: "" });
-      toast({ title: "Schicht erstellt" });
-    },
-    onError: () => toast({ title: "Fehler", variant: "destructive" }),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: ShiftFormState }) =>
-      apiRequest("PATCH", `/api/shifts/${id}`, { ...data, maxVolunteers: parseInt(data.maxVolunteers) || 1 }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
-      setEditingShift(null);
-      toast({ title: "Schicht gespeichert" });
-    },
-    onError: () => toast({ title: "Fehler", variant: "destructive" }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/shifts/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
-      toast({ title: "Schicht gelöscht" });
-    },
-  });
-
-  const removeSignupMutation = useMutation({
-    mutationFn: (signupId: number) => apiRequest("DELETE", `/api/shifts/signups/${signupId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] }),
-  });
-
-  const publicUrl = `${window.location.origin}/schichtplan/${event.id}`;
-
-  const byDate: Record<string, ShiftWithSignups[]> = {};
-  for (const s of shifts || []) {
-    if (!byDate[s.date]) byDate[s.date] = [];
-    byDate[s.date].push(s);
-  }
-  const sortedDates = Object.keys(byDate).sort();
-
-  const ShiftFormFields = ({ val, onChange, onSubmit, onCancel, isPending }: {
-    val: ShiftFormState;
-    onChange: (v: ShiftFormState) => void;
-    onSubmit: () => void;
-    onCancel: () => void;
-    isPending: boolean;
-  }) => (
+function ShiftFormFields({ val, onChange, onSubmit, onCancel, isPending }: {
+  val: ShiftFormState;
+  onChange: (v: ShiftFormState) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  return (
     <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
@@ -1473,6 +1417,73 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
       </div>
     </div>
   );
+}
+
+function makeDefaultShiftForm(event: Event): ShiftFormState {
+  const d = new Date(event.date);
+  const date = format(d, "yyyy-MM-dd");
+  const startTime = format(d, "HH:mm");
+  const endTime = (event as any).endDate ? format(new Date((event as any).endDate), "HH:mm") : "";
+  return { title: event.title, date, startTime, endTime, maxVolunteers: "2", note: "" };
+}
+
+function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () => void }) {
+  const { toast } = useToast();
+  const [editingShift, setEditingShift] = useState<ShiftWithSignups | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<ShiftFormState>(() => makeDefaultShiftForm(event));
+
+  const { data: shifts, isLoading } = useQuery<ShiftWithSignups[]>({
+    queryKey: ["/api/events", event.id, "shifts"],
+    queryFn: () => fetch(`/api/events/${event.id}/shifts`).then((r) => r.json()),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: ShiftFormState) => apiRequest("POST", `/api/events/${event.id}/shifts`, {
+      ...data, maxVolunteers: parseInt(data.maxVolunteers) || 1,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      setShowForm(false);
+      setForm(makeDefaultShiftForm(event));
+      toast({ title: "Schicht erstellt" });
+    },
+    onError: () => toast({ title: "Fehler", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ShiftFormState }) =>
+      apiRequest("PATCH", `/api/shifts/${id}`, { ...data, maxVolunteers: parseInt(data.maxVolunteers) || 1 }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      setEditingShift(null);
+      toast({ title: "Schicht gespeichert" });
+    },
+    onError: () => toast({ title: "Fehler", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/shifts/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      toast({ title: "Schicht gelöscht" });
+    },
+  });
+
+  const removeSignupMutation = useMutation({
+    mutationFn: (signupId: number) => apiRequest("DELETE", `/api/shifts/signups/${signupId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] }),
+  });
+
+  const publicUrl = `${window.location.origin}/schichtplan/${event.id}`;
+
+  const byDate: Record<string, ShiftWithSignups[]> = {};
+  for (const s of shifts || []) {
+    if (!byDate[s.date]) byDate[s.date] = [];
+    byDate[s.date].push(s);
+  }
+  const sortedDates = Object.keys(byDate).sort();
+
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
