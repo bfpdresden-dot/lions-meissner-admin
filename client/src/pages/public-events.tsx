@@ -29,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -113,13 +114,28 @@ export default function PublicEventsPage() {
   }, []);
 
   const [registerEventId, setRegisterEventId] = useState<number | null>(null);
-  const [detailEventId, setDetailEventId] = useState<number | null>(null);
+  const [detailEventId, setDetailEventId] = useState<number | null>(() => {
+    const p = new URLSearchParams(window.location.search).get("event");
+    return p ? parseInt(p, 10) : null;
+  });
   const [copiedLink, setCopiedLink] = useState(false);
   const [successEvent, setSuccessEvent] = useState<string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
   const [quickGuestCount, setQuickGuestCount] = useState("1");
+  const [showQr, setShowQr] = useState(false);
   const { toast } = useToast();
+
+  const openDetail = (id: number | null) => {
+    setDetailEventId(id);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("event", String(id));
+    else url.searchParams.delete("event");
+    window.history.replaceState(null, "", url.toString());
+  };
+
+  const eventDeepLink = (id: number) =>
+    `${window.location.origin}/veranstaltungen?event=${id}`;
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -449,8 +465,26 @@ export default function PublicEventsPage() {
                             </Button>
                           )}
                           <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const url = eventDeepLink(event.id);
+                              const text = `${event.title} – ${format(new Date(event.date), "dd. MMMM yyyy", { locale: de })} in ${event.location}`;
+                              if (navigator.share) {
+                                navigator.share({ title: event.title, text, url });
+                              } else {
+                                navigator.clipboard.writeText(url);
+                                toast({ title: "Link kopiert!" });
+                              }
+                            }}
+                            title="Teilen"
+                            data-testid={`button-share-card-${event.id}`}
+                          >
+                            <Share2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
                             variant="outline"
-                            onClick={() => setDetailEventId(event.id)}
+                            onClick={() => openDetail(event.id)}
                             data-testid={`button-details-${event.id}`}
                           >
                             Details
@@ -496,7 +530,7 @@ export default function PublicEventsPage() {
           const spotsLeft = ev.maxParticipants ? ev.maxParticipants - guests : null;
           const isFull = spotsLeft !== null && spotsLeft <= 0;
           return (
-            <Dialog open onOpenChange={(open) => !open && setDetailEventId(null)}>
+            <Dialog open onOpenChange={(open) => { if (!open) { openDetail(null); setShowQr(false); } }}>
               <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-xl">{ev.title}</DialogTitle>
@@ -581,7 +615,7 @@ export default function PublicEventsPage() {
                         className="gap-2"
                         onClick={() => {
                           const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
-                          const url = window.location.href;
+                          const url = eventDeepLink(ev.id);
                           window.open(`https://wa.me/?text=${encodeURIComponent(text + "\n" + url)}`, "_blank");
                         }}
                         data-testid={`button-share-whatsapp-${ev.id}`}
@@ -594,7 +628,7 @@ export default function PublicEventsPage() {
                         size="sm"
                         className="gap-2"
                         onClick={() => {
-                          const url = encodeURIComponent(window.location.href);
+                          const url = encodeURIComponent(eventDeepLink(ev.id));
                           window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
                         }}
                         data-testid={`button-share-facebook-${ev.id}`}
@@ -606,21 +640,8 @@ export default function PublicEventsPage() {
                         variant="outline"
                         size="sm"
                         className="gap-2"
-                        onClick={() => {
-                          const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
-                          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, "_blank");
-                        }}
-                        data-testid={`button-share-x-${ev.id}`}
-                      >
-                        <span className="font-bold text-sm leading-none">𝕏</span>
-                        X / Twitter
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
                         onClick={async () => {
-                          await navigator.clipboard.writeText(window.location.href);
+                          await navigator.clipboard.writeText(eventDeepLink(ev.id));
                           setCopiedLink(true);
                           setTimeout(() => setCopiedLink(false), 2000);
                         }}
@@ -629,12 +650,52 @@ export default function PublicEventsPage() {
                         <Copy className="h-4 w-4" />
                         {copiedLink ? "Kopiert!" : "Link kopieren"}
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => setShowQr((v) => !v)}
+                        data-testid={`button-show-qr-${ev.id}`}
+                      >
+                        <QrCode className="h-4 w-4" />
+                        QR-Code
+                      </Button>
                     </div>
+                    {showQr && (
+                      <div className="flex flex-col items-center gap-3 py-3 border rounded-lg mt-2 bg-muted/30">
+                        <div id={`qr-print-${ev.id}`} className="bg-white p-4 rounded-lg border">
+                          <QRCodeSVG value={eventDeepLink(ev.id)} size={160} level="M" />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center px-4 break-all">{eventDeepLink(ev.id)}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => {
+                            const printWin = window.open("", "_blank", "width=400,height=500");
+                            if (!printWin) return;
+                            const svg = document.querySelector(`#qr-print-${ev.id} svg`)?.outerHTML || "";
+                            printWin.document.write(`<html><body style="text-align:center;font-family:sans-serif;padding:20px">
+                              <h2>${ev.title}</h2>
+                              <p>${format(new Date(ev.date), "EEEE, dd. MMMM yyyy", { locale: de })}</p>
+                              ${svg}
+                              <p style="font-size:12px;color:#666;margin-top:10px">${eventDeepLink(ev.id)}</p>
+                            </body></html>`);
+                            printWin.document.close();
+                            printWin.print();
+                          }}
+                          data-testid={`button-print-qr-${ev.id}`}
+                        >
+                          <Printer className="h-4 w-4" />
+                          Drucken
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <Button
                     className="w-full"
-                    onClick={() => { setDetailEventId(null); handleOpenRegister(ev.id); }}
+                    onClick={() => { openDetail(null); setShowQr(false); handleOpenRegister(ev.id); }}
                     disabled={isFull || isAlreadyRegistered(ev.id)}
                     variant={isAlreadyRegistered(ev.id) ? "secondary" : "default"}
                   >
@@ -1046,6 +1107,18 @@ export default function PublicEventsPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Floating Newsletter FAB */}
+        {!showSubscribe && (
+          <button
+            onClick={handleOpenSubscribe}
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-[#1a3a5c] text-white text-sm font-medium px-4 py-3 rounded-full shadow-lg hover:bg-[#1a3a5c]/90 transition-all hover:scale-105 active:scale-95"
+            data-testid="button-floating-subscribe"
+          >
+            <Mail className="h-4 w-4" />
+            Newsletter
+          </button>
+        )}
 
         <div className="border-t mt-12 pt-8 text-center text-sm text-muted-foreground space-y-1">
           <p className="font-medium">Lions Club Mei&szlig;ner Land</p>
