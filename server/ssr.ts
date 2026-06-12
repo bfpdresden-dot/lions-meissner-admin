@@ -126,12 +126,12 @@ async function resolvePageMeta(pathname: string): Promise<PageMeta> {
         const fmt = (d: Date) =>
           d.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
         const startDate = new Date(event.date);
-        const endDate = event.endDate ? new Date(event.endDate) : null;
+        const endDate = (event as any).endDate ? new Date((event as any).endDate) : null;
         const dateStr = endDate && fmt(endDate) !== fmt(startDate)
           ? `${fmt(startDate)} – ${fmt(endDate)}`
           : fmt(startDate);
         const loc = event.location ? escapeHtml(event.location) : "";
-        const description = [dateStr, loc].filter(Boolean).join("\n");
+        const description = [dateStr, loc].filter(Boolean).join(" · ");
         return {
           title: `Schichtplan: ${escapeHtml(event.title)} – ${site}`,
           description,
@@ -139,8 +139,8 @@ async function resolvePageMeta(pathname: string): Promise<PageMeta> {
           preContent: `<h1>Schichtplan: ${escapeHtml(event.title)}</h1><p>${dateStr}${loc ? ` · ${loc}` : ""}</p>`,
         };
       }
-    } catch {
-      // fall through to default
+    } catch (err) {
+      console.error("[SSR] schichtplan error:", err);
     }
     return {
       title: `Schichtplan – ${site}`,
