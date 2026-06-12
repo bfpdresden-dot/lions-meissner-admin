@@ -117,6 +117,39 @@ async function resolvePageMeta(pathname: string): Promise<PageMeta> {
     };
   }
 
+  const schichtplanMatch = pathname.match(/^\/schichtplan\/(\d+)$/);
+  if (schichtplanMatch) {
+    const eventId = parseInt(schichtplanMatch[1], 10);
+    try {
+      const event = await storage.getEvent(eventId);
+      if (event) {
+        const fmt = (d: Date) =>
+          d.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+        const startDate = new Date(event.date);
+        const endDate = event.endDate ? new Date(event.endDate) : null;
+        const dateStr = endDate && fmt(endDate) !== fmt(startDate)
+          ? `${fmt(startDate)} – ${fmt(endDate)}`
+          : fmt(startDate);
+        const loc = event.location ? escapeHtml(event.location) : "";
+        const description = [dateStr, loc].filter(Boolean).join("\n");
+        return {
+          title: `Schichtplan: ${escapeHtml(event.title)} – ${site}`,
+          description,
+          canonicalPath: pathname,
+          preContent: `<h1>Schichtplan: ${escapeHtml(event.title)}</h1><p>${dateStr}${loc ? ` · ${loc}` : ""}</p>`,
+        };
+      }
+    } catch {
+      // fall through to default
+    }
+    return {
+      title: `Schichtplan – ${site}`,
+      description: `Schichtplan für eine Veranstaltung des ${site}.`,
+      canonicalPath: pathname,
+      preContent: "",
+    };
+  }
+
   if (pathname === "/mein-bereich") {
     return {
       title: `Mein Bereich – ${site}`,
