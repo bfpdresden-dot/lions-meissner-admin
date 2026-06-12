@@ -130,7 +130,6 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
             </SelectTrigger>
             <SelectContent>
               {(members || [])
-                .filter((m) => m.isActive)
                 .sort((a, b) => a.firstName.localeCompare(b.firstName))
                 .map((m) => (
                   <SelectItem key={m.id} value={m.id.toString()} data-testid={`option-member-${m.id}`}>
