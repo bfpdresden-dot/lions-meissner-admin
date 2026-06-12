@@ -407,7 +407,8 @@ export async function registerRoutes(
 
   app.get("/api/events", async (req, res) => {
     const all = await storage.getEvents();
-    res.json(all);
+    if (req.session?.isAdmin) return res.json(all);
+    res.json(all.filter((e) => !e.isInternal));
   });
 
   app.get("/api/events/:id", async (req, res) => {
