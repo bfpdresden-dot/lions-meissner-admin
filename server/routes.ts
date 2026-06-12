@@ -885,6 +885,29 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.json({ ok: true });
   });
 
+  app.get("/api/portal/members", async (req, res) => {
+    if (!req.session?.subscriberId) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub || !sub.isMember) {
+      return res.status(403).json({ error: "Nur für Mitglieder" });
+    }
+    const members = await storage.getMembers();
+    const list = members
+      .filter((m) => m.isActive)
+      .map((m) => ({
+        id: m.id,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        phone: m.phone,
+        email: m.email,
+        birthday: m.birthday,
+      }))
+      .sort((a, b) => a.lastName.localeCompare(b.lastName));
+    return res.json(list);
+  });
+
   app.get("/api/portal/me", async (req, res) => {
     if (!req.session?.subscriberId) {
       return res.status(401).json({ error: "Nicht angemeldet" });
