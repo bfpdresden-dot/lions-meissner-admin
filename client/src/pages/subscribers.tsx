@@ -51,7 +51,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Mail, Download, Trash2, UserX, UserCheck, Star, KeyRound, Pencil, UserPlus, Clock, Send, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Mail, Download, Trash2, UserX, UserCheck, Star, KeyRound, Pencil, UserPlus, Clock, Send, Sparkles, ChevronDown, ChevronUp, User, Phone, Calendar, Shield, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Subscriber, Event, EmailLog } from "@shared/schema";
 import { format } from "date-fns";
@@ -81,6 +81,7 @@ export default function SubscribersPage() {
   const [portalPasswordSub, setPortalPasswordSub] = useState<Subscriber | null>(null);
   const [editSub, setEditSub] = useState<Subscriber | null>(null);
   const [journalSub, setJournalSub] = useState<Subscriber | null>(null);
+  const [detailSub, setDetailSub] = useState<Subscriber | null>(null);
   const [emailTarget, setEmailTarget] = useState<Subscriber | "all" | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -340,9 +341,9 @@ export default function SubscribersPage() {
                         <TableRow key={sub.id} data-testid={`row-subscriber-${sub.id}`}>
                           <TableCell className="font-medium">
                             <button
-                              className="hover:underline text-left focus:outline-none"
-                              onClick={() => setJournalSub(sub)}
-                              data-testid={`button-journal-${sub.id}`}
+                              className="hover:underline text-left focus:outline-none text-[#1a3a5c]"
+                              onClick={() => setDetailSub(sub)}
+                              data-testid={`button-detail-${sub.id}`}
                             >
                               {sub.firstName} {sub.lastName}
                             </button>
@@ -533,6 +534,120 @@ export default function SubscribersPage() {
 
         {/* Edit dialog (shared state) */}
       </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={detailSub !== null} onOpenChange={(open) => !open && setDetailSub(null)}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-[#1a3a5c]" />
+              {detailSub?.firstName} {detailSub?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          {detailSub && (
+            <div className="space-y-4 pt-1">
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-2">
+                {detailSub.isActive
+                  ? <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-100">Aktiv</Badge>
+                  : <Badge variant="secondary">Inaktiv</Badge>
+                }
+                {detailSub.isMember && (
+                  <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-100">
+                    <Star className="h-3 w-3 mr-1 fill-yellow-500 text-yellow-500" />Mitglied
+                  </Badge>
+                )}
+                {(detailSub as any).isAdmin && (
+                  <Badge className="bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-100">
+                    <Shield className="h-3 w-3 mr-1" />Administrator
+                  </Badge>
+                )}
+                {detailSub.passwordHash && (
+                  <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50">
+                    <Lock className="h-3 w-3 mr-1" />Portal-Zugang
+                  </Badge>
+                )}
+              </div>
+
+              {/* Data rows */}
+              <div className="rounded-lg border divide-y text-sm">
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">E-Mail</p>
+                    <p className="font-medium">{detailSub.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Telefon</p>
+                    <p className="font-medium">{detailSub.phone || <span className="text-muted-foreground italic">nicht angegeben</span>}</p>
+                  </div>
+                </div>
+                {(detailSub as any).birthday && (
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Geburtstag</p>
+                      <p className="font-medium">{format(new Date((detailSub as any).birthday), "dd. MMMM yyyy", { locale: de })}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Angemeldet am</p>
+                    <p className="font-medium">{format(new Date(detailSub.subscribedAt), "dd. MMMM yyyy, HH:mm 'Uhr'", { locale: de })}</p>
+                  </div>
+                </div>
+                {getSource(detailSub) !== "-" && (
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quelle</p>
+                      <p className="font-medium">{getSource(detailSub)}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => { setDetailSub(null); setEmailTarget(detailSub); setEmailSubject(""); setEmailBody(""); setAiOpen(false); setAiPrompt(""); }}
+                  data-testid={`button-detail-email-${detailSub.id}`}
+                >
+                  <Mail className="h-4 w-4 mr-2" />E-Mail senden
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => { setDetailSub(null); setEditSub(detailSub); }}
+                    data-testid={`button-detail-edit-${detailSub.id}`}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />Bearbeiten
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => { setDetailSub(null); setJournalSub(detailSub); }}
+                    data-testid={`button-detail-journal-${detailSub.id}`}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />E-Mail-Journal
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Journal Dialog */}
       <Dialog open={journalSub !== null} onOpenChange={(open) => !open && setJournalSub(null)}>
