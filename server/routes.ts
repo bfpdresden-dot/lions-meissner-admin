@@ -408,6 +408,10 @@ export async function registerRoutes(
   app.get("/api/events", async (req, res) => {
     const all = await storage.getEvents();
     if (req.session?.isAdmin) return res.json(all);
+    if (req.session?.subscriberId) {
+      const sub = await storage.getSubscriber(req.session.subscriberId);
+      if (sub?.isMember) return res.json(all);
+    }
     res.json(all.filter((e) => !e.isInternal));
   });
 
