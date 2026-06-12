@@ -407,9 +407,7 @@ export async function registerRoutes(
 
   app.get("/api/events", async (req, res) => {
     const all = await storage.getEvents();
-    // Public route: hide internal events unless admin session
-    if (req.session?.isAdmin) return res.json(all);
-    res.json(all.filter((e) => !e.isInternal));
+    res.json(all);
   });
 
   app.get("/api/events/:id", async (req, res) => {
