@@ -1409,7 +1409,7 @@ function ShiftFormFields({ val, onChange, onSubmit, onCancel, isPending }: {
             data-testid="input-shift-date" />
         </div>
         <div>
-          <Label className="text-xs">Personen *</Label>
+          <Label className="text-xs">Mindestanzahl *</Label>
           <Input type="number" min="1" max="50" value={val.maxVolunteers}
             onChange={(e) => onChange({ ...val, maxVolunteers: e.target.value })}
             data-testid="input-shift-max" />
@@ -1582,7 +1582,7 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
                             <p className="font-medium text-sm">{shift.title}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                               <Clock className="h-3 w-3" />
-                              {shift.startTime} – {shift.endTime} Uhr · max. {shift.maxVolunteers} Person{shift.maxVolunteers !== 1 ? "en" : ""}
+                              {shift.startTime} – {shift.endTime} Uhr · mind. {shift.maxVolunteers} Person{shift.maxVolunteers !== 1 ? "en" : ""}
                             </p>
                             {shift.note && <p className="text-xs text-muted-foreground italic mt-0.5">{shift.note}</p>}
                           </div>
@@ -1604,7 +1604,10 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
                         <div className="mt-2 pt-2 border-t">
                           <p className="text-xs text-muted-foreground mb-1.5">
                             Eingetragen: {shift.signups.length}/{shift.maxVolunteers}
-                            {shift.signups.length >= shift.maxVolunteers && <span className="ml-1 text-red-500 font-medium">· Voll</span>}
+                            {shift.signups.length >= shift.maxVolunteers
+                              ? <span className="ml-1 text-green-600 font-medium">· Ziel erreicht ✓</span>
+                              : <span className="ml-1 text-red-500 font-medium">· {shift.maxVolunteers - shift.signups.length} fehlen noch</span>
+                            }
                           </p>
                           {shift.signups.length === 0 ? (
                             <p className="text-xs text-muted-foreground italic">Noch niemand eingetragen</p>

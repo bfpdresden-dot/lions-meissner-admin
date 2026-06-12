@@ -165,8 +165,8 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                 const mySignup = selectedMemberId
                   ? shift.signups.find((sg) => sg.memberId.toString() === selectedMemberId)
                   : undefined;
-                const isFull = shift.signups.length >= shift.maxVolunteers;
-                const canSignup = selectedMemberId && !mySignup && !isFull;
+                const hasMetMin = shift.signups.length >= shift.maxVolunteers;
+                const canSignup = selectedMemberId && !mySignup;
                 const isPending = signupMutation.isPending || cancelMutation.isPending;
 
                 return (
@@ -186,15 +186,15 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                       </div>
                       <div className="text-right shrink-0">
                         <Badge
-                          variant={isFull ? "destructive" : "secondary"}
-                          className={`text-xs ${!isFull ? "bg-[#1a3a5c]/10 text-[#1a3a5c]" : ""}`}
+                          variant="secondary"
+                          className={`text-xs ${hasMetMin ? "bg-green-100 text-green-800 border border-green-300" : "bg-red-100 text-red-700 border border-red-200"}`}
                           data-testid={`badge-capacity-${shift.id}`}
                         >
                           <Users className="h-3 w-3 mr-1" />
                           {shift.signups.length}/{shift.maxVolunteers}
                         </Badge>
-                        {isFull && !mySignup && (
-                          <p className="text-xs text-red-500 mt-1 font-medium">Belegt</p>
+                        {hasMetMin && (
+                          <p className="text-xs text-green-600 mt-1 font-medium">Ziel erreicht ✓</p>
                         )}
                       </div>
                     </div>
@@ -242,7 +242,7 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                           data-testid={`button-signup-${shift.id}`}
                         >
                           {signupMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
-                          {isFull ? "Schicht ist voll" : "Eintragen"}
+                          Eintragen
                         </Button>
                       )
                     )}

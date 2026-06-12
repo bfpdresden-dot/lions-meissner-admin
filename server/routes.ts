@@ -180,7 +180,6 @@ export async function registerRoutes(
     const { eq } = await import("drizzle-orm");
     const [shiftRow] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, shiftId));
     if (!shiftRow) return res.status(404).json({ error: "Schicht nicht gefunden" });
-    if (currentSignups.length >= shiftRow.maxVolunteers) return res.status(409).json({ error: "Schicht ist bereits voll" });
     const signup = await storage.createSignup(shiftId, memberId);
     return res.json(signup);
   });
