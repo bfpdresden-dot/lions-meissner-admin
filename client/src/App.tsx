@@ -26,6 +26,7 @@ import SetupPage from "@/pages/setup";
 import DatenschutzPage from "@/pages/datenschutz";
 import AbmeldenPage from "@/pages/abmelden";
 import SchichtplanPage from "@/pages/schichtplan";
+import AdminSchichtplanPage from "@/pages/admin-schichtplan";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { useEffect } from "react";
 
@@ -37,6 +38,7 @@ function AdminRouter() {
       <Route path="/admin/subscribers" component={SubscribersPage} />
       <Route path="/admin/members" component={MembersPage} />
       <Route path="/admin/qr-codes" component={QRCodesPage} />
+      <Route path="/admin/schichtplan" component={AdminSchichtplanPage} />
       <Route path="/admin/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>

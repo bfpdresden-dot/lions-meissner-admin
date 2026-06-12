@@ -47,7 +47,15 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  ClipboardList,
+  Clock,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -173,7 +181,8 @@ export default function PortalPage() {
   const [proposalCategory, setProposalCategory] = useState("");
   const [proposalSent, setProposalSent] = useState(false);
   const [proposalSending, setProposalSending] = useState(false);
-  // KI-E-Mail (members only)
+  // Schichtplan dialog
+  const [shiftPlanEventId, setShiftPlanEventId] = useState<number | null>(null);
   const [memberEmailRecipient, setMemberEmailRecipient] = useState<"all" | string>("all");
   const [memberEmailSubject, setMemberEmailSubject] = useState("");
   const [memberEmailBody, setMemberEmailBody] = useState("");
@@ -294,6 +303,38 @@ export default function PortalPage() {
     enabled: !!subscriber?.isMember,
     retry: false,
     staleTime: 1000 * 60 * 5,
+  });
+
+  type ShiftSignupEntry = { id: number; shiftId: number; memberId: number; signedUpAt: string; member: { id: number; firstName: string; lastName: string } | null; };
+  type ShiftEntry = { id: number; eventId: number; title: string; date: string; startTime: string; endTime: string; maxVolunteers: number; note: string | null; signups: ShiftSignupEntry[]; };
+  const { data: shiftPlanShifts, isLoading: shiftsLoading } = useQuery<ShiftEntry[]>({
+    queryKey: ["/api/events", shiftPlanEventId, "shifts"],
+    queryFn: () => fetch(`/api/events/${shiftPlanEventId}/shifts`).then((r) => r.json()),
+    enabled: shiftPlanEventId !== null,
+    refetchInterval: 10000,
+  });
+
+  const shiftSignupMutation = useMutation({
+    mutationFn: async ({ shiftId, memberId }: { shiftId: number; memberId: number }) => {
+      const res = await fetch(`/api/shifts/${shiftId}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Fehler");
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events", shiftPlanEventId, "shifts"] }),
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const shiftCancelMutation = useMutation({
+    mutationFn: async (signupId: number) => {
+      const res = await fetch(`/api/shifts/signups/${signupId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Fehler");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events", shiftPlanEventId, "shifts"] }),
   });
 
   type BirthdayEntry = { id: number; name: string; birthday: string; nextBirthday: string; daysUntil: number };
@@ -767,7 +808,19 @@ export default function PortalPage() {
                       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                       .map((ev) => (
                         <div key={ev.id} className="rounded-md border border-amber-100 bg-amber-50/40 p-3 space-y-1" data-testid={`internal-event-${ev.id}`}>
+                          <div className="flex items-start justify-between gap-2">
                           <p className="font-medium text-sm">{ev.title}</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1.5 shrink-0 border-amber-200 text-amber-800 hover:bg-amber-100"
+                            onClick={() => setShiftPlanEventId(ev.id)}
+                            data-testid={`button-schichtplan-${ev.id}`}
+                          >
+                            <ClipboardList className="h-3.5 w-3.5" />
+                            Schichtplan
+                          </Button>
+                          </div>
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
@@ -1405,6 +1458,107 @@ export default function PortalPage() {
           </>
         )}
       </div>
+
+      {/* Schichtplan Dialog */}
+      {shiftPlanEventId !== null && subscriber && (
+        <Dialog open onOpenChange={(open) => { if (!open) setShiftPlanEventId(null); }}>
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-[#1a3a5c]">
+                <ClipboardList className="h-5 w-5" />
+                Schichtplan
+              </DialogTitle>
+            </DialogHeader>
+            {shiftsLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-[#1a3a5c]" /></div>
+            ) : !shiftPlanShifts || shiftPlanShifts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ClipboardList className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Noch keine Schichten geplant.</p>
+              </div>
+            ) : (() => {
+              const byDate: Record<string, typeof shiftPlanShifts> = {};
+              for (const s of shiftPlanShifts) {
+                if (!byDate[s.date]) byDate[s.date] = [];
+                byDate[s.date].push(s);
+              }
+              const myShifts = shiftPlanShifts.filter((s) => s.signups.some((sg) => sg.memberId === subscriber.id));
+              return (
+                <div className="space-y-4">
+                  {myShifts.length > 0 && (
+                    <div className="bg-[#1a3a5c] rounded-lg p-3 text-white text-sm">
+                      <p className="font-semibold mb-1 text-[#c8a84b]">Meine Schichten:</p>
+                      {myShifts.map((s) => (
+                        <p key={s.id} className="text-white/80 text-xs">
+                          • {format(new Date(s.date + "T12:00:00"), "EE dd.MM.", { locale: de })} {s.startTime}–{s.endTime}: {s.title}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {Object.keys(byDate).sort().map((date) => (
+                    <div key={date} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-[#c8a84b]" />
+                        <p className="text-xs font-semibold text-[#1a3a5c] uppercase tracking-wide">
+                          {format(new Date(date + "T12:00:00"), "EEEE, dd. MMMM yyyy", { locale: de })}
+                        </p>
+                      </div>
+                      {byDate[date].map((shift) => {
+                        const mySignup = shift.signups.find((sg) => sg.memberId === subscriber.id);
+                        const filled = shift.signups.length >= shift.maxVolunteers;
+                        const isPending = shiftSignupMutation.isPending || shiftCancelMutation.isPending;
+                        return (
+                          <div
+                            key={shift.id}
+                            className={`border rounded-lg p-3 transition-all ${mySignup ? "border-green-300 bg-green-50/50" : ""}`}
+                            data-testid={`portal-shift-${shift.id}`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <p className="font-semibold text-sm text-[#1a3a5c]">{shift.title}</p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                  <Clock className="h-3 w-3" />
+                                  {shift.startTime} – {shift.endTime} Uhr
+                                </p>
+                                {shift.note && <p className="text-xs text-muted-foreground italic mt-0.5">{shift.note}</p>}
+                              </div>
+                              <Badge variant="secondary" className={`text-xs shrink-0 ${filled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}>
+                                <Users className="h-3 w-3 mr-1" />
+                                {shift.signups.length}/{shift.maxVolunteers}
+                              </Badge>
+                            </div>
+                            {shift.signups.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                {shift.signups.map((sg) => (
+                                  <span key={sg.id} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${sg.memberId === subscriber.id ? "bg-green-100 text-green-800 border border-green-300" : "bg-[#1a3a5c]/10 text-[#1a3a5c]"}`}>
+                                    <Check className="h-3 w-3" />
+                                    {sg.member ? `${sg.member.firstName} ${sg.member.lastName}` : "Unbekannt"}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {mySignup ? (
+                              <Button variant="outline" size="sm" className="w-full border-red-200 text-red-600 hover:bg-red-50" disabled={isPending} onClick={() => shiftCancelMutation.mutate(mySignup.id)} data-testid={`button-shift-cancel-${shift.id}`}>
+                                {shiftCancelMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <X className="h-3.5 w-3.5 mr-1" />}
+                                Austragen
+                              </Button>
+                            ) : (
+                              <Button size="sm" className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" disabled={isPending} onClick={() => shiftSignupMutation.mutate({ shiftId: shift.id, memberId: subscriber.id })} data-testid={`button-shift-signup-${shift.id}`}>
+                                {shiftSignupMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                                Eintragen
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
