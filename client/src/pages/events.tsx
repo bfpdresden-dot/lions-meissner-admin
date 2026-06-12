@@ -108,6 +108,7 @@ export default function EventsPage() {
   const [pdfUploading, setPdfUploading] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [shiftPlanEventId, setShiftPlanEventId] = useState<number | null>(null);
+  const [showPast, setShowPast] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiEventName, setAiEventName] = useState("");
   const [aiEventDate, setAiEventDate] = useState("");
@@ -535,6 +536,17 @@ export default function EventsPage() {
   const sortedEvents = [...(events || [])].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
+  const now = new Date();
+  const displayedEvents = showPast
+    ? sortedEvents
+    : sortedEvents.filter((e) => {
+        const end = (e as any).endDate ? new Date((e as any).endDate) : new Date(e.date);
+        return end >= now;
+      });
+  const pastCount = sortedEvents.length - sortedEvents.filter((e) => {
+    const end = (e as any).endDate ? new Date((e as any).endDate) : new Date(e.date);
+    return end >= now;
+  }).length;
 
   return (
     <div className="flex-1 overflow-auto p-6">
@@ -544,7 +556,18 @@ export default function EventsPage() {
             <h1 className="text-2xl font-bold" data-testid="text-events-title">Veranstaltungen</h1>
             <p className="text-muted-foreground mt-1">Verwalten Sie Ihre Club-Veranstaltungen</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            {pastCount > 0 && (
+              <Button
+                variant={showPast ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setShowPast((v) => !v)}
+                data-testid="button-toggle-past-events"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                {showPast ? "Vergangene ausblenden" : `Vergangene anzeigen (${pastCount})`}
+              </Button>
+            )}
             {/* AI Assistant Dialog */}
             <Dialog open={aiDialogOpen} onOpenChange={(o) => { setAiDialogOpen(o); if (!o) aiMutation.reset(); }}>
               <DialogTrigger asChild>
@@ -676,7 +699,7 @@ export default function EventsPage() {
               <Skeleton key={i} className="h-32 w-full" />
             ))}
           </div>
-        ) : sortedEvents.length === 0 ? (
+        ) : displayedEvents.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Calendar className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
@@ -692,7 +715,7 @@ export default function EventsPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {sortedEvents.map((event) => {
+            {displayedEvents.map((event) => {
               const isPast = new Date(event.date) < new Date();
               return (
                 <Card key={event.id} data-testid={`card-event-${event.id}`}>
