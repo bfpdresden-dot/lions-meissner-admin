@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -36,8 +36,19 @@ const subscribeFormSchema = z.object({
 
 type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
 
+const COUNTRY_CODES = [
+  { code: "+49", label: "🇩🇪 +49" },
+  { code: "+43", label: "🇦🇹 +43" },
+  { code: "+41", label: "🇨🇭 +41" },
+  { code: "+44", label: "🇬🇧 +44" },
+  { code: "+33", label: "🇫🇷 +33" },
+  { code: "+31", label: "🇳🇱 +31" },
+  { code: "+1",  label: "🇺🇸 +1"  },
+];
+
 export default function SubscribePage({ eventId }: { eventId: string }) {
   const [isSuccess, setIsSuccess] = useState(false);
+  const [phonePrefix, setPhonePrefix] = useState("+49");
 
   const { data: event, isLoading, error } = useQuery<Event>({
     queryKey: ["/api/events", eventId],
@@ -60,8 +71,12 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
 
   const subscribeMutation = useMutation({
     mutationFn: async (data: SubscribeFormValues) => {
+      const phone = data.phone?.trim()
+        ? phonePrefix + data.phone.trim().replace(/^0+/, "")
+        : undefined;
       const res = await apiRequest("POST", "/api/subscribe", {
         ...data,
+        phone,
         eventId: parseInt(eventId, 10),
       });
       return res.json();
@@ -248,14 +263,27 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Telefonnummer (optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="tel"
-                        placeholder="0123 456789"
-                        data-testid="input-subscribe-phone"
-                      />
-                    </FormControl>
+                    <div className="flex gap-2">
+                      <select
+                        value={phonePrefix}
+                        onChange={(e) => setPhonePrefix(e.target.value)}
+                        className="h-10 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring shrink-0"
+                        data-testid="select-phone-prefix"
+                      >
+                        {COUNTRY_CODES.map((c) => (
+                          <option key={c.code} value={c.code}>{c.label}</option>
+                        ))}
+                      </select>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="tel"
+                          placeholder="1234 56789"
+                          data-testid="input-subscribe-phone"
+                        />
+                      </FormControl>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Wird gespeichert als z.B. +491234567</p>
                     <FormMessage />
                   </FormItem>
                 )}

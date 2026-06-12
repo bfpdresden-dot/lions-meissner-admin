@@ -368,6 +368,22 @@ export default function SubscribersPage() {
                               <Button size="icon" variant="ghost" onClick={() => { setEmailTarget(sub); setEmailSubject(""); setEmailBody(""); setAiOpen(false); setAiPrompt(""); }} title="E-Mail senden" data-testid={`button-email-subscriber-${sub.id}`}>
                                 <Mail className="h-4 w-4" />
                               </Button>
+                              {/* Edit */}
+                              <Dialog open={editSub?.id === sub.id} onOpenChange={(open) => !open && setEditSub(null)}>
+                                <DialogTrigger asChild>
+                                  <Button size="icon" variant="ghost" onClick={() => setEditSub(sub)} title="Bearbeiten" data-testid={`button-edit-subscriber-${sub.id}`}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle>Daten bearbeiten</DialogTitle>
+                                  </DialogHeader>
+                                  {editSub?.id === sub.id && (
+                                    <EditForm sub={sub} onSubmit={(data) => editMutation.mutate({ id: sub.id, data })} isPending={editMutation.isPending} />
+                                  )}
+                                </DialogContent>
+                              </Dialog>
                               {/* Portal password */}
                               <Dialog open={portalPasswordSub?.id === sub.id} onOpenChange={(open) => !open && setPortalPasswordSub(null)}>
                                 <DialogTrigger asChild>
