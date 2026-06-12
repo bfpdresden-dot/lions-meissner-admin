@@ -1020,6 +1020,78 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.json(enriched);
   });
 
+  // Portal: generate email text via AI (for members)
+  app.post("/api/portal/generate-email", async (req, res) => {
+    if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub || !sub.isMember) return res.status(403).json({ error: "Nur für Mitglieder" });
+    const schema = z.object({
+      prompt: z.string().min(1),
+      subject: z.string().optional(),
+      style: z.enum(["formell", "freundlich", "kollegial", "locker"]).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
+    const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
+    if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY nicht konfiguriert" });
+    let settings: any = {};
+    try { settings = await storage.getSettings(); } catch {}
+    const clubName = settings.clubName || "Lions Club Meißner Land";
+    const senderName = `${sub.firstName} ${sub.lastName}`.trim();
+    const styleInstructions: Record<string, string> = {
+      formell:    "Schreibe sehr formell und höflich (Siezen). Anrede: 'Sehr geehrte/r {{Vorname}},' oder 'Sehr geehrtes Mitglied,'.",
+      freundlich: "Schreibe freundlich und warm, aber dennoch respektvoll (Siezen). Anrede: 'Guten Tag {{Vorname}},'.",
+      kollegial:  "Schreibe kollegial und unkompliziert (Duzen). Anrede: 'Hallo {{Vorname}},'.",
+      locker:     "Schreibe locker, herzlich und persönlich (Duzen). Anrede: 'Hey {{Vorname}},' oder 'Liebe/r {{Vorname}},'.",
+    };
+    const chosenStyle = parsed.data.style ?? "kollegial";
+    const systemPrompt = `Du bist ein hilfreicher Assistent für den ${clubName}.\nSchreibe E-Mail-Texte auf Deutsch.\n${styleInstructions[chosenStyle]}\nNutze {{Vorname}} als Platzhalter für die persönliche Anrede.\nGib NUR den E-Mail-Text zurück, ohne Betreff, ohne Erklärungen, ohne Anführungszeichen.\nVerwende als Absendername in der Grußformel: "${senderName}".\nWICHTIG: Baue den vom Nutzer beschriebenen Inhalt vollständig und deutlich in den E-Mail-Text ein.`;
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://lions-club-meissner-land.de", "X-Title": clubName },
+        body: JSON.stringify({ model: settings.emailAiModel || "openai/gpt-4o-mini", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: parsed.data.prompt + (parsed.data.subject ? `\n\nBetreff: ${parsed.data.subject}` : "") }] }),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        let detail = ""; try { detail = JSON.parse(errText)?.error?.message || ""; } catch {}
+        return res.status(500).json({ error: `KI-Anfrage fehlgeschlagen${detail ? ": " + detail : ""}` });
+      }
+      const data = await response.json() as any;
+      return res.json({ text: data.choices?.[0]?.message?.content || "" });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Fehler bei der KI-Generierung" });
+    }
+  });
+
+  // Portal: send email to members (for members only)
+  app.post("/api/portal/send-member-email", async (req, res) => {
+    if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub || !sub.isMember) return res.status(403).json({ error: "Nur für Mitglieder" });
+    const schema = z.object({
+      memberIds: z.array(z.number()).optional(),
+      subject: z.string().min(1),
+      body: z.string().min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Eingabe" });
+    const { memberIds, subject, body } = parsed.data;
+    const allMembers = await storage.getMembers();
+    const targets = memberIds && memberIds.length > 0
+      ? allMembers.filter((m) => memberIds.includes(m.id) && m.isActive && m.id !== sub.id)
+      : allMembers.filter((m) => m.isActive && m.id !== sub.id);
+    if (targets.length === 0) return res.status(400).json({ error: "Keine Empfänger gefunden" });
+    try {
+      const recipients = targets.map((m) => ({ email: m.email, firstName: m.firstName }));
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const result = await sendCustomEmail(recipients, subject, body, baseUrl);
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "E-Mail konnte nicht gesendet werden." });
+    }
+  });
+
   // Portal: send message to club admin
   app.post("/api/portal/contact", async (req, res) => {
     if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });

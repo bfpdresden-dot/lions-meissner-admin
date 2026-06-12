@@ -43,7 +43,18 @@ import {
   Zap,
   Minus,
   Plus,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
@@ -162,6 +173,16 @@ export default function PortalPage() {
   const [proposalCategory, setProposalCategory] = useState("");
   const [proposalSent, setProposalSent] = useState(false);
   const [proposalSending, setProposalSending] = useState(false);
+  // KI-E-Mail (members only)
+  const [memberEmailRecipient, setMemberEmailRecipient] = useState<"all" | string>("all");
+  const [memberEmailSubject, setMemberEmailSubject] = useState("");
+  const [memberEmailBody, setMemberEmailBody] = useState("");
+  const [memberEmailSent, setMemberEmailSent] = useState(false);
+  const [memberEmailSending, setMemberEmailSending] = useState(false);
+  const [memberAiOpen, setMemberAiOpen] = useState(false);
+  const [memberAiPrompt, setMemberAiPrompt] = useState("");
+  const [memberAiStyle, setMemberAiStyle] = useState("kollegial");
+  const [memberAiLoading, setMemberAiLoading] = useState(false);
   const { toast } = useToast();
 
   const { data: subscriber, isLoading, isError } = useQuery<PortalSubscriber>({
@@ -311,6 +332,52 @@ export default function PortalPage() {
       }
     },
   });
+
+  const handleMemberAiGenerate = async () => {
+    if (!memberAiPrompt.trim()) return;
+    setMemberAiLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/portal/generate-email", {
+        prompt: memberAiPrompt,
+        subject: memberEmailSubject,
+        style: memberAiStyle,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Fehler");
+      setMemberEmailBody(data.text);
+      setMemberAiOpen(false);
+    } catch (err: any) {
+      toast({ title: "KI-Fehler", description: err.message, variant: "destructive" });
+    } finally {
+      setMemberAiLoading(false);
+    }
+  };
+
+  const handleMemberEmailSend = async () => {
+    if (!memberEmailSubject.trim() || !memberEmailBody.trim()) {
+      toast({ title: "Bitte Betreff und Nachricht ausfüllen", variant: "destructive" });
+      return;
+    }
+    setMemberEmailSending(true);
+    try {
+      const payload: { subject: string; body: string; memberIds?: number[] } = {
+        subject: memberEmailSubject,
+        body: memberEmailBody,
+      };
+      if (memberEmailRecipient !== "all") {
+        payload.memberIds = [parseInt(memberEmailRecipient, 10)];
+      }
+      await apiRequest("POST", "/api/portal/send-member-email", payload);
+      setMemberEmailSent(true);
+      setMemberEmailSubject("");
+      setMemberEmailBody("");
+      setMemberAiPrompt("");
+    } catch (err: any) {
+      toast({ title: "Fehler", description: err.message || "E-Mail konnte nicht gesendet werden.", variant: "destructive" });
+    } finally {
+      setMemberEmailSending(false);
+    }
+  };
 
   const handleContact = async () => {
     if (!contactSubject.trim() || !contactMessage.trim()) {
@@ -1064,6 +1131,148 @@ export default function PortalPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* ── KI-E-Mail an Mitglieder (nur für Mitglieder) ── */}
+            {subscriber.isMember && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="h-5 w-5 text-violet-500" />
+                    E-Mail an Mitglieder schreiben
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">Mit KI-Unterstützung — nur für Mitglieder</p>
+                </CardHeader>
+                <CardContent>
+                  {memberEmailSent ? (
+                    <div className="flex flex-col items-center gap-3 py-6 text-center">
+                      <CheckCircle2 className="h-10 w-10 text-green-500" />
+                      <p className="font-medium">E-Mail gesendet!</p>
+                      <p className="text-sm text-muted-foreground">Ihre Nachricht wurde erfolgreich zugestellt.</p>
+                      <Button variant="outline" size="sm" onClick={() => { setMemberEmailSent(false); setMemberEmailRecipient("all"); }} data-testid="button-member-email-reset">
+                        Weitere E-Mail schreiben
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Recipient */}
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Empfänger</label>
+                        <Select value={memberEmailRecipient} onValueChange={setMemberEmailRecipient}>
+                          <SelectTrigger data-testid="select-member-email-recipient">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Alle Mitglieder</SelectItem>
+                            {(portalMembers || [])
+                              .filter((m) => m.id !== subscriber.id)
+                              .map((m) => (
+                                <SelectItem key={m.id} value={String(m.id)}>
+                                  {m.firstName} {m.lastName}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* AI assistant panel */}
+                      <div className="rounded-lg border border-violet-200 bg-violet-50/50">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-violet-700"
+                          onClick={() => setMemberAiOpen((v) => !v)}
+                          data-testid="button-toggle-member-ai"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4" />
+                            KI-Assistent — Text generieren lassen
+                          </span>
+                          {memberAiOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {memberAiOpen && (
+                          <div className="px-3 pb-3 space-y-2 border-t border-violet-200 pt-3">
+                            <p className="text-xs text-muted-foreground">
+                              Beschreiben Sie kurz, was die E-Mail enthalten soll — die KI erstellt den Text auf Deutsch.
+                            </p>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Schreibstil</label>
+                              <Select value={memberAiStyle} onValueChange={setMemberAiStyle}>
+                                <SelectTrigger className="h-8 text-xs" data-testid="select-member-ai-style">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="formell">Formell (per Sie)</SelectItem>
+                                  <SelectItem value="freundlich">Freundlich (per Sie)</SelectItem>
+                                  <SelectItem value="kollegial">Kollegial (per Du)</SelectItem>
+                                  <SelectItem value="locker">Locker &amp; herzlich (per Du)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Textarea
+                              placeholder="z.B. Einladung zum nächsten Treffen mit Bitte um Rückmeldung"
+                              value={memberAiPrompt}
+                              onChange={(e) => setMemberAiPrompt(e.target.value)}
+                              rows={3}
+                              data-testid="textarea-member-ai-prompt"
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="w-full"
+                              disabled={!memberAiPrompt.trim() || memberAiLoading}
+                              onClick={handleMemberAiGenerate}
+                              data-testid="button-member-ai-generate"
+                            >
+                              {memberAiLoading ? (
+                                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generiere…</>
+                              ) : (
+                                <><Sparkles className="h-4 w-4 mr-2" />Text generieren</>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Subject + body */}
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Betreff</label>
+                        <Input
+                          value={memberEmailSubject}
+                          onChange={(e) => setMemberEmailSubject(e.target.value)}
+                          placeholder="z.B. Einladung zur nächsten Clubveranstaltung"
+                          data-testid="input-member-email-subject"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Nachricht</label>
+                        <Textarea
+                          value={memberEmailBody}
+                          onChange={(e) => setMemberEmailBody(e.target.value)}
+                          placeholder={"Hallo {{Vorname}},\n\n..."}
+                          rows={7}
+                          data-testid="textarea-member-email-body"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Tipp: <code className="bg-muted px-1 rounded">{"{{Vorname}}"}</code> wird automatisch durch den Vornamen ersetzt.
+                        </p>
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={handleMemberEmailSend}
+                        disabled={memberEmailSending || !memberEmailSubject.trim() || !memberEmailBody.trim()}
+                        data-testid="button-member-email-send"
+                      >
+                        {memberEmailSending ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird gesendet…</>
+                        ) : (
+                          <><Send className="h-4 w-4 mr-2" />E-Mail senden</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Member directory — only for members */}
             {subscriber.isMember && portalMembers && (
