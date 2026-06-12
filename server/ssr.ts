@@ -14,6 +14,7 @@ export const KNOWN_ROUTE_PATTERNS: RegExp[] = [
   /^\/mein-bereich$/,
   /^\/passwort-reset$/,
   /^\/abmelden$/,
+  /^\/schichtplan\/[^/]+$/,
 ];
 
 export function isKnownRoute(pathname: string): boolean {

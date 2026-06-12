@@ -6,6 +6,8 @@ import {
   settings,
   eventPhotos,
   emailLogs,
+  shifts,
+  shiftSignups,
   type Event,
   type InsertEvent,
   type Subscriber,
@@ -16,6 +18,9 @@ import {
   type Setting,
   type EventPhoto,
   type EmailLog,
+  type Shift,
+  type InsertShift,
+  type ShiftSignup,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -63,6 +68,17 @@ export interface IStorage {
   getSettings(): Promise<Record<string, string>>;
   setSetting(key: string, value: string): Promise<void>;
   setSettings(entries: Record<string, string>): Promise<void>;
+
+  getShiftsByEvent(eventId: number): Promise<Shift[]>;
+  createShift(shift: InsertShift): Promise<Shift>;
+  updateShift(id: number, data: Partial<InsertShift>): Promise<Shift | undefined>;
+  deleteShift(id: number): Promise<void>;
+
+  getSignupsByShift(shiftId: number): Promise<ShiftSignup[]>;
+  getSignupsByEvent(eventId: number): Promise<ShiftSignup[]>;
+  createSignup(shiftId: number, memberId: number): Promise<ShiftSignup>;
+  deleteSignup(id: number): Promise<void>;
+  getSignup(shiftId: number, memberId: number): Promise<ShiftSignup | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -243,6 +259,57 @@ export class DatabaseStorage implements IStorage {
     for (const [key, value] of Object.entries(entries)) {
       await this.setSetting(key, value);
     }
+  }
+
+  async getShiftsByEvent(eventId: number): Promise<Shift[]> {
+    return db.select().from(shifts).where(eq(shifts.eventId, eventId)).orderBy(shifts.date, shifts.startTime);
+  }
+
+  async createShift(shift: InsertShift): Promise<Shift> {
+    const [created] = await db.insert(shifts).values(shift).returning();
+    return created;
+  }
+
+  async updateShift(id: number, data: Partial<InsertShift>): Promise<Shift | undefined> {
+    const [updated] = await db.update(shifts).set(data).where(eq(shifts.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteShift(id: number): Promise<void> {
+    await db.delete(shiftSignups).where(eq(shiftSignups.shiftId, id));
+    await db.delete(shifts).where(eq(shifts.id, id));
+  }
+
+  async getSignupsByShift(shiftId: number): Promise<ShiftSignup[]> {
+    return db.select().from(shiftSignups).where(eq(shiftSignups.shiftId, shiftId)).orderBy(shiftSignups.signedUpAt);
+  }
+
+  async getSignupsByEvent(eventId: number): Promise<ShiftSignup[]> {
+    const eventShifts = await this.getShiftsByEvent(eventId);
+    if (eventShifts.length === 0) return [];
+    const shiftIds = eventShifts.map((s) => s.id);
+    const all: ShiftSignup[] = [];
+    for (const sid of shiftIds) {
+      const rows = await db.select().from(shiftSignups).where(eq(shiftSignups.shiftId, sid));
+      all.push(...rows);
+    }
+    return all;
+  }
+
+  async createSignup(shiftId: number, memberId: number): Promise<ShiftSignup> {
+    const [created] = await db.insert(shiftSignups).values({ shiftId, memberId }).returning();
+    return created;
+  }
+
+  async deleteSignup(id: number): Promise<void> {
+    await db.delete(shiftSignups).where(eq(shiftSignups.id, id));
+  }
+
+  async getSignup(shiftId: number, memberId: number): Promise<ShiftSignup | undefined> {
+    const [row] = await db.select().from(shiftSignups).where(
+      and(eq(shiftSignups.shiftId, shiftId), eq(shiftSignups.memberId, memberId))
+    );
+    return row || undefined;
   }
 }
 

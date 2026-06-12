@@ -87,6 +87,33 @@ export const registrationsRelations = relations(registrations, ({ one }) => ({
   }),
 }));
 
+export const shifts = pgTable("shifts", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  title: text("title").notNull(),
+  date: text("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  maxVolunteers: integer("max_volunteers").notNull().default(1),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const shiftSignups = pgTable("shift_signups", {
+  id: serial("id").primaryKey(),
+  shiftId: integer("shift_id").notNull(),
+  memberId: integer("member_id").notNull(),
+  signedUpAt: timestamp("signed_up_at").notNull().defaultNow(),
+});
+
+export type Shift = typeof shifts.$inferSelect;
+export const insertShiftSchema = createInsertSchema(shifts).omit({ id: true, createdAt: true });
+export type InsertShift = z.infer<typeof insertShiftSchema>;
+
+export type ShiftSignup = typeof shiftSignups.$inferSelect;
+export const insertShiftSignupSchema = createInsertSchema(shiftSignups).omit({ id: true, signedUpAt: true });
+export type InsertShiftSignup = z.infer<typeof insertShiftSignupSchema>;
+
 export const eventPhotos = pgTable("event_photos", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull(),

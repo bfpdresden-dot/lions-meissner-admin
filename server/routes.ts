@@ -101,6 +101,98 @@ export async function registerRoutes(
   const express = await import("express");
   app.use("/uploads", express.default.static(uploadsDir));
 
+  // ── Shifts ───────────────────────────────────────────────────────────────
+
+  // Get shifts for event (public)
+  app.get("/api/events/:id/shifts", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const eventShifts = await storage.getShiftsByEvent(id);
+    const signups = await storage.getSignupsByEvent(id);
+    const members = await storage.getMembers();
+    const memberMap = Object.fromEntries(members.map((m) => [m.id, m]));
+    const result = eventShifts.map((shift) => {
+      const shiftSignupList = signups.filter((s) => s.shiftId === shift.id);
+      return {
+        ...shift,
+        signups: shiftSignupList.map((s) => ({
+          ...s,
+          member: memberMap[s.memberId] ? {
+            id: memberMap[s.memberId].id,
+            firstName: memberMap[s.memberId].firstName,
+            lastName: memberMap[s.memberId].lastName,
+          } : null,
+        })),
+      };
+    });
+    return res.json(result);
+  });
+
+  // Create shift (admin)
+  app.post("/api/events/:id/shifts", requireAdmin, async (req, res) => {
+    const eventId = parseInt(req.params.id, 10);
+    if (isNaN(eventId)) return res.status(400).json({ error: "Ungültige ID" });
+    const { insertShiftSchema } = await import("@shared/schema");
+    const parsed = insertShiftSchema.safeParse({ ...req.body, eventId });
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0]?.message });
+    const shift = await storage.createShift(parsed.data);
+    return res.json(shift);
+  });
+
+  // Update shift (admin)
+  app.patch("/api/shifts/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const shift = await storage.updateShift(id, req.body);
+    if (!shift) return res.status(404).json({ error: "Schicht nicht gefunden" });
+    return res.json(shift);
+  });
+
+  // Delete shift (admin)
+  app.delete("/api/shifts/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    await storage.deleteShift(id);
+    return res.json({ ok: true });
+  });
+
+  // Sign up for shift (public – member selects from list)
+  app.post("/api/shifts/:id/signup", async (req, res) => {
+    const shiftId = parseInt(req.params.id, 10);
+    if (isNaN(shiftId)) return res.status(400).json({ error: "Ungültige Schicht-ID" });
+    const memberId = parseInt(req.body.memberId, 10);
+    if (isNaN(memberId)) return res.status(400).json({ error: "Ungültige Mitglieds-ID" });
+    // Check existing signup
+    const existing = await storage.getSignup(shiftId, memberId);
+    if (existing) return res.status(409).json({ error: "Bereits eingetragen" });
+    // Check capacity
+    const eventShifts = await storage.getShiftsByEvent(0); // will re-fetch below
+    const allShifts = await (async () => {
+      // get the shift to know eventId
+      const signupsForShift = await storage.getSignupsByShift(shiftId);
+      return signupsForShift;
+    })();
+    // Simpler: just count current signups
+    const currentSignups = await storage.getSignupsByShift(shiftId);
+    // Get shift to check maxVolunteers - we need it from DB
+    const { shifts: shiftsTable } = await import("@shared/schema");
+    const { db } = await import("./db");
+    const { eq } = await import("drizzle-orm");
+    const [shiftRow] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, shiftId));
+    if (!shiftRow) return res.status(404).json({ error: "Schicht nicht gefunden" });
+    if (currentSignups.length >= shiftRow.maxVolunteers) return res.status(409).json({ error: "Schicht ist bereits voll" });
+    const signup = await storage.createSignup(shiftId, memberId);
+    return res.json(signup);
+  });
+
+  // Cancel signup (public – by signupId)
+  app.delete("/api/shifts/signups/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    await storage.deleteSignup(id);
+    return res.json({ ok: true });
+  });
+
   // PDF upload for event
   app.post("/api/events/:id/upload-pdf", requireAdmin, pdfUpload.single("pdf"), async (req, res) => {
     const id = parseInt(req.params.id, 10);
@@ -408,6 +500,16 @@ export async function registerRoutes(
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
     await storage.deleteSubscriber(id);
     res.status(204).send();
+  });
+
+  // Public endpoint: only returns id + firstName + lastName for shift plan page
+  app.get("/api/members/public", async (_req, res) => {
+    const members = await storage.getMembers();
+    const publicList = members
+      .filter((m) => m.isActive)
+      .map((m) => ({ id: m.id, firstName: m.firstName, lastName: m.lastName }))
+      .sort((a, b) => a.firstName.localeCompare(b.firstName));
+    return res.json(publicList);
   });
 
   app.get("/api/members", async (req, res) => {

@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -55,8 +55,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Event, InsertEvent, Registration, EventPhoto, Subscriber, EmailLog } from "@shared/schema";
+import type { Event, InsertEvent, Registration, EventPhoto, Subscriber, EmailLog, Shift } from "@shared/schema";
 import { insertEventSchema } from "@shared/schema";
+
+interface ShiftMemberPublic { id: number; firstName: string; lastName: string; }
+interface ShiftSignupWithMember { id: number; shiftId: number; memberId: number; signedUpAt: string; member: ShiftMemberPublic | null; }
+interface ShiftWithSignups extends Shift { signups: ShiftSignupWithMember[]; }
 
 function fileUrl(filenameOrUrl: string): string {
   if (!filenameOrUrl) return "";
@@ -103,6 +107,7 @@ export default function EventsPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [shiftPlanEventId, setShiftPlanEventId] = useState<number | null>(null);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiEventName, setAiEventName] = useState("");
   const [aiEventDate, setAiEventDate] = useState("");
@@ -710,6 +715,15 @@ export default function EventsPage() {
                       {/* Buttons — eigene Zeile, ganz oben rechtsbündig */}
                       <div className="flex justify-end">
                       <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setShiftPlanEventId(event.id)}
+                          data-testid={`button-shiftplan-${event.id}`}
+                          title="Schichtplan verwalten"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -1333,8 +1347,261 @@ export default function EventsPage() {
             </Dialog>
           );
         })()}
+
+        {shiftPlanEventId !== null && (() => {
+          const spEvent = events?.find((e) => e.id === shiftPlanEventId);
+          if (!spEvent) return null;
+          return (
+            <ShiftPlanAdminDialog
+              event={spEvent}
+              onClose={() => setShiftPlanEventId(null)}
+            />
+          );
+        })()}
       </div>
     </div>
+  );
+}
+
+interface ShiftFormState { title: string; date: string; startTime: string; endTime: string; maxVolunteers: string; note: string; }
+
+function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () => void }) {
+  const { toast } = useToast();
+  const [editingShift, setEditingShift] = useState<ShiftWithSignups | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<ShiftFormState>({ title: "", date: "", startTime: "", endTime: "", maxVolunteers: "2", note: "" });
+
+  const { data: shifts, isLoading } = useQuery<ShiftWithSignups[]>({
+    queryKey: ["/api/events", event.id, "shifts"],
+    queryFn: () => fetch(`/api/events/${event.id}/shifts`).then((r) => r.json()),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: ShiftFormState) => apiRequest("POST", `/api/events/${event.id}/shifts`, {
+      ...data, maxVolunteers: parseInt(data.maxVolunteers) || 1,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      setShowForm(false);
+      setForm({ title: "", date: "", startTime: "", endTime: "", maxVolunteers: "2", note: "" });
+      toast({ title: "Schicht erstellt" });
+    },
+    onError: () => toast({ title: "Fehler", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ShiftFormState }) =>
+      apiRequest("PATCH", `/api/shifts/${id}`, { ...data, maxVolunteers: parseInt(data.maxVolunteers) || 1 }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      setEditingShift(null);
+      toast({ title: "Schicht gespeichert" });
+    },
+    onError: () => toast({ title: "Fehler", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/shifts/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      toast({ title: "Schicht gelöscht" });
+    },
+  });
+
+  const removeSignupMutation = useMutation({
+    mutationFn: (signupId: number) => apiRequest("DELETE", `/api/shifts/signups/${signupId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] }),
+  });
+
+  const publicUrl = `${window.location.origin}/schichtplan/${event.id}`;
+
+  const byDate: Record<string, ShiftWithSignups[]> = {};
+  for (const s of shifts || []) {
+    if (!byDate[s.date]) byDate[s.date] = [];
+    byDate[s.date].push(s);
+  }
+  const sortedDates = Object.keys(byDate).sort();
+
+  const ShiftFormFields = ({ val, onChange, onSubmit, onCancel, isPending }: {
+    val: ShiftFormState;
+    onChange: (v: ShiftFormState) => void;
+    onSubmit: () => void;
+    onCancel: () => void;
+    isPending: boolean;
+  }) => (
+    <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <Label className="text-xs">Bezeichnung *</Label>
+          <Input value={val.title} onChange={(e) => onChange({ ...val, title: e.target.value })}
+            placeholder="z.B. Aufbau, Grillen, Abbau" data-testid="input-shift-title" />
+        </div>
+        <div>
+          <Label className="text-xs">Datum *</Label>
+          <Input type="date" value={val.date} onChange={(e) => onChange({ ...val, date: e.target.value })}
+            data-testid="input-shift-date" />
+        </div>
+        <div>
+          <Label className="text-xs">Personen *</Label>
+          <Input type="number" min="1" max="50" value={val.maxVolunteers}
+            onChange={(e) => onChange({ ...val, maxVolunteers: e.target.value })}
+            data-testid="input-shift-max" />
+        </div>
+        <div>
+          <Label className="text-xs">Von *</Label>
+          <Input type="time" value={val.startTime} onChange={(e) => onChange({ ...val, startTime: e.target.value })}
+            data-testid="input-shift-start" />
+        </div>
+        <div>
+          <Label className="text-xs">Bis *</Label>
+          <Input type="time" value={val.endTime} onChange={(e) => onChange({ ...val, endTime: e.target.value })}
+            data-testid="input-shift-end" />
+        </div>
+        <div className="col-span-2">
+          <Label className="text-xs">Hinweis (optional)</Label>
+          <Input value={val.note} onChange={(e) => onChange({ ...val, note: e.target.value })}
+            placeholder="z.B. Bitte Schürze mitbringen" data-testid="input-shift-note" />
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button variant="ghost" size="sm" onClick={onCancel}>Abbrechen</Button>
+        <Button size="sm" disabled={isPending || !val.title || !val.date || !val.startTime || !val.endTime}
+          onClick={onSubmit} className="bg-[#1a3a5c]" data-testid="button-save-shift">
+          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+          Speichern
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-[#1a3a5c]" />
+            Schichtplan — {event.title}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Share link */}
+        <div className="flex items-center gap-2 bg-muted/40 rounded-md px-3 py-2 border">
+          <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground truncate flex-1">{publicUrl}</span>
+          <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs gap-1"
+            data-testid="button-copy-shift-link"
+            onClick={() => { navigator.clipboard.writeText(publicUrl); toast({ title: "Link kopiert!" }); }}>
+            <Copy className="h-3 w-3" /> Kopieren
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-1">Diesen Link per WhatsApp teilen — Mitglieder können sich direkt eintragen.</p>
+
+        {/* Add shift button */}
+        {!showForm && !editingShift && (
+          <Button variant="outline" size="sm" className="gap-1.5 self-start" onClick={() => setShowForm(true)}
+            data-testid="button-add-shift">
+            <Plus className="h-4 w-4" /> Neue Schicht
+          </Button>
+        )}
+
+        {/* New shift form */}
+        {showForm && (
+          <ShiftFormFields
+            val={form} onChange={setForm}
+            onSubmit={() => createMutation.mutate(form)}
+            onCancel={() => setShowForm(false)}
+            isPending={createMutation.isPending}
+          />
+        )}
+
+        {/* Shifts list */}
+        {isLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-[#1a3a5c]" /></div>
+        ) : sortedDates.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            Noch keine Schichten. Klicke auf „Neue Schicht" um anzufangen.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sortedDates.map((date) => (
+              <div key={date} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-[#c8a84b]" />
+                  <p className="text-xs font-semibold text-[#1a3a5c] uppercase tracking-wide">
+                    {format(new Date(date + "T12:00:00"), "EEEE, dd. MMMM yyyy", { locale: de })}
+                  </p>
+                </div>
+                {byDate[date].map((shift) => (
+                  <div key={shift.id} className="border rounded-lg p-3" data-testid={`admin-shift-${shift.id}`}>
+                    {editingShift?.id === shift.id ? (
+                      <ShiftFormFields
+                        val={form} onChange={setForm}
+                        onSubmit={() => updateMutation.mutate({ id: shift.id, data: form })}
+                        onCancel={() => setEditingShift(null)}
+                        isPending={updateMutation.isPending}
+                      />
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-sm">{shift.title}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Clock className="h-3 w-3" />
+                              {shift.startTime} – {shift.endTime} Uhr · max. {shift.maxVolunteers} Person{shift.maxVolunteers !== 1 ? "en" : ""}
+                            </p>
+                            {shift.note && <p className="text-xs text-muted-foreground italic mt-0.5">{shift.note}</p>}
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                              data-testid={`button-edit-shift-${shift.id}`}
+                              onClick={() => { setEditingShift(shift); setShowForm(false); setForm({ title: shift.title, date: shift.date, startTime: shift.startTime, endTime: shift.endTime, maxVolunteers: shift.maxVolunteers.toString(), note: shift.note || "" }); }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                              data-testid={`button-delete-shift-${shift.id}`}
+                              onClick={() => deleteMutation.mutate(shift.id)}
+                              disabled={deleteMutation.isPending}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Signups */}
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-xs text-muted-foreground mb-1.5">
+                            Eingetragen: {shift.signups.length}/{shift.maxVolunteers}
+                            {shift.signups.length >= shift.maxVolunteers && <span className="ml-1 text-red-500 font-medium">· Voll</span>}
+                          </p>
+                          {shift.signups.length === 0 ? (
+                            <p className="text-xs text-muted-foreground italic">Noch niemand eingetragen</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {shift.signups.map((sg) => (
+                                <span key={sg.id} className="inline-flex items-center gap-1 text-xs bg-[#1a3a5c]/10 text-[#1a3a5c] px-2 py-0.5 rounded-full">
+                                  {sg.member ? `${sg.member.firstName} ${sg.member.lastName}` : "Unbekannt"}
+                                  <button
+                                    className="hover:text-red-600 ml-0.5"
+                                    onClick={() => removeSignupMutation.mutate(sg.id)}
+                                    data-testid={`button-remove-signup-${sg.id}`}
+                                    title="Eintragung entfernen"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

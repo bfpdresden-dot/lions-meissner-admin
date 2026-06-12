@@ -25,6 +25,7 @@ import LoginPage from "@/pages/login";
 import SetupPage from "@/pages/setup";
 import DatenschutzPage from "@/pages/datenschutz";
 import AbmeldenPage from "@/pages/abmelden";
+import SchichtplanPage from "@/pages/schichtplan";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 
 function AdminRouter() {
@@ -146,11 +147,12 @@ function App() {
   const isPasswordReset = pathname === "/passwort-reset";
   const isDatenschutz = pathname === "/datenschutz";
   const isAbmelden = pathname === "/abmelden";
+  const schichtplanMatch = matchPath(/^\/schichtplan\/([^/]+)$/, pathname);
   const isAdmin = isAdminRoute(pathname);
 
   const isKnownPublic =
     !!memberMatch || !!confirmMatch || !!subscribeMatch ||
-    isPublicEvents || isPortal || isPasswordReset || isDatenschutz || isAbmelden;
+    isPublicEvents || isPortal || isPasswordReset || isDatenschutz || isAbmelden || !!schichtplanMatch;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -172,6 +174,8 @@ function App() {
           <DatenschutzPage />
         ) : isAbmelden ? (
           <AbmeldenPage />
+        ) : schichtplanMatch ? (
+          <SchichtplanPage eventId={schichtplanMatch[1]} />
         ) : isAdmin || isKnownPublic ? (
           <AuthGate />
         ) : (
