@@ -715,8 +715,8 @@ export default function PortalPage() {
               </CardContent>
             </Card>
 
-            {/* Birthdays card */}
-            {birthdays && birthdays.length > 0 && (
+            {/* Birthdays card — members only */}
+            {subscriber.isMember && birthdays && birthdays.length > 0 && (
               <Card className="border-pink-200">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-pink-700 text-base">
@@ -752,8 +752,8 @@ export default function PortalPage() {
               </Card>
             )}
 
-            {/* Internal events card — only shown when there are internal events */}
-            {internalEvents && internalEvents.length > 0 && (
+            {/* Internal events card — members only */}
+            {subscriber.isMember && internalEvents && internalEvents.length > 0 && (
               <Card className="border-amber-200">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-amber-700">
@@ -820,7 +820,7 @@ export default function PortalPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Meine Veranstaltungsanmeldungen
+                  Meine Anmeldungen
                 </CardTitle>
               </CardHeader>
               <CardContent>
