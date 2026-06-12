@@ -470,14 +470,6 @@ export default function PortalPage() {
     setIsEditing(true);
   };
 
-  const upcomingRegs = (registrations || []).filter(
-    (r) => r.event && new Date(r.event.date) >= new Date()
-  ).sort((a, b) => new Date(a.event!.date).getTime() - new Date(b.event!.date).getTime());
-
-  const pastRegs = (registrations || []).filter(
-    (r) => !r.event || new Date(r.event.date) < new Date()
-  ).sort((a, b) => new Date(b.event?.date || b.registeredAt).getTime() - new Date(a.event?.date || a.registeredAt).getTime());
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -917,235 +909,171 @@ export default function PortalPage() {
               </Card>
             )}
 
-            {/* Internal events card — members only */}
-            {subscriber.isMember && internalEvents && internalEvents.length > 0 && (
-              <Card className="border-amber-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-amber-700">
-                    <Lock className="h-5 w-5" />
-                    Interne Veranstaltungen
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">Nur für Mitglieder sichtbar</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[...internalEvents]
-                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                      .map((ev) => (
-                        <div key={ev.id} className="rounded-md border border-amber-100 bg-amber-50/40 p-3 space-y-1" data-testid={`internal-event-${ev.id}`}>
-                          <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-sm">{ev.title}</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1.5 shrink-0 border-amber-200 text-amber-800 hover:bg-amber-100"
-                            onClick={() => setShiftPlanEventId(ev.id)}
-                            data-testid={`button-schichtplan-${ev.id}`}
-                          >
-                            <ClipboardList className="h-3.5 w-3.5" />
-                            Schichtplan
-                          </Button>
-                          </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {format(new Date(ev.date), "dd. MMMM yyyy, HH:mm", { locale: de })}
-                              {ev.endDate && <> – {format(new Date(ev.endDate), "HH:mm", { locale: de })}</>} Uhr
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              <a href={mapsUrl(ev.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{ev.location}</a>
-                            </span>
-                            {ev.maxParticipants && (
-                              <span className="flex items-center gap-1">
-                                <Users className="h-3 w-3" />
-                                Max. {ev.maxParticipants} Personen
-                              </span>
-                            )}
-                          </div>
-                          {ev.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{ev.description}</p>
-                          )}
-                          {ev.agenda && (
-                            <div className="mt-2 pt-2 border-t border-amber-200">
-                              <p className="text-xs font-semibold text-amber-800 mb-1">Tagesordnung</p>
-                              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">{ev.agenda}</pre>
-                            </div>
-                          )}
-                          {ev.programPdf && (
-                            <div className="mt-2 pt-2 border-t border-amber-200">
-                              <a
-                                href={fileUrl(ev.programPdf ?? "")}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:underline"
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                                Programm herunterladen (PDF)
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Registrations card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Meine Anmeldungen
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {regsLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                  </div>
-                ) : (registrations || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">
-                    Sie sind noch für keine Veranstaltung angemeldet.{" "}
-                    <Link href="/" className="underline hover:text-foreground">
-                      Veranstaltungen ansehen
-                    </Link>
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {upcomingRegs.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Bevorstehend</p>
-                        <div className="space-y-2">
-                          {upcomingRegs.map((r) => (
-                            <div key={r.id} className="flex items-start gap-3 p-3 rounded-md border bg-primary/5" data-testid={`reg-upcoming-${r.id}`}>
-                              <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm">{r.event?.title}</p>
-                                {r.event && (
-                                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      {format(new Date(r.event.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      <a href={mapsUrl(r.event.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{r.event.location}</a>
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                                <Users className="h-3 w-3" />
-                                {r.guestCount} {r.guestCount === 1 ? "Person" : "Personen"}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {pastRegs.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Vergangene</p>
-                        <div className="space-y-2">
-                          {pastRegs.map((r) => (
-                            <div key={r.id} className="flex items-start gap-3 p-3 rounded-md border text-muted-foreground" data-testid={`reg-past-${r.id}`}>
-                              <Calendar className="h-5 w-5 shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-foreground">{r.event?.title || "Veranstaltung nicht mehr verfügbar"}</p>
-                                {r.event && (
-                                  <p className="text-xs mt-0.5">
-                                    {format(new Date(r.event.date), "dd. MMMM yyyy", { locale: de })} · {r.event.location}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* ── 1-Klick-Anmeldung ── */}
+            {/* ── Alle Veranstaltungen ── */}
             {(() => {
               const registeredEventIds = new Set((registrations || []).map((r) => r.eventId));
-              const upcoming = (publicEvents || [])
-                .filter((e) => e.isActive && new Date(e.date) >= new Date())
-                .filter((e) => !registeredEventIds.has(e.id) && !quickRegistered.has(e.id))
+
+              type CombinedEvent = {
+                id: number; title: string; date: string; endDate: string | null;
+                location: string; maxParticipants: number | null;
+                isInternal: boolean;
+                description?: string; agenda?: string | null; programPdf?: string | null;
+              };
+
+              const allEvents: CombinedEvent[] = [
+                ...((publicEvents || []).filter((e) => e.isActive).map((e) => ({ ...e, isInternal: false }))),
+                ...(subscriber.isMember ? (internalEvents || []).map((e) => ({ ...e, isInternal: true })) : []),
+              ];
+
+              const upcoming = allEvents
+                .filter((e) => new Date(e.date) >= new Date())
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-              if (!upcoming.length) return null;
+
               return (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Zap className="h-5 w-5 text-amber-500" />
-                      1-Klick-Anmeldung
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Alle Veranstaltungen
                     </CardTitle>
-                    <p className="text-xs text-muted-foreground">Ihre Daten sind bereits hinterlegt — einfach Personenzahl wählen und anmelden.</p>
+                    <p className="text-xs text-muted-foreground">Bevorstehende Veranstaltungen — Ihre Daten sind bereits hinterlegt.</p>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {upcoming.map((ev) => {
-                      const taken = guestCounts?.[String(ev.id)] ?? 0;
-                      const spotsLeft = ev.maxParticipants ? ev.maxParticipants - taken : null;
-                      const isFull = spotsLeft !== null && spotsLeft <= 0;
-                      const count = quickGuestCounts[ev.id] ?? 1;
-                      return (
-                        <div key={ev.id} className="rounded-md border p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" data-testid={`quick-reg-${ev.id}`}>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{ev.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                              <Calendar className="h-3 w-3 shrink-0" />
-                              {format(new Date(ev.date), "dd. MMMM yyyy, HH:mm", { locale: de })} Uhr
-                              <span className="mx-1">·</span>
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              {ev.location}
-                            </p>
-                            {spotsLeft !== null && (
-                              <p className="text-xs mt-0.5">
-                                {isFull
-                                  ? <span className="text-destructive font-medium">Ausgebucht</span>
-                                  : <span className="text-muted-foreground">{spotsLeft} {spotsLeft === 1 ? "Platz" : "Plätze"} frei</span>}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="flex items-center border rounded-md overflow-hidden">
-                              <button
-                                className="px-2 py-1.5 hover:bg-muted transition-colors disabled:opacity-40"
-                                onClick={() => setQuickGuestCounts((p) => ({ ...p, [ev.id]: Math.max(1, count - 1) }))}
-                                disabled={count <= 1}
-                                data-testid={`button-qr-dec-${ev.id}`}
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </button>
-                              <span className="px-3 text-sm font-medium select-none w-8 text-center">{count}</span>
-                              <button
-                                className="px-2 py-1.5 hover:bg-muted transition-colors disabled:opacity-40"
-                                onClick={() => setQuickGuestCounts((p) => ({ ...p, [ev.id]: Math.min(10, count + 1) }))}
-                                disabled={count >= 10}
-                                data-testid={`button-qr-inc-${ev.id}`}
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={() => quickRegisterMutation.mutate({ eventId: ev.id, guestCount: count })}
-                              disabled={isFull || quickRegisterMutation.isPending}
-                              data-testid={`button-quick-reg-${ev.id}`}
+                  <CardContent>
+                    {regsLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-20 w-full" />
+                      </div>
+                    ) : upcoming.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">Keine bevorstehenden Veranstaltungen.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {upcoming.map((ev) => {
+                          const isRegistered = registeredEventIds.has(ev.id) || quickRegistered.has(ev.id);
+                          const taken = guestCounts?.[String(ev.id)] ?? 0;
+                          const spotsLeft = ev.maxParticipants ? ev.maxParticipants - taken : null;
+                          const isFull = spotsLeft !== null && spotsLeft <= 0;
+                          const count = quickGuestCounts[ev.id] ?? 1;
+                          return (
+                            <div
+                              key={`${ev.isInternal ? "int" : "pub"}-${ev.id}`}
+                              className={`rounded-lg border p-3 space-y-2 ${ev.isInternal ? "border-amber-200 bg-amber-50/30" : ""}`}
+                              data-testid={`event-row-${ev.id}`}
                             >
-                              <Zap className="h-3.5 w-3.5 mr-1.5" />
-                              {isFull ? "Ausgebucht" : "Anmelden"}
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                              {/* Header row */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <p className="font-medium text-sm">{ev.title}</p>
+                                    {ev.isInternal && (
+                                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 bg-amber-50 gap-1 py-0">
+                                        <Lock className="h-2.5 w-2.5" />
+                                        Intern
+                                      </Badge>
+                                    )}
+                                    {isRegistered && (
+                                      <Badge className="text-xs bg-green-100 text-green-800 border border-green-300 gap-1 py-0">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Bereits angemeldet
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      {format(new Date(ev.date), "dd. MMMM yyyy, HH:mm", { locale: de })}
+                                      {ev.endDate && <> – {format(new Date(ev.endDate), "HH:mm", { locale: de })}</>} Uhr
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      <a href={mapsUrl(ev.location)} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600">{ev.location}</a>
+                                    </span>
+                                    {spotsLeft !== null && !isFull && (
+                                      <span className="flex items-center gap-1 text-muted-foreground">
+                                        <Users className="h-3 w-3" />
+                                        {spotsLeft} {spotsLeft === 1 ? "Platz" : "Plätze"} frei
+                                      </span>
+                                    )}
+                                    {isFull && (
+                                      <span className="flex items-center gap-1 text-destructive font-medium">
+                                        <Users className="h-3 w-3" />
+                                        Ausgebucht
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Schichtplan button for internal events */}
+                                {ev.isInternal && subscriber.isMember && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs gap-1.5 shrink-0 border-amber-200 text-amber-800 hover:bg-amber-100"
+                                    onClick={() => setShiftPlanEventId(ev.id)}
+                                    data-testid={`button-schichtplan-${ev.id}`}
+                                  >
+                                    <ClipboardList className="h-3.5 w-3.5" />
+                                    Schichtplan
+                                  </Button>
+                                )}
+                              </div>
+
+                              {/* Internal event details */}
+                              {ev.isInternal && ev.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">{ev.description}</p>
+                              )}
+                              {ev.isInternal && ev.agenda && (
+                                <div className="pt-2 border-t border-amber-200">
+                                  <p className="text-xs font-semibold text-amber-800 mb-1">Tagesordnung</p>
+                                  <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">{ev.agenda}</pre>
+                                </div>
+                              )}
+                              {ev.isInternal && ev.programPdf && (
+                                <div className="pt-2 border-t border-amber-200">
+                                  <a href={fileUrl(ev.programPdf ?? "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:underline">
+                                    <FileText className="h-3.5 w-3.5" />
+                                    Programm herunterladen (PDF)
+                                  </a>
+                                </div>
+                              )}
+
+                              {/* Registration row */}
+                              {!isRegistered && (
+                                <div className="flex items-center gap-2 pt-1">
+                                  <div className="flex items-center border rounded-md overflow-hidden">
+                                    <button
+                                      className="px-2 py-1.5 hover:bg-muted transition-colors disabled:opacity-40"
+                                      onClick={() => setQuickGuestCounts((p) => ({ ...p, [ev.id]: Math.max(1, count - 1) }))}
+                                      disabled={count <= 1}
+                                      data-testid={`button-qr-dec-${ev.id}`}
+                                    >
+                                      <Minus className="h-3.5 w-3.5" />
+                                    </button>
+                                    <span className="px-3 text-sm font-medium select-none w-8 text-center">{count}</span>
+                                    <button
+                                      className="px-2 py-1.5 hover:bg-muted transition-colors disabled:opacity-40"
+                                      onClick={() => setQuickGuestCounts((p) => ({ ...p, [ev.id]: Math.min(10, count + 1) }))}
+                                      disabled={count >= 10}
+                                      data-testid={`button-qr-inc-${ev.id}`}
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => quickRegisterMutation.mutate({ eventId: ev.id, guestCount: count })}
+                                    disabled={isFull || quickRegisterMutation.isPending}
+                                    data-testid={`button-quick-reg-${ev.id}`}
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                                    {isFull ? "Ausgebucht" : "Anmelden"}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
