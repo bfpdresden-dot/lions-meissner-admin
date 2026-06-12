@@ -582,7 +582,10 @@ export default function SubscribersPage() {
                   <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">Telefon</p>
-                    <p className="font-medium">{detailSub.phone || <span className="text-muted-foreground italic">nicht angegeben</span>}</p>
+                    {detailSub.phone
+                      ? <a href={`tel:${detailSub.phone}`} className="font-medium text-[#1a3a5c] hover:underline">{detailSub.phone}</a>
+                      : <span className="text-muted-foreground italic">nicht angegeben</span>
+                    }
                   </div>
                 </div>
                 {(detailSub as any).birthday && (
