@@ -124,7 +124,7 @@ function RedirectToHome() {
 }
 
 function App() {
-  const pathname = window.location.pathname;
+  const [pathname] = useLocation();
 
   const memberMatch = pathname.match(/^\/subscribe\/member\/([^/]+)$/);
   const confirmMatch = pathname.match(/^\/subscribe\/confirm\/([^/]+)$/);
