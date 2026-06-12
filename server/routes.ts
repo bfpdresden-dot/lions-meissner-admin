@@ -1023,6 +1023,20 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.json(enriched);
   });
 
+  // Portal: cancel own registration
+  app.delete("/api/portal/registrations/:id", async (req, res) => {
+    if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });
+    const sub = await storage.getSubscriber(req.session.subscriberId);
+    if (!sub) return res.status(401).json({ error: "Konto nicht gefunden" });
+    const regId = parseInt(req.params.id, 10);
+    if (isNaN(regId)) return res.status(400).json({ error: "Ungültige ID" });
+    const reg = await storage.getRegistration(regId);
+    if (!reg) return res.status(404).json({ error: "Anmeldung nicht gefunden" });
+    if (reg.email !== sub.email) return res.status(403).json({ error: "Keine Berechtigung" });
+    await storage.deleteRegistration(regId);
+    res.json({ success: true });
+  });
+
   // Portal: generate email text via AI (for members)
   app.post("/api/portal/generate-email", async (req, res) => {
     if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });

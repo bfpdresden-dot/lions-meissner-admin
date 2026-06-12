@@ -345,6 +345,20 @@ export default function PortalPage() {
     staleTime: 1000 * 60,
   });
 
+  const cancelRegistrationMutation = useMutation({
+    mutationFn: async (regId: number) => {
+      await apiRequest("DELETE", `/api/portal/registrations/${regId}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/registrations/counts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/registrations"] });
+      toast({ title: "Abgemeldet", description: "Ihre Anmeldung wurde storniert." });
+    },
+    onError: () => {
+      toast({ title: "Fehler", description: "Abmeldung nicht möglich.", variant: "destructive" });
+    },
+  });
+
   const quickRegisterMutation = useMutation({
     mutationFn: async ({ eventId, guestCount }: { eventId: number; guestCount: number }) => {
       if (!subscriber) throw new Error("Nicht angemeldet");
@@ -950,6 +964,7 @@ export default function PortalPage() {
                       <div className="space-y-3">
                         {upcoming.map((ev) => {
                           const isRegistered = registeredEventIds.has(ev.id) || quickRegistered.has(ev.id);
+                          const existingReg = (registrations || []).find((r) => r.eventId === ev.id);
                           const taken = guestCounts?.[String(ev.id)] ?? 0;
                           const spotsLeft = ev.maxParticipants ? ev.maxParticipants - taken : null;
                           const isFull = spotsLeft !== null && spotsLeft <= 0;
@@ -971,12 +986,6 @@ export default function PortalPage() {
                                         Intern
                                       </Badge>
                                     )}
-                                    {isRegistered && (
-                                      <Badge className="text-xs bg-green-100 text-green-800 border border-green-300 gap-1 py-0">
-                                        <CheckCircle2 className="h-3 w-3" />
-                                        Bereits angemeldet
-                                      </Badge>
-                                    )}
                                   </div>
                                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                                     <span className="flex items-center gap-1">
@@ -994,7 +1003,7 @@ export default function PortalPage() {
                                         {spotsLeft} {spotsLeft === 1 ? "Platz" : "Plätze"} frei
                                       </span>
                                     )}
-                                    {isFull && (
+                                    {isFull && !isRegistered && (
                                       <span className="flex items-center gap-1 text-destructive font-medium">
                                         <Users className="h-3 w-3" />
                                         Ausgebucht
@@ -1002,12 +1011,12 @@ export default function PortalPage() {
                                     )}
                                   </div>
                                 </div>
-                                {/* Schichtplan button for internal events */}
-                                {ev.isInternal && subscriber.isMember && (
+                                {/* Schichtplan button — alle Veranstaltungen (Mitglieder) */}
+                                {subscriber.isMember && (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-xs gap-1.5 shrink-0 border-amber-200 text-amber-800 hover:bg-amber-100"
+                                    className="h-7 text-xs gap-1.5 shrink-0 border-[#1a3a5c]/30 text-[#1a3a5c] hover:bg-[#1a3a5c]/5"
                                     onClick={() => setShiftPlanEventId(ev.id)}
                                     data-testid={`button-schichtplan-${ev.id}`}
                                   >
@@ -1036,8 +1045,28 @@ export default function PortalPage() {
                                 </div>
                               )}
 
-                              {/* Registration row */}
-                              {!isRegistered && (
+                              {/* Anmelde- / Abmeldebereich */}
+                              {isRegistered ? (
+                                <div className="flex items-center justify-between gap-2 pt-1">
+                                  <span className="inline-flex items-center gap-1.5 text-xs text-green-700 font-medium">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Angemeldet{existingReg ? ` · ${existingReg.guestCount} ${existingReg.guestCount === 1 ? "Person" : "Personen"}` : ""}
+                                  </span>
+                                  {existingReg && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
+                                      disabled={cancelRegistrationMutation.isPending}
+                                      onClick={() => cancelRegistrationMutation.mutate(existingReg.id)}
+                                      data-testid={`button-cancel-reg-${ev.id}`}
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Abmelden
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : (
                                 <div className="flex items-center gap-2 pt-1">
                                   <div className="flex items-center border rounded-md overflow-hidden">
                                     <button
