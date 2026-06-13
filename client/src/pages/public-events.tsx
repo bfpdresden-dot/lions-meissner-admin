@@ -645,15 +645,34 @@ export default function PublicEventsPage() {
                         variant="outline"
                         size="sm"
                         className="gap-2"
-                        onClick={() => {
+                        onClick={async () => {
                           const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
                           const url = eventDeepLink(ev.id);
-                          const photoLines = (detailPhotos || [])
-                            .map((p) => `📷 ${fileUrl(p.filename)}`)
-                            .join("\n");
-                          const fullText = photoLines
-                            ? `${text}\n${photoLines}\n${url}`
-                            : `${text}\n${url}`;
+                          const photos = detailPhotos || [];
+
+                          // Mobile: share actual image files via native share sheet
+                          if (photos.length > 0 && typeof navigator.canShare === "function") {
+                            try {
+                              const files = await Promise.all(
+                                photos.map(async (p, i) => {
+                                  const res = await fetch(fileUrl(p.filename));
+                                  const blob = await res.blob();
+                                  const ext = blob.type.split("/")[1] || "jpg";
+                                  return new File([blob], `foto-${i + 1}.${ext}`, { type: blob.type });
+                                })
+                              );
+                              if (navigator.canShare({ files })) {
+                                await navigator.share({ files, text, url });
+                                return;
+                              }
+                            } catch {
+                              // fall through to text fallback
+                            }
+                          }
+
+                          // Desktop fallback: text with photo links
+                          const photoLines = photos.map((p) => `📷 ${fileUrl(p.filename)}`).join("\n");
+                          const fullText = photoLines ? `${text}\n${photoLines}\n${url}` : `${text}\n${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, "_blank");
                         }}
                         data-testid={`button-share-whatsapp-${ev.id}`}
