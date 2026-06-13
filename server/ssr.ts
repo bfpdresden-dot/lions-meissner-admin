@@ -31,12 +31,39 @@ interface PageMeta {
   description: string;
   canonicalPath: string;
   preContent: string;
+  ogImage?: string;
 }
 
-async function resolvePageMeta(pathname: string): Promise<PageMeta> {
+async function resolvePageMeta(pathname: string, query: Record<string, string> = {}): Promise<PageMeta> {
   const site = "Lions Club Meißner Land";
 
   if (pathname === "/" || pathname === "/veranstaltungen") {
+    // Deep-link to a specific event: /?event=<id>
+    const eventIdParam = query["event"] ? parseInt(query["event"], 10) : null;
+    if (eventIdParam && !isNaN(eventIdParam)) {
+      try {
+        const ev = await storage.getEvent(eventIdParam);
+        if (ev && ev.isActive) {
+          const photos = await storage.getEventPhotos(eventIdParam);
+          const firstPhoto = photos.length > 0 ? photos[0].filename : null;
+          const date = ev.date ? new Date(ev.date).toLocaleDateString("de-DE") : "";
+          return {
+            title: `${ev.title} – ${site}`,
+            description: `${ev.description ? ev.description.slice(0, 155) : `Veranstaltung des ${site}`}${date ? ` · ${date}` : ""}`,
+            canonicalPath: `/?event=${eventIdParam}`,
+            preContent: `<h1>${escapeHtml(ev.title)}</h1><p>${escapeHtml(ev.description || "")}</p>`,
+            ogImage: firstPhoto
+              ? (firstPhoto.startsWith("http://") || firstPhoto.startsWith("https://")
+                  ? firstPhoto
+                  : `__BASE__/uploads/${firstPhoto}`)
+              : undefined,
+          };
+        }
+      } catch {
+        // fall through to default
+      }
+    }
+
     let eventItems = "";
     try {
       const evts = await storage.getEvents();
@@ -166,11 +193,15 @@ async function resolvePageMeta(pathname: string): Promise<PageMeta> {
 export async function injectPageMeta(
   html: string,
   pathname: string,
-  baseUrl = ""
+  baseUrl = "",
+  query: Record<string, string> = {}
 ): Promise<string> {
-  const meta = await resolvePageMeta(pathname);
+  const meta = await resolvePageMeta(pathname, query);
   const canonicalUrl = `${baseUrl}${meta.canonicalPath}`;
-  const ogImageUrl = `${baseUrl}/images/lions-logo.png`;
+  const rawOgImage = meta.ogImage
+    ? meta.ogImage.replace("__BASE__", baseUrl)
+    : `${baseUrl}/images/lions-logo.png`;
+  const ogImageUrl = rawOgImage;
 
   html = html.replace(
     /<title>[^<]*<\/title>/,

@@ -29,7 +29,7 @@ export function serveStatic(app: Express) {
     const indexPath = path.resolve(distPath, "index.html");
     let html = await fs.promises.readFile(indexPath, "utf-8");
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    html = await injectPageMeta(html, pathname, baseUrl);
+    html = await injectPageMeta(html, pathname, baseUrl, req.query as Record<string, string>);
     res.status(200).set("Content-Type", "text/html").send(html);
   });
 }
