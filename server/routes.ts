@@ -256,6 +256,37 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // Proxy a single photo by ID (avoids CORS when image is on external server)
+  app.get("/api/photos/:photoId/blob", async (req, res) => {
+    const photoId = parseInt(req.params.photoId, 10);
+    if (isNaN(photoId)) return res.status(400).json({ error: "Ungültige ID" });
+    const photos = await storage.getAllEventPhotos();
+    const photo = photos.find((p) => p.id === photoId);
+    if (!photo) return res.status(404).json({ error: "Foto nicht gefunden" });
+
+    const filename = photo.filename;
+    if (filename.startsWith("http://") || filename.startsWith("https://")) {
+      // External URL — proxy it server-side
+      try {
+        const upstream = await fetch(filename);
+        if (!upstream.ok) return res.status(502).send("Upstream error");
+        const contentType = upstream.headers.get("content-type") || "image/jpeg";
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        const buf = await upstream.arrayBuffer();
+        return res.send(Buffer.from(buf));
+      } catch {
+        return res.status(502).send("Proxy error");
+      }
+    } else {
+      // Local file
+      const localPath = path.join(uploadsDir, filename);
+      if (!fs.existsSync(localPath)) return res.status(404).send("Not found");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      return res.sendFile(localPath);
+    }
+  });
+
   // All event photos (public, for batch display)
   app.get("/api/event-photos", async (_req, res) => {
     const photos = await storage.getAllEventPhotos();

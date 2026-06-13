@@ -124,6 +124,7 @@ export default function PublicEventsPage() {
   const [subscribeSuccess, setSubscribeSuccess] = useState(false);
   const [quickGuestCount, setQuickGuestCount] = useState("1");
   const [showQr, setShowQr] = useState(false);
+  const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
   const { toast } = useToast();
 
   const openDetail = (id: number | null) => {
@@ -651,23 +652,27 @@ export default function PublicEventsPage() {
                           const photos = detailPhotos || [];
 
                           // Mobile: share actual image files via native share sheet
+                          // Fetch via server proxy to avoid CORS issues with external photo storage
                           if (photos.length > 0 && typeof navigator.canShare === "function") {
+                            setSharingWhatsApp(true);
                             try {
                               const files = await Promise.all(
                                 photos.map(async (p, i) => {
-                                  const res = await fetch(fileUrl(p.filename));
+                                  const res = await fetch(`/api/photos/${p.id}/blob`);
                                   const blob = await res.blob();
-                                  const ext = blob.type.split("/")[1] || "jpg";
+                                  const ext = blob.type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
                                   return new File([blob], `foto-${i + 1}.${ext}`, { type: blob.type });
                                 })
                               );
                               if (navigator.canShare({ files })) {
                                 await navigator.share({ files, text, url });
+                                setSharingWhatsApp(false);
                                 return;
                               }
                             } catch {
                               // fall through to text fallback
                             }
+                            setSharingWhatsApp(false);
                           }
 
                           // Desktop fallback: text with photo links
@@ -675,10 +680,13 @@ export default function PublicEventsPage() {
                           const fullText = photoLines ? `${text}\n${photoLines}\n${url}` : `${text}\n${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, "_blank");
                         }}
+                        disabled={sharingWhatsApp}
                         data-testid={`button-share-whatsapp-${ev.id}`}
                       >
-                        <MessageCircle className="h-4 w-4 text-green-500" />
-                        WhatsApp
+                        {sharingWhatsApp
+                          ? <><Loader2 className="h-4 w-4 animate-spin" />Fotos laden…</>
+                          : <><MessageCircle className="h-4 w-4 text-green-500" />WhatsApp</>
+                        }
                       </Button>
                       <Button
                         variant="outline"
