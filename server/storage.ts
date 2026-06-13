@@ -57,6 +57,7 @@ export interface IStorage {
   getEmailLogsByEvent(eventId: number): Promise<import("@shared/schema").EmailLog[]>;
   getEmailLogsBySubscriber(subscriberId: number): Promise<import("@shared/schema").EmailLog[]>;
 
+  getAllEventPhotos(): Promise<EventPhoto[]>;
   getEventPhotos(eventId: number): Promise<EventPhoto[]>;
   createEventPhoto(eventId: number, filename: string, caption?: string): Promise<EventPhoto>;
   deleteEventPhoto(id: number): Promise<EventPhoto | undefined>;
@@ -215,6 +216,10 @@ export class DatabaseStorage implements IStorage {
 
   async getEmailLogsBySubscriber(subscriberId: number): Promise<EmailLog[]> {
     return db.select().from(emailLogs).where(eq(emailLogs.subscriberId, subscriberId)).orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getAllEventPhotos(): Promise<EventPhoto[]> {
+    return db.select().from(eventPhotos).orderBy(eventPhotos.uploadedAt);
   }
 
   async getEventPhotos(eventId: number): Promise<EventPhoto[]> {

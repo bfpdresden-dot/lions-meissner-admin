@@ -256,6 +256,31 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // All event photos (public, for batch display)
+  app.get("/api/event-photos", async (_req, res) => {
+    const photos = await storage.getAllEventPhotos();
+    res.json(photos);
+  });
+
+  // Portal: upload photos for event (any logged-in subscriber)
+  app.post("/api/portal/events/:id/photos", imageUpload.array("photos", 10), async (req, res) => {
+    if (!req.session?.subscriberId) return res.status(401).json({ error: "Nicht angemeldet" });
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ error: "Keine Bilddateien" });
+    }
+    const saved = await Promise.all(
+      (req.files as Express.Multer.File[]).map(async (f) => {
+        const externalUrl = await pushToExternalServer(f.path, f.originalname, f.mimetype).catch(() => null);
+        return storage.createEventPhoto(id, externalUrl ?? f.filename);
+      })
+    );
+    res.json(saved);
+  });
+
   // ── Auth ─────────────────────────────────────────────────────────────────
 
   app.get("/api/auth/me", async (req, res) => {

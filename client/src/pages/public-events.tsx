@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer, Camera } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -151,6 +151,16 @@ export default function PublicEventsPage() {
     enabled: detailEventId !== null,
   });
 
+  const { data: allPhotos } = useQuery<EventPhoto[]>({
+    queryKey: ["/api/event-photos"],
+    staleTime: 1000 * 60,
+  });
+
+  const photosByEvent = (allPhotos || []).reduce<Record<number, EventPhoto[]>>((acc, p) => {
+    (acc[p.eventId] = acc[p.eventId] || []).push(p);
+    return acc;
+  }, {});
+
   const { data: portalSubscriber } = useQuery<PortalSubscriber | undefined>({
     queryKey: ["/api/portal/me"],
     retry: false,
@@ -170,8 +180,9 @@ export default function PublicEventsPage() {
   const isAlreadyRegistered = (eventId: number) =>
     !!portalSubscriber && (myRegistrations || []).some((r) => r.eventId === eventId);
 
+  const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
   const upcomingEvents = (events || [])
-    .filter((e) => e.isActive && new Date(e.date) >= new Date())
+    .filter((e) => e.isActive && new Date(e.date) >= tenDaysAgo)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const registerEvent = events?.find((e) => e.id === registerEventId);
@@ -409,7 +420,25 @@ export default function PublicEventsPage() {
                       }),
                     }}
                   />
-                <Card data-testid={`card-public-event-${event.id}`}>
+                <Card data-testid={`card-public-event-${event.id}`} className="overflow-hidden">
+                  {photosByEvent[event.id]?.[0] && (
+                    <div
+                      className="w-full h-44 bg-muted cursor-pointer relative overflow-hidden"
+                      onClick={() => openDetail(event.id)}
+                    >
+                      <img
+                        src={fileUrl(photosByEvent[event.id][0].filename)}
+                        alt={event.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {photosByEvent[event.id].length > 1 && (
+                        <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <Camera className="h-3 w-3" />
+                          {photosByEvent[event.id].length}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <CardContent className="p-6">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -417,6 +446,9 @@ export default function PublicEventsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-xl font-semibold">{event.title}</h3>
                             {isFull && <Badge variant="destructive">Ausgebucht</Badge>}
+                            {new Date(event.date) < new Date() && (
+                              <Badge variant="secondary" className="text-muted-foreground">Vergangen</Badge>
+                            )}
                           </div>
                           <p className="text-muted-foreground">{event.description}</p>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-1">
@@ -616,7 +648,11 @@ export default function PublicEventsPage() {
                         onClick={() => {
                           const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
                           const url = eventDeepLink(ev.id);
-                          window.open(`https://wa.me/?text=${encodeURIComponent(text + "\n" + url)}`, "_blank");
+                          const firstPhoto = detailPhotos?.[0] ? fileUrl(detailPhotos[0].filename) : null;
+                          const fullText = firstPhoto
+                            ? `${text}\n📷 ${firstPhoto}\n${url}`
+                            : `${text}\n${url}`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, "_blank");
                         }}
                         data-testid={`button-share-whatsapp-${ev.id}`}
                       >

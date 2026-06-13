@@ -49,7 +49,10 @@ import {
   Loader2,
   ClipboardList,
   Clock,
+  Camera,
+  ImageIcon,
 } from "lucide-react";
+import type { EventPhoto } from "@shared/schema";
 import {
   Dialog,
   DialogContent,
@@ -297,6 +300,35 @@ export default function PortalPage() {
     retry: false,
     staleTime: 1000 * 60,
   });
+
+  const { data: allEventPhotos } = useQuery<EventPhoto[]>({
+    queryKey: ["/api/event-photos"],
+    enabled: !!subscriber,
+    staleTime: 1000 * 30,
+  });
+
+  const photosByEvent = (allEventPhotos || []).reduce<Record<number, EventPhoto[]>>((acc, p) => {
+    (acc[p.eventId] = acc[p.eventId] || []).push(p);
+    return acc;
+  }, {});
+
+  const handlePortalPhotoUpload = async (eventId: number, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const form = new FormData();
+    for (let i = 0; i < files.length; i++) form.append("photos", files[i]);
+    try {
+      const res = await fetch(`/api/portal/events/${eventId}/photos`, { method: "POST", body: form });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/event-photos"] });
+        toast({ title: "Fotos hochgeladen!" });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast({ title: data.error || "Fehler beim Hochladen", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Fehler beim Hochladen", variant: "destructive" });
+    }
+  };
 
   const { data: portalMembers } = useQuery<PortalMember[]>({
     queryKey: ["/api/portal/members"],
@@ -1044,6 +1076,44 @@ export default function PortalPage() {
                                   </a>
                                 </div>
                               )}
+
+                              {/* Fotos */}
+                              {(() => {
+                                const evPhotos = photosByEvent[ev.id] || [];
+                                return (
+                                  <div className="pt-1">
+                                    {evPhotos.length > 0 && (
+                                      <div className="flex gap-1.5 flex-wrap mb-2">
+                                        {evPhotos.map((p) => (
+                                          <a
+                                            key={p.id}
+                                            href={fileUrl(p.filename)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-16 h-16 rounded overflow-hidden border hover:opacity-80 transition-opacity shrink-0"
+                                          >
+                                            <img src={fileUrl(p.filename)} alt={p.caption || "Foto"} className="w-full h-full object-cover" />
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <label
+                                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                                      data-testid={`button-upload-photo-${ev.id}`}
+                                    >
+                                      <Camera className="h-3.5 w-3.5" />
+                                      {evPhotos.length > 0 ? "Weitere Fotos" : "Foto hochladen"}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="sr-only"
+                                        onChange={(e) => handlePortalPhotoUpload(ev.id, e.target.files)}
+                                      />
+                                    </label>
+                                  </div>
+                                );
+                              })()}
 
                               {/* Anmelde- / Abmeldebereich */}
                               {isRegistered ? (
