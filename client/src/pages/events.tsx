@@ -328,83 +328,84 @@ export default function EventsPage() {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       width: 210mm;
-      min-height: 297mm;
+      height: 297mm;
       font-family: 'Segoe UI', system-ui, sans-serif;
       color: #1a2744;
       background: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
+      overflow: hidden;
     }
     .header {
       width: 100%;
       background: #1a2744;
       color: #fff;
-      padding: 20mm 20mm 12mm;
+      padding: 12mm 20mm 8mm;
       text-align: center;
     }
     .club-name {
-      font-size: 28pt;
+      font-size: 22pt;
       font-weight: 700;
       letter-spacing: 0.5px;
-      margin-bottom: 3mm;
+      margin-bottom: 2mm;
     }
     .header-subtitle {
-      font-size: 13pt;
+      font-size: 11pt;
       color: #c8951a;
       font-weight: 600;
     }
     .body {
       flex: 1;
       width: 100%;
-      padding: 14mm 20mm;
+      padding: 8mm 20mm;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10mm;
+      gap: 6mm;
     }
     .event-box {
       width: 100%;
       border: 2px solid #c8951a;
       border-radius: 6px;
-      padding: 8mm 10mm;
+      padding: 5mm 10mm;
       text-align: center;
     }
     .event-title {
-      font-size: 22pt;
+      font-size: 18pt;
       font-weight: 700;
       color: #1a2744;
-      margin-bottom: 4mm;
+      margin-bottom: 3mm;
     }
     .event-meta {
-      font-size: 12pt;
+      font-size: 11pt;
       color: #555;
       display: flex;
       justify-content: center;
-      gap: 10mm;
+      gap: 8mm;
       flex-wrap: wrap;
     }
     .event-meta span { display: flex; align-items: center; gap: 2mm; }
     .cta {
-      font-size: 16pt;
+      font-size: 14pt;
       font-weight: 600;
       color: #1a2744;
       text-align: center;
     }
     .qr-wrapper {
-      padding: 6mm;
+      padding: 4mm;
       border: 2px solid #e5e7eb;
       border-radius: 8px;
       background: #fff;
     }
-    .qr-wrapper svg { display: block; width: 70mm; height: 70mm; }
+    .qr-wrapper svg { display: block; width: 62mm; height: 62mm; }
     .scan-hint {
-      font-size: 11pt;
+      font-size: 10pt;
       color: #888;
       text-align: center;
     }
     .url {
-      font-size: 9pt;
+      font-size: 8pt;
       color: #bbb;
       font-family: monospace;
       word-break: break-all;
@@ -414,7 +415,7 @@ export default function EventsPage() {
       width: 100%;
       background: #f5f5f5;
       border-top: 1px solid #e5e7eb;
-      padding: 6mm 20mm;
+      padding: 4mm 20mm;
       text-align: center;
       font-size: 9pt;
       color: #999;
