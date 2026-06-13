@@ -648,9 +648,11 @@ export default function PublicEventsPage() {
                         onClick={() => {
                           const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
                           const url = eventDeepLink(ev.id);
-                          const firstPhoto = detailPhotos?.[0] ? fileUrl(detailPhotos[0].filename) : null;
-                          const fullText = firstPhoto
-                            ? `${text}\n📷 ${firstPhoto}\n${url}`
+                          const photoLines = (detailPhotos || [])
+                            .map((p) => `📷 ${fileUrl(p.filename)}`)
+                            .join("\n");
+                          const fullText = photoLines
+                            ? `${text}\n${photoLines}\n${url}`
                             : `${text}\n${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, "_blank");
                         }}
