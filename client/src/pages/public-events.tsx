@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer, Camera } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer, Camera, ChevronLeft, ChevronRight, X as XIcon, Maximize2, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -125,7 +125,27 @@ export default function PublicEventsPage() {
   const [quickGuestCount, setQuickGuestCount] = useState("1");
   const [showQr, setShowQr] = useState(false);
   const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
+  const [cardCarousel, setCardCarousel] = useState<Record<number, number>>({});
+  const [lightbox, setLightbox] = useState<{ photos: EventPhoto[]; index: number } | null>(null);
+  const [detailCarouselIndex, setDetailCarouselIndex] = useState(0);
   const { toast } = useToast();
+
+  const getCardIdx = (id: number) => cardCarousel[id] ?? 0;
+  const setCardIdx = (id: number, idx: number) =>
+    setCardCarousel((prev) => ({ ...prev, [id]: idx }));
+
+  useEffect(() => { setDetailCarouselIndex(0); }, [detailEventId]);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowLeft") setLightbox((l) => l && l.index > 0 ? { ...l, index: l.index - 1 } : l);
+      if (e.key === "ArrowRight") setLightbox((l) => l && l.index < l.photos.length - 1 ? { ...l, index: l.index + 1 } : l);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightbox]);
 
   const openDetail = (id: number | null) => {
     setDetailEventId(id);
@@ -422,24 +442,55 @@ export default function PublicEventsPage() {
                     }}
                   />
                 <Card data-testid={`card-public-event-${event.id}`} className="overflow-hidden">
-                  {photosByEvent[event.id]?.[0] && (
-                    <div
-                      className="w-full h-44 bg-muted cursor-pointer relative overflow-hidden"
-                      onClick={() => openDetail(event.id)}
-                    >
-                      <img
-                        src={fileUrl(photosByEvent[event.id][0].filename)}
-                        alt={event.title}
-                        className="w-full h-full object-cover"
-                      />
-                      {photosByEvent[event.id].length > 1 && (
-                        <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs rounded-full px-2 py-0.5 flex items-center gap-1">
-                          <Camera className="h-3 w-3" />
-                          {photosByEvent[event.id].length}
+                  {photosByEvent[event.id]?.[0] && (() => {
+                    const evPhotos = photosByEvent[event.id];
+                    const idx = getCardIdx(event.id);
+                    return (
+                      <div className="w-full h-48 bg-muted relative overflow-hidden group">
+                        <img
+                          src={fileUrl(evPhotos[idx].filename)}
+                          alt={event.title}
+                          className="w-full h-full object-cover cursor-zoom-in transition-transform duration-300 group-hover:scale-[1.02]"
+                          onClick={() => setLightbox({ photos: evPhotos, index: idx })}
+                        />
+                        {/* Prev / Next arrows */}
+                        {evPhotos.length > 1 && (
+                          <>
+                            <button
+                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-20"
+                              disabled={idx === 0}
+                              onClick={(e) => { e.stopPropagation(); setCardIdx(event.id, idx - 1); }}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-20"
+                              disabled={idx === evPhotos.length - 1}
+                              onClick={(e) => { e.stopPropagation(); setCardIdx(event.id, idx + 1); }}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        {/* Dot indicators */}
+                        {evPhotos.length > 1 && (
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                            {evPhotos.map((_, i) => (
+                              <button
+                                key={i}
+                                onClick={(e) => { e.stopPropagation(); setCardIdx(event.id, i); }}
+                                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === idx ? "bg-white" : "bg-white/40"}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {/* Fullscreen hint */}
+                        <span className="absolute top-2 right-2 bg-black/40 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Maximize2 className="h-3 w-3" />
                         </span>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
                   <CardContent className="p-6">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -614,25 +665,60 @@ export default function PublicEventsPage() {
                   )}
 
                   {detailPhotos && detailPhotos.length > 0 && (
-                    <div className="border-t pt-4 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fotos</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {detailPhotos.map((photo) => (
-                          <a
-                            key={photo.id}
-                            href={fileUrl(photo.filename)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block rounded-md overflow-hidden aspect-square border hover:opacity-90 transition-opacity"
-                          >
-                            <img
-                              src={fileUrl(photo.filename)}
-                              alt={photo.caption || "Event-Foto"}
-                              className="w-full h-full object-cover"
-                            />
-                          </a>
-                        ))}
+                    <div className="border-t pt-4 space-y-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Fotos ({detailPhotos.length})
+                      </p>
+                      {/* Main carousel image */}
+                      <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+                        <img
+                          src={fileUrl(detailPhotos[detailCarouselIndex].filename)}
+                          alt={detailPhotos[detailCarouselIndex].caption || "Event-Foto"}
+                          className="w-full h-full object-cover cursor-zoom-in"
+                          onClick={() => setLightbox({ photos: detailPhotos, index: detailCarouselIndex })}
+                        />
+                        {detailPhotos.length > 1 && (
+                          <>
+                            <button
+                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 disabled:opacity-20 transition-colors"
+                              disabled={detailCarouselIndex === 0}
+                              onClick={() => setDetailCarouselIndex((i) => i - 1)}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 disabled:opacity-20 transition-colors"
+                              disabled={detailCarouselIndex === detailPhotos.length - 1}
+                              onClick={() => setDetailCarouselIndex((i) => i + 1)}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                            <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs rounded-full px-2 py-0.5">
+                              {detailCarouselIndex + 1} / {detailPhotos.length}
+                            </span>
+                          </>
+                        )}
+                        <button
+                          className="absolute top-2 right-2 bg-black/40 hover:bg-black/60 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setLightbox({ photos: detailPhotos, index: detailCarouselIndex })}
+                        >
+                          <Maximize2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
+                      {/* Thumbnail strip */}
+                      {detailPhotos.length > 1 && (
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {detailPhotos.map((photo, i) => (
+                            <button
+                              key={photo.id}
+                              onClick={() => setDetailCarouselIndex(i)}
+                              className={`shrink-0 w-14 h-14 rounded overflow-hidden border-2 transition-colors ${i === detailCarouselIndex ? "border-primary" : "border-transparent opacity-60 hover:opacity-100"}`}
+                            >
+                              <img src={fileUrl(photo.filename)} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1198,6 +1284,68 @@ export default function PublicEventsPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Lightbox ── */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+          onClick={() => setLightbox(null)}
+        >
+          {/* Close */}
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+            onClick={() => setLightbox(null)}
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
+
+          {/* Counter */}
+          <span className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+            {lightbox.index + 1} / {lightbox.photos.length}
+          </span>
+
+          {/* Prev */}
+          <button
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-white/10 hover:bg-white/25 rounded-full p-3 disabled:opacity-20 transition-colors"
+            disabled={lightbox.index === 0}
+            onClick={(e) => { e.stopPropagation(); setLightbox((l) => l && l.index > 0 ? { ...l, index: l.index - 1 } : l); }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+
+          {/* Image */}
+          <img
+            src={fileUrl(lightbox.photos[lightbox.index].filename)}
+            alt={lightbox.photos[lightbox.index].caption || "Foto"}
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Next */}
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-white/10 hover:bg-white/25 rounded-full p-3 disabled:opacity-20 transition-colors"
+            disabled={lightbox.index === lightbox.photos.length - 1}
+            onClick={(e) => { e.stopPropagation(); setLightbox((l) => l && l.index < l.photos.length - 1 ? { ...l, index: l.index + 1 } : l); }}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+
+          {/* Thumbnail strip */}
+          {lightbox.photos.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto px-2">
+              {lightbox.photos.map((p, i) => (
+                <button
+                  key={p.id}
+                  onClick={(e) => { e.stopPropagation(); setLightbox((l) => l ? { ...l, index: i } : l); }}
+                  className={`shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-all ${i === lightbox.index ? "border-white scale-110" : "border-transparent opacity-50 hover:opacity-80"}`}
+                >
+                  <img src={fileUrl(p.filename)} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
