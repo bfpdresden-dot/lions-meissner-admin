@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2 } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2, Mail, Send } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -120,6 +120,9 @@ export default function EventsPage() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportNotesOpen, setReportNotesOpen] = useState(false);
   const [reportNotes, setReportNotes] = useState<string>("");
+  const [newsletterEmailOpen, setNewsletterEmailOpen] = useState(false);
+  const [newsletterSubject, setNewsletterSubject] = useState("");
+  const [newsletterBody, setNewsletterBody] = useState("");
   const { toast } = useToast();
 
   const { data: allMembers } = useQuery<Subscriber[]>({
@@ -232,6 +235,21 @@ export default function EventsPage() {
       toast({ title: "Kurzbericht gespeichert" });
     },
     onError: (err: Error) => toast({ title: "Fehler beim Speichern", description: err.message, variant: "destructive" }),
+  });
+
+  const sendNewsletterMutation = useMutation({
+    mutationFn: async ({ subject, body }: { subject: string; body: string }) => {
+      const res = await apiRequest("POST", "/api/subscribers/send-email", { subject, body });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Fehler beim Versenden"); }
+      return res.json() as Promise<{ sent: number; failed: number; total: number }>;
+    },
+    onSuccess: (data) => {
+      toast({ title: `✉️ ${data.sent} von ${data.total} E-Mails versendet${data.failed > 0 ? ` (${data.failed} fehlgeschlagen)` : ""}` });
+      setNewsletterEmailOpen(false);
+      setNewsletterSubject("");
+      setNewsletterBody("");
+    },
+    onError: (err: Error) => toast({ title: "Versand fehlgeschlagen", description: err.message, variant: "destructive" }),
   });
 
   const handlePdfUpload = async (eventId: number, file: File) => {
@@ -1380,9 +1398,75 @@ export default function EventsPage() {
                     <Sparkles className="h-4 w-4 mr-2" />
                     Neu generieren
                   </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const ev = events?.find((e) => e.id === reportEventId);
+                      setNewsletterSubject(`Kurzbericht: ${ev?.title ?? ""}`);
+                      setNewsletterBody(reportText);
+                      setReportDialogOpen(false);
+                      setNewsletterEmailOpen(true);
+                    }}
+                    data-testid="button-use-as-newsletter"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Als Newsletter verwenden
+                  </Button>
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Newsletter E-Mail-Dialog (pre-filled from report) */}
+        <Dialog open={newsletterEmailOpen} onOpenChange={(open) => { setNewsletterEmailOpen(open); if (!open) sendNewsletterMutation.reset(); }}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Newsletter an alle Abonnenten senden
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-1">
+              <p className="text-sm text-muted-foreground">
+                Der Kurzbericht wird als E-Mail an alle aktiven Newsletter-Abonnenten versendet. Sie können Betreff und Text noch anpassen.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Betreff</label>
+                <Input
+                  placeholder="z.B. Kurzbericht: Sommerfest 2026"
+                  value={newsletterSubject}
+                  onChange={(e) => setNewsletterSubject(e.target.value)}
+                  data-testid="input-newsletter-subject"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Inhalt</label>
+                <Textarea
+                  placeholder={"Guten Tag {{Vorname}},\n\n..."}
+                  value={newsletterBody}
+                  onChange={(e) => setNewsletterBody(e.target.value)}
+                  rows={10}
+                  data-testid="input-newsletter-body"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tipp: <code className="bg-muted px-1 rounded">{"{{Vorname}}"}</code> wird automatisch durch den Vornamen des Abonnenten ersetzt.
+                </p>
+              </div>
+              <Button
+                className="w-full"
+                disabled={!newsletterSubject.trim() || !newsletterBody.trim() || sendNewsletterMutation.isPending}
+                onClick={() => sendNewsletterMutation.mutate({ subject: newsletterSubject, body: newsletterBody })}
+                data-testid="button-send-newsletter"
+              >
+                {sendNewsletterMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird gesendet…</>
+                ) : (
+                  <><Send className="h-4 w-4 mr-2" />E-Mail an alle Abonnenten senden</>
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
