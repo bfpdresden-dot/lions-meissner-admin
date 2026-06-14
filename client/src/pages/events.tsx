@@ -114,6 +114,9 @@ export default function EventsPage() {
   const [aiEventDate, setAiEventDate] = useState("");
   const [aiPrefilledValues, setAiPrefilledValues] = useState<Partial<EventFormValues> | null>(null);
   const [addMemberSelected, setAddMemberSelected] = useState<string>("");
+  const [reportEventId, setReportEventId] = useState<number | null>(null);
+  const [reportText, setReportText] = useState<string>("");
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: allMembers } = useQuery<Subscriber[]>({
@@ -196,6 +199,21 @@ export default function EventsPage() {
         hint = "Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.";
       }
       toast({ title: "KI-Assistent", description: hint, variant: "destructive" });
+    },
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: async (eventId: number) => {
+      const res = await apiRequest("POST", `/api/events/${eventId}/report`, {});
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Fehler beim Erstellen"); }
+      return res.json() as Promise<{ report: string; weatherText: string; photoCount: number; guestCount: number }>;
+    },
+    onSuccess: (data) => {
+      setReportText(data.report);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Kurzbericht fehlgeschlagen", description: err.message, variant: "destructive" });
+      setReportDialogOpen(false);
     },
   });
 
@@ -779,6 +797,21 @@ export default function EventsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => {
+                            setReportEventId(event.id);
+                            setReportText("");
+                            setReportDialogOpen(true);
+                            reportMutation.reset();
+                            reportMutation.mutate(event.id);
+                          }}
+                          data-testid={`button-report-${event.id}`}
+                          title="KI-Kurzbericht erstellen"
+                        >
+                          <FileText className="h-4 w-4 text-emerald-600" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => setDetailEventId(event.id)}
                           data-testid={`button-detail-event-${event.id}`}
                           title="Details anzeigen"
@@ -1167,6 +1200,84 @@ export default function EventsPage() {
             </Dialog>
           );
         })()}
+
+        {/* KI-Kurzbericht Dialog */}
+        <Dialog open={reportDialogOpen} onOpenChange={(open) => { setReportDialogOpen(open); if (!open) reportMutation.reset(); }}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-600" />
+                KI-Kurzbericht
+                {reportEventId && (
+                  <span className="text-sm font-normal text-muted-foreground ml-1">
+                    — {events?.find((e) => e.id === reportEventId)?.title}
+                  </span>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            {reportMutation.isPending && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                <p className="text-sm text-muted-foreground text-center">
+                  KI analysiert Fotos, Teilnehmerdaten und Wetter …<br />
+                  Dies kann 10–20 Sekunden dauern.
+                </p>
+              </div>
+            )}
+
+            {!reportMutation.isPending && reportText && (
+              <div className="space-y-4">
+                <div className="bg-muted/40 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap border">
+                  {reportText}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(reportText);
+                      toast({ title: "Text kopiert" });
+                    }}
+                    data-testid="button-copy-report"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Kopieren
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const w = window.open("", "_blank");
+                      if (!w) return;
+                      const ev = events?.find((e) => e.id === reportEventId);
+                      w.document.write(`<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Kurzbericht – ${ev?.title ?? ""}</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;line-height:1.7;color:#222}h1{font-size:1.4em;margin-bottom:1em}p{margin:0 0 1em}</style></head><body><h1>Kurzbericht: ${ev?.title ?? ""}</h1><p>${reportText.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br>")}</p></body></html>`);
+                      w.document.close();
+                      w.print();
+                    }}
+                    data-testid="button-print-report"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Drucken
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setReportText("");
+                      reportMutation.reset();
+                      if (reportEventId !== null) reportMutation.mutate(reportEventId);
+                    }}
+                    data-testid="button-regenerate-report"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Neu generieren
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Event details dialog */}
         {detailEventId !== null && (() => {

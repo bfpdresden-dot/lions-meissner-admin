@@ -521,6 +521,112 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // ── KI-Kurzbericht ───────────────────────────────────────────────────────
+
+  app.post("/api/events/:id/report", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+
+    const [photos, regs, appSettings] = await Promise.all([
+      storage.getEventPhotos(id),
+      storage.getRegistrationsByEvent(id),
+      storage.getSettings(),
+    ]);
+
+    const totalGuests = regs.reduce((s, r) => s + (r.guestCount || 1), 0);
+    const eventDate = new Date(event.date);
+    const dateStr = eventDate.toISOString().split("T")[0];
+
+    // --- Geocode the location with Nominatim ---
+    let weatherText = "";
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(event.location)}&format=json&limit=1`,
+        { headers: { "User-Agent": "LionsClubMeissnerLandApp/1.0" } }
+      );
+      const geoData = (await geoRes.json()) as { lat: string; lon: string }[];
+      if (geoData?.[0]) {
+        const { lat, lon } = geoData[0];
+        const weatherRes = await fetch(
+          `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateStr}&end_date=${dateStr}&hourly=temperature_2m,precipitation,weathercode&timezone=Europe%2FBerlin`
+        );
+        const weatherData = (await weatherRes.json()) as {
+          hourly?: { time: string[]; temperature_2m: number[]; precipitation: number[]; weathercode: number[] };
+        };
+        if (weatherData.hourly) {
+          const h = weatherData.hourly;
+          const eventHour = eventDate.getHours();
+          const idx = Math.min(eventHour, h.temperature_2m.length - 1);
+          const temp = h.temperature_2m[idx];
+          const precip = h.precipitation[idx];
+          const wcode = h.weathercode[idx];
+          const wdesc = wcode <= 1 ? "sonnig" : wcode <= 3 ? "bewölkt" : wcode <= 67 ? "Regen" : wcode <= 77 ? "Schnee" : "Gewitter";
+          weatherText = `Temperatur: ca. ${Math.round(temp)} °C, ${wdesc}${precip > 0.1 ? `, Niederschlag ${precip.toFixed(1)} mm` : ""}`;
+        }
+      }
+    } catch { /* Wetter optional */ }
+
+    // --- Build OpenRouter prompt ---
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "OPENROUTER_API_KEY fehlt" });
+
+    const model = appSettings["aiModel"] || "google/gemini-2.5-flash";
+
+    // Build image content blocks (up to 6 photos)
+    const imageBlocks: object[] = photos.slice(0, 6).map((p) => {
+      const url = p.filename.startsWith("http") ? p.filename : `${req.protocol}://${req.get("host")}/uploads/${p.filename}`;
+      return { type: "image_url", image_url: { url } };
+    });
+
+    const systemPrompt = `Du bist Pressereferent des Lions Club Meißner Land. Erstelle einen lebendigen, warmen Veranstaltungsbericht auf Deutsch. Struktur: kurzer Einleitungssatz, dann Absätze zu Atmosphäre/Fotos, Teilnahme, ggf. Wetter, und ein freundlicher Abschlusssatz. Kein Markdown, keine Überschriften, fließender Text, ca. 200–300 Wörter.`;
+
+    const userContent: object[] = [
+      {
+        type: "text",
+        text: `Veranstaltung: ${event.title}\nDatum: ${eventDate.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}\nOrt: ${event.location}\nBeschreibung: ${event.description}${event.agenda ? `\nTagesablauf: ${event.agenda}` : ""}\nAngemeldete Gäste: ${totalGuests} (${regs.length} Buchungen)${weatherText ? `\nWetter vor Ort: ${weatherText}` : ""}\n${photos.length > 0 ? `\nAngehängte Fotos: ${photos.length} Bilder` : "Keine Fotos vorhanden."}\n\nBitte schreibe jetzt den Kurzbericht:`,
+      },
+      ...imageBlocks,
+    ];
+
+    try {
+      const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://lions-meissner.replit.app",
+          "X-Title": "Lions Club Meißner Land",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+          max_tokens: 600,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!aiRes.ok) {
+        const errText = await aiRes.text();
+        return res.status(502).json({ error: `KI-Fehler: ${aiRes.status} — ${errText.slice(0, 200)}` });
+      }
+
+      const aiData = (await aiRes.json()) as { choices?: { message?: { content?: string } }[] };
+      const report = aiData.choices?.[0]?.message?.content?.trim();
+      if (!report) return res.status(502).json({ error: "KI hat keinen Text zurückgeliefert" });
+
+      return res.json({ report, weatherText, photoCount: photos.length, guestCount: totalGuests });
+    } catch (err) {
+      console.error("[report] AI error:", err);
+      return res.status(500).json({ error: "KI-Anfrage fehlgeschlagen" });
+    }
+  });
+
   // ── Settings ─────────────────────────────────────────────────────────────
 
   app.get("/api/settings", requireAdmin, async (_req, res) => {
