@@ -654,25 +654,40 @@ export default function PublicEventsPage() {
                     </div>
                   </div>
 
-                  <div className="border-t pt-4">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{ev.description}</p>
-                  </div>
+                  {(() => {
+                    const endTs = (ev as any).endDate ? new Date((ev as any).endDate) : new Date(ev.date);
+                    const isOver = endTs < new Date();
+                    const evReport = (ev as any).reportText as string | null;
+                    return (
+                      <>
+                        <div className="border-t pt-4">
+                          {isOver && evReport ? (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{evReport}</p>
+                          ) : (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{ev.description}</p>
+                          )}
+                        </div>
 
-                  <Button variant="outline" size="sm" asChild className="w-full">
-                    <a href={googleCalUrl(ev)} target="_blank" rel="noopener noreferrer" data-testid={`button-gcal-public-${ev.id}`}>
-                      <CalendarPlus className="h-4 w-4 mr-2 text-blue-500" />
-                      Zu Google Kalender hinzufügen
-                    </a>
-                  </Button>
+                        {!isOver && (
+                          <Button variant="outline" size="sm" asChild className="w-full">
+                            <a href={googleCalUrl(ev)} target="_blank" rel="noopener noreferrer" data-testid={`button-gcal-public-${ev.id}`}>
+                              <CalendarPlus className="h-4 w-4 mr-2 text-blue-500" />
+                              Zu Google Kalender hinzufügen
+                            </a>
+                          </Button>
+                        )}
 
-                  {(ev as any).programPdf && (ev as any).programPdfPublic && (
-                    <Button variant="outline" size="sm" asChild className="w-full">
-                      <a href={fileUrl((ev as any).programPdf)} target="_blank" rel="noopener noreferrer">
-                        <FileText className="h-4 w-4 mr-2 text-amber-500" />
-                        Programm herunterladen (PDF)
-                      </a>
-                    </Button>
-                  )}
+                        {!isOver && (ev as any).programPdf && (ev as any).programPdfPublic && (
+                          <Button variant="outline" size="sm" asChild className="w-full">
+                            <a href={fileUrl((ev as any).programPdf)} target="_blank" rel="noopener noreferrer">
+                              <FileText className="h-4 w-4 mr-2 text-amber-500" />
+                              Programm herunterladen (PDF)
+                            </a>
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {detailPhotos && detailPhotos.length > 0 && (
                     <div className="border-t pt-4 space-y-3">
