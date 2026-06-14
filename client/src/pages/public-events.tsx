@@ -502,7 +502,13 @@ export default function PublicEventsPage() {
                               <Badge variant="secondary" className="text-muted-foreground">Vergangen</Badge>
                             )}
                           </div>
-                          <p className="text-muted-foreground">{event.description}</p>
+                          {(event as any).reportText && new Date(event.date) < new Date() ? (
+                            <div className="space-y-1">
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{(event as any).reportText}</p>
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground">{event.description}</p>
+                          )}
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-1">
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4 text-blue-500" />

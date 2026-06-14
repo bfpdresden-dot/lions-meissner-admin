@@ -116,7 +116,10 @@ export default function EventsPage() {
   const [addMemberSelected, setAddMemberSelected] = useState<string>("");
   const [reportEventId, setReportEventId] = useState<number | null>(null);
   const [reportText, setReportText] = useState<string>("");
+  const [reportEditText, setReportEditText] = useState<string>("");
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportNotesOpen, setReportNotesOpen] = useState(false);
+  const [reportNotes, setReportNotes] = useState<string>("");
   const { toast } = useToast();
 
   const { data: allMembers } = useQuery<Subscriber[]>({
@@ -203,18 +206,32 @@ export default function EventsPage() {
   });
 
   const reportMutation = useMutation({
-    mutationFn: async (eventId: number) => {
-      const res = await apiRequest("POST", `/api/events/${eventId}/report`, {});
+    mutationFn: async ({ eventId, notes }: { eventId: number; notes: string }) => {
+      const res = await apiRequest("POST", `/api/events/${eventId}/report`, { notes });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Fehler beim Erstellen"); }
       return res.json() as Promise<{ report: string; weatherText: string; photoCount: number; guestCount: number }>;
     },
     onSuccess: (data) => {
       setReportText(data.report);
+      setReportEditText(data.report);
     },
     onError: (err: Error) => {
       toast({ title: "Kurzbericht fehlgeschlagen", description: err.message, variant: "destructive" });
       setReportDialogOpen(false);
     },
+  });
+
+  const saveReportMutation = useMutation({
+    mutationFn: async ({ eventId, text }: { eventId: number; text: string }) => {
+      const res = await apiRequest("PATCH", `/api/events/${eventId}`, { reportText: text });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Fehler"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Kurzbericht gespeichert" });
+    },
+    onError: (err: Error) => toast({ title: "Fehler beim Speichern", description: err.message, variant: "destructive" }),
   });
 
   const handlePdfUpload = async (eventId: number, file: File) => {
@@ -799,15 +816,27 @@ export default function EventsPage() {
                           variant="ghost"
                           onClick={() => {
                             setReportEventId(event.id);
-                            setReportText("");
-                            setReportDialogOpen(true);
                             reportMutation.reset();
-                            reportMutation.mutate(event.id);
+                            saveReportMutation.reset();
+                            const existing = (event as any).reportText as string | null;
+                            if (existing) {
+                              // Already has a report — open edit dialog directly
+                              setReportText(existing);
+                              setReportEditText(existing);
+                              setReportDialogOpen(true);
+                            } else {
+                              // No report yet — open notes pre-dialog
+                              setReportNotes("");
+                              setReportText("");
+                              setReportEditText("");
+                              setReportNotesOpen(true);
+                            }
                           }}
                           data-testid={`button-report-${event.id}`}
-                          title="KI-Kurzbericht erstellen"
+                          title={(event as any).reportText ? "Kurzbericht bearbeiten" : "KI-Kurzbericht erstellen"}
+                          className={(event as any).reportText ? "text-emerald-600" : ""}
                         >
-                          <FileText className="h-4 w-4 text-emerald-600" />
+                          <FileText className="h-4 w-4" />
                         </Button>
                         <Button
                           size="icon"
@@ -1201,9 +1230,64 @@ export default function EventsPage() {
           );
         })()}
 
-        {/* KI-Kurzbericht Dialog */}
-        <Dialog open={reportDialogOpen} onOpenChange={(open) => { setReportDialogOpen(open); if (!open) reportMutation.reset(); }}>
-          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        {/* KI-Kurzbericht: Notizen-Vordialog */}
+        <Dialog open={reportNotesOpen} onOpenChange={(open) => { setReportNotesOpen(open); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-600" />
+                Kurzbericht erstellen
+                {reportEventId && (
+                  <span className="text-sm font-normal text-muted-foreground ml-1">
+                    — {events?.find((e) => e.id === reportEventId)?.title}
+                  </span>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-1">
+              <p className="text-sm text-muted-foreground">
+                Optional: Ergänzende Hinweise für die KI (z.B. besondere Highlights, Stimmung, Ehrungen).
+                Die KI berücksichtigt automatisch Fotos, Teilnehmer, Schichtplan-Mitglieder und das Wetter.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Anmerkungen (optional)</label>
+                <Textarea
+                  placeholder={"z.B.: Besonders schöne Stimmung am Abend. Der Tombola-Hauptgewinn wurde von Familie Müller gewonnen."}
+                  rows={4}
+                  value={reportNotes}
+                  onChange={(e) => setReportNotes(e.target.value)}
+                  className="resize-none text-sm"
+                  data-testid="input-report-notes"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setReportNotesOpen(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => {
+                    setReportNotesOpen(false);
+                    setReportDialogOpen(true);
+                    if (reportEventId !== null) reportMutation.mutate({ eventId: reportEventId, notes: reportNotes });
+                  }}
+                  data-testid="button-start-report"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Bericht erstellen
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* KI-Kurzbericht: Ergebnis-Dialog */}
+        <Dialog open={reportDialogOpen} onOpenChange={(open) => { setReportDialogOpen(open); if (!open) { reportMutation.reset(); saveReportMutation.reset(); } }}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-emerald-600" />
@@ -1220,23 +1304,40 @@ export default function EventsPage() {
               <div className="flex flex-col items-center justify-center py-16 gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
                 <p className="text-sm text-muted-foreground text-center">
-                  KI analysiert Fotos, Teilnehmerdaten und Wetter …<br />
+                  KI analysiert Fotos, Teilnehmerdaten, Wetter und Helfer …<br />
                   Dies kann 10–20 Sekunden dauern.
                 </p>
               </div>
             )}
 
-            {!reportMutation.isPending && reportText && (
-              <div className="space-y-4">
-                <div className="bg-muted/40 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap border">
-                  {reportText}
-                </div>
+            {!reportMutation.isPending && reportEditText && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Bericht direkt bearbeiten — Änderungen werden mit „Speichern" auf der Website veröffentlicht.</p>
+                <Textarea
+                  value={reportEditText}
+                  onChange={(e) => setReportEditText(e.target.value)}
+                  rows={14}
+                  className="text-sm leading-relaxed resize-none font-sans"
+                  data-testid="textarea-report-edit"
+                />
                 <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={saveReportMutation.isPending}
+                    onClick={() => {
+                      if (reportEventId !== null) saveReportMutation.mutate({ eventId: reportEventId, text: reportEditText });
+                    }}
+                    data-testid="button-save-report"
+                  >
+                    {saveReportMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                    Speichern & veröffentlichen
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      navigator.clipboard.writeText(reportText);
+                      navigator.clipboard.writeText(reportEditText);
                       toast({ title: "Text kopiert" });
                     }}
                     data-testid="button-copy-report"
@@ -1251,7 +1352,10 @@ export default function EventsPage() {
                       const w = window.open("", "_blank");
                       if (!w) return;
                       const ev = events?.find((e) => e.id === reportEventId);
-                      w.document.write(`<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Kurzbericht – ${ev?.title ?? ""}</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;line-height:1.7;color:#222}h1{font-size:1.4em;margin-bottom:1em}p{margin:0 0 1em}</style></head><body><h1>Kurzbericht: ${ev?.title ?? ""}</h1><p>${reportText.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br>")}</p></body></html>`);
+                      const escaped = reportEditText
+                        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                        .replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br>");
+                      w.document.write(`<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Kurzbericht – ${ev?.title ?? ""}</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;line-height:1.7;color:#222}h1{font-size:1.4em;margin-bottom:1em}p{margin:0 0 1em}</style></head><body><h1>Kurzbericht: ${ev?.title ?? ""}</h1><p>${escaped}</p></body></html>`);
                       w.document.close();
                       w.print();
                     }}
@@ -1265,8 +1369,11 @@ export default function EventsPage() {
                     size="sm"
                     onClick={() => {
                       setReportText("");
+                      setReportEditText("");
                       reportMutation.reset();
-                      if (reportEventId !== null) reportMutation.mutate(reportEventId);
+                      setReportDialogOpen(false);
+                      setReportNotes("");
+                      setReportNotesOpen(true);
                     }}
                     data-testid="button-regenerate-report"
                   >

@@ -530,15 +530,37 @@ export async function registerRoutes(
     const event = await storage.getEvent(id);
     if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
 
-    const [photos, regs, appSettings] = await Promise.all([
+    const notes: string = typeof req.body.notes === "string" ? req.body.notes.trim() : "";
+
+    const [photos, regs, appSettings, shiftSignups, allMembers] = await Promise.all([
       storage.getEventPhotos(id),
       storage.getRegistrationsByEvent(id),
       storage.getSettings(),
+      storage.getSignupsByEvent(id),
+      storage.getMembers(),
     ]);
 
     const totalGuests = regs.reduce((s, r) => s + (r.guestCount || 1), 0);
     const eventDate = new Date(event.date);
+    const endDate = (event as any).endDate ? new Date((event as any).endDate) : null;
+
+    // Multi-day support: fetch weather for start date
     const dateStr = eventDate.toISOString().split("T")[0];
+    const endDateStr = endDate ? endDate.toISOString().split("T")[0] : dateStr;
+    const isMultiDay = endDate && endDateStr !== dateStr;
+
+    // Build date display string
+    const fmtDate = (d: Date) => d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const dateDisplay = isMultiDay
+      ? `${fmtDate(eventDate)} bis ${fmtDate(endDate!)}`
+      : fmtDate(eventDate);
+
+    // Volunteers from shift plan
+    const memberMap = Object.fromEntries(allMembers.map((m) => [m.id, m]));
+    const volunteerNames = [...new Set(shiftSignups.map((s) => s.memberId))]
+      .map((mid) => memberMap[mid])
+      .filter(Boolean)
+      .map((m) => `${m!.firstName} ${m!.lastName}`);
 
     // --- Geocode the location with Nominatim ---
     let weatherText = "";
@@ -550,21 +572,31 @@ export async function registerRoutes(
       const geoData = (await geoRes.json()) as { lat: string; lon: string }[];
       if (geoData?.[0]) {
         const { lat, lon } = geoData[0];
+        // Fetch weather for all days of the event
         const weatherRes = await fetch(
-          `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateStr}&end_date=${dateStr}&hourly=temperature_2m,precipitation,weathercode&timezone=Europe%2FBerlin`
+          `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateStr}&end_date=${endDateStr}&hourly=temperature_2m,precipitation,weathercode&timezone=Europe%2FBerlin`
         );
         const weatherData = (await weatherRes.json()) as {
           hourly?: { time: string[]; temperature_2m: number[]; precipitation: number[]; weathercode: number[] };
         };
         if (weatherData.hourly) {
           const h = weatherData.hourly;
-          const eventHour = eventDate.getHours();
-          const idx = Math.min(eventHour, h.temperature_2m.length - 1);
-          const temp = h.temperature_2m[idx];
-          const precip = h.precipitation[idx];
-          const wcode = h.weathercode[idx];
-          const wdesc = wcode <= 1 ? "sonnig" : wcode <= 3 ? "bewölkt" : wcode <= 67 ? "Regen" : wcode <= 77 ? "Schnee" : "Gewitter";
-          weatherText = `Temperatur: ca. ${Math.round(temp)} °C, ${wdesc}${precip > 0.1 ? `, Niederschlag ${precip.toFixed(1)} mm` : ""}`;
+          if (isMultiDay) {
+            // Summarize across all days: min/max temp and total precip
+            const validTemps = h.temperature_2m.filter((t) => t !== null);
+            const minTemp = Math.round(Math.min(...validTemps));
+            const maxTemp = Math.round(Math.max(...validTemps));
+            const totalPrecip = h.precipitation.reduce((s, p) => s + p, 0);
+            weatherText = `Temperaturen ${minTemp}–${maxTemp} °C${totalPrecip > 1 ? `, Gesamtniederschlag ${totalPrecip.toFixed(1)} mm` : ", überwiegend trocken"}`;
+          } else {
+            const eventHour = eventDate.getHours();
+            const idx = Math.min(eventHour, h.temperature_2m.length - 1);
+            const temp = h.temperature_2m[idx];
+            const precip = h.precipitation[idx];
+            const wcode = h.weathercode[idx];
+            const wdesc = wcode <= 1 ? "sonnig" : wcode <= 3 ? "bewölkt" : wcode <= 67 ? "Regen" : wcode <= 77 ? "Schnee" : "Gewitter";
+            weatherText = `Temperatur: ca. ${Math.round(temp)} °C, ${wdesc}${precip > 0.1 ? `, Niederschlag ${precip.toFixed(1)} mm` : ""}`;
+          }
         }
       }
     } catch { /* Wetter optional */ }
@@ -581,15 +613,25 @@ export async function registerRoutes(
       return { type: "image_url", image_url: { url } };
     });
 
-    const systemPrompt = `Du bist Pressereferent des Lions Club Meißner Land. Erstelle einen lebendigen, warmen Veranstaltungsbericht auf Deutsch. Struktur: kurzer Einleitungssatz, dann Absätze zu Atmosphäre/Fotos, Teilnahme, ggf. Wetter, und ein freundlicher Abschlusssatz. Kein Markdown, keine Überschriften, fließender Text, ca. 200–300 Wörter.`;
+    const systemPrompt = `Du bist Pressereferent des Lions Club Meißner Land. Erstelle einen lebendigen, warmen Veranstaltungsbericht auf Deutsch. Struktur: kurzer Einleitungssatz, dann Absätze zu Atmosphäre/Fotos, Teilnahme, ggf. Wetter${volunteerNames.length > 0 ? ", und am Ende ein herzliches Dankeschön an die genannten Helfer/Mitglieder" : ""}. Kein Markdown, keine Überschriften, fließender Text, ca. 200–350 Wörter.`;
 
-    const userContent: object[] = [
-      {
-        type: "text",
-        text: `Veranstaltung: ${event.title}\nDatum: ${eventDate.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}\nOrt: ${event.location}\nBeschreibung: ${event.description}${event.agenda ? `\nTagesablauf: ${event.agenda}` : ""}\nAngemeldete Gäste: ${totalGuests} (${regs.length} Buchungen)${weatherText ? `\nWetter vor Ort: ${weatherText}` : ""}\n${photos.length > 0 ? `\nAngehängte Fotos: ${photos.length} Bilder` : "Keine Fotos vorhanden."}\n\nBitte schreibe jetzt den Kurzbericht:`,
-      },
-      ...imageBlocks,
-    ];
+    const userText = [
+      `Veranstaltung: ${event.title}`,
+      `Datum: ${dateDisplay}`,
+      `Ort: ${event.location}`,
+      isMultiDay ? `(Mehrtägige Veranstaltung)` : null,
+      `Beschreibung: ${event.description}`,
+      event.agenda ? `Tagesablauf: ${event.agenda}` : null,
+      `Angemeldete Gäste: ${totalGuests} (${regs.length} Buchungen)`,
+      weatherText ? `Wetter vor Ort: ${weatherText}` : null,
+      photos.length > 0 ? `Angehängte Fotos: ${photos.length} Bilder` : "Keine Fotos vorhanden.",
+      volunteerNames.length > 0 ? `Helfer/Mitglieder im Schichtplan: ${volunteerNames.join(", ")}` : null,
+      notes ? `Zusätzliche Anmerkungen vom Redakteur: ${notes}` : null,
+      "",
+      "Bitte schreibe jetzt den Kurzbericht:",
+    ].filter(Boolean).join("\n");
+
+    const userContent: object[] = [{ type: "text", text: userText }, ...imageBlocks];
 
     try {
       const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -606,7 +648,7 @@ export async function registerRoutes(
             { role: "system", content: systemPrompt },
             { role: "user", content: userContent },
           ],
-          max_tokens: 600,
+          max_tokens: 800,
           temperature: 0.7,
         }),
       });
@@ -619,6 +661,9 @@ export async function registerRoutes(
       const aiData = (await aiRes.json()) as { choices?: { message?: { content?: string } }[] };
       const report = aiData.choices?.[0]?.message?.content?.trim();
       if (!report) return res.status(502).json({ error: "KI hat keinen Text zurückgeliefert" });
+
+      // Auto-save the generated report to the event record
+      await storage.updateEvent(id, { reportText: report } as any);
 
       return res.json({ report, weatherText, photoCount: photos.length, guestCount: totalGuests });
     } catch (err) {

@@ -17,6 +17,7 @@ export const events = pgTable("events", {
   isInternal: boolean("is_internal").notNull().default(false),
   programPdf: text("program_pdf"),
   programPdfPublic: boolean("program_pdf_public").notNull().default(true),
+  reportText: text("report_text"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
