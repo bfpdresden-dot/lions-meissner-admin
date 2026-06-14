@@ -45,7 +45,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2, Mail, Send } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2, Mail, Send, FileDown } from "lucide-react";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -1412,6 +1413,56 @@ export default function EventsPage() {
                   >
                     <Mail className="h-4 w-4 mr-2" />
                     Als Newsletter verwenden
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const ev = events?.find((e) => e.id === reportEventId);
+                      const safeTitle = (ev?.title ?? "Kurzbericht").replace(/[^a-zA-Z0-9äöüÄÖÜß\s-]/g, "").trim().replace(/\s+/g, "-");
+                      const filename = `Kurzbericht-${safeTitle}.txt`;
+                      const blob = new Blob([reportEditText], { type: "text/plain;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    data-testid="button-download-txt"
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    .txt
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const ev = events?.find((e) => e.id === reportEventId);
+                      const safeTitle = (ev?.title ?? "Kurzbericht").replace(/[^a-zA-Z0-9äöüÄÖÜß\s-]/g, "").trim().replace(/\s+/g, "-");
+                      const filename = `Kurzbericht-${safeTitle}.docx`;
+                      const paragraphs = [
+                        new Paragraph({
+                          text: `Kurzbericht: ${ev?.title ?? ""}`,
+                          heading: HeadingLevel.HEADING_1,
+                        }),
+                        ...reportEditText.split(/\n+/).filter(Boolean).map(
+                          (line) => new Paragraph({ children: [new TextRun({ text: line, size: 24 })] })
+                        ),
+                      ];
+                      const doc = new Document({ sections: [{ properties: {}, children: paragraphs }] });
+                      const blob = await Packer.toBlob(doc);
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    data-testid="button-download-docx"
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    .docx
                   </Button>
                 </div>
               </div>
