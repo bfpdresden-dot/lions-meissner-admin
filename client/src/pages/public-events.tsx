@@ -559,11 +559,15 @@ export default function PublicEventsPage() {
                             size="icon"
                             onClick={() => {
                               const url = eventDeepLink(event.id);
-                              const text = `${event.title} – ${format(new Date(event.date), "dd. MMMM yyyy", { locale: de })} in ${event.location}`;
+                              const isPast = new Date(event.date) < new Date();
+                              const reportText = (event as any).reportText as string | null;
+                              const text = isPast && reportText
+                                ? `${event.title} – ${format(new Date(event.date), "dd. MMMM yyyy", { locale: de })}\n\n${reportText}\n${url}`
+                                : `${event.title} – ${format(new Date(event.date), "dd. MMMM yyyy", { locale: de })} in ${event.location}`;
                               if (navigator.share) {
                                 navigator.share({ title: event.title, text, url });
                               } else {
-                                navigator.clipboard.writeText(url);
+                                navigator.clipboard.writeText(isPast && reportText ? text : url);
                                 toast({ title: "Link kopiert!" });
                               }
                             }}
@@ -739,8 +743,12 @@ export default function PublicEventsPage() {
                         size="sm"
                         className="gap-2"
                         onClick={async () => {
-                          const text = `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
                           const url = eventDeepLink(ev.id);
+                          const isPast = new Date(ev.date) < new Date();
+                          const evReportText = (ev as any).reportText as string | null;
+                          const baseText = isPast && evReportText
+                            ? `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })}\n\n${evReportText}`
+                            : `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
                           const photos = detailPhotos || [];
 
                           // Mobile: share actual image files via native share sheet
@@ -757,7 +765,7 @@ export default function PublicEventsPage() {
                                 })
                               );
                               if (navigator.canShare({ files })) {
-                                await navigator.share({ files, text, url });
+                                await navigator.share({ files, text: baseText, url });
                                 setSharingWhatsApp(false);
                                 return;
                               }
@@ -769,7 +777,7 @@ export default function PublicEventsPage() {
 
                           // Desktop fallback: text with photo links
                           const photoLines = photos.map((p) => `📷 ${fileUrl(p.filename)}`).join("\n");
-                          const fullText = photoLines ? `${text}\n${photoLines}\n${url}` : `${text}\n${url}`;
+                          const fullText = photoLines ? `${baseText}\n${photoLines}\n${url}` : `${baseText}\n${url}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, "_blank");
                         }}
                         disabled={sharingWhatsApp}
