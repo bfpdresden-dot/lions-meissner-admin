@@ -381,7 +381,8 @@ export default function AdminSchichtplanPage() {
     queryKey: ["/api/events"],
   });
 
-  const activeEvents = events.filter((e) => e.isActive);
+  const cutoff = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+  const activeEvents = events.filter((e) => e.isActive && new Date(e.date) >= cutoff);
   const selectedEvent = activeEvents.find((e) => e.id.toString() === selectedEventId);
 
   return (
