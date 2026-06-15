@@ -104,6 +104,7 @@ export const shiftSignups = pgTable("shift_signups", {
   id: serial("id").primaryKey(),
   shiftId: integer("shift_id").notNull(),
   memberId: integer("member_id").notNull(),
+  personCount: integer("person_count").notNull().default(1),
   signedUpAt: timestamp("signed_up_at").notNull().defaultNow(),
 });
 

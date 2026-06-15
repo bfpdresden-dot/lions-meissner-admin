@@ -10,7 +10,7 @@ import { de } from "date-fns/locale";
 import type { Event } from "@shared/schema";
 
 interface ShiftMember { id: number; firstName: string; lastName: string; }
-interface ShiftSignupWithMember { id: number; shiftId: number; memberId: number; signedUpAt: string; member: ShiftMember | null; }
+interface ShiftSignupWithMember { id: number; shiftId: number; memberId: number; personCount: number; signedUpAt: string; member: ShiftMember | null; }
 interface ShiftWithSignups {
   id: number; eventId: number; title: string; date: string;
   startTime: string; endTime: string; maxVolunteers: number;
@@ -165,7 +165,8 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                 const mySignup = selectedMemberId
                   ? shift.signups.find((sg) => sg.memberId.toString() === selectedMemberId)
                   : undefined;
-                const hasMetMin = shift.signups.length >= shift.maxVolunteers;
+                const totalPersons = shift.signups.reduce((s, sg) => s + (sg.personCount || 1), 0);
+                const hasMetMin = totalPersons >= shift.maxVolunteers;
                 const canSignup = selectedMemberId && !mySignup;
                 const isPending = signupMutation.isPending || cancelMutation.isPending;
 
@@ -191,7 +192,7 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                           data-testid={`badge-capacity-${shift.id}`}
                         >
                           <Users className="h-3 w-3 mr-1" />
-                          {shift.signups.length}/{shift.maxVolunteers}
+                          {totalPersons}/{shift.maxVolunteers}
                         </Badge>
                         {hasMetMin && (
                           <p className="text-xs text-green-600 mt-1 font-medium">Ziel erreicht ✓</p>
@@ -214,6 +215,9 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                           >
                             <Check className="h-3 w-3" />
                             {sg.member ? `${sg.member.firstName} ${sg.member.lastName}` : "Unbekannt"}
+                            {(sg.personCount || 1) > 1 && (
+                              <span className="bg-[#1a3a5c]/20 rounded-full px-1 font-medium">×{sg.personCount}</span>
+                            )}
                           </span>
                         ))}
                       </div>

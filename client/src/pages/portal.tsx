@@ -337,8 +337,9 @@ export default function PortalPage() {
     staleTime: 1000 * 60 * 5,
   });
 
-  type ShiftSignupEntry = { id: number; shiftId: number; memberId: number; signedUpAt: string; member: { id: number; firstName: string; lastName: string } | null; };
+  type ShiftSignupEntry = { id: number; shiftId: number; memberId: number; personCount: number; signedUpAt: string; member: { id: number; firstName: string; lastName: string } | null; };
   type ShiftEntry = { id: number; eventId: number; title: string; date: string; startTime: string; endTime: string; maxVolunteers: number; note: string | null; signups: ShiftSignupEntry[]; };
+
   const { data: shiftPlanShifts, isLoading: shiftsLoading } = useQuery<ShiftEntry[]>({
     queryKey: ["/api/events", shiftPlanEventId, "shifts"],
     queryFn: () => fetch(`/api/events/${shiftPlanEventId}/shifts`).then((r) => r.json()),
@@ -680,7 +681,8 @@ export default function PortalPage() {
                             </div>
                             {byDate[date].map((shift) => {
                               const mySignup = shift.signups.find((sg) => sg.memberId === subscriber.id);
-                              const filled = shift.signups.length >= shift.maxVolunteers;
+                              const totalPersons = shift.signups.reduce((s, sg) => s + (sg.personCount || 1), 0);
+                              const filled = totalPersons >= shift.maxVolunteers;
                               const isPending = shiftSignupMutation.isPending || shiftCancelMutation.isPending;
                               return (
                                 <div key={shift.id} className={`border rounded-lg p-4 transition-all ${mySignup ? "border-green-300 bg-green-50/40" : ""}`} data-testid={`portal-shift-${shift.id}`}>
@@ -695,7 +697,7 @@ export default function PortalPage() {
                                     </div>
                                     <Badge variant="secondary" className={`text-xs shrink-0 ${filled ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-700"}`}>
                                       <Users className="h-3 w-3 mr-1" />
-                                      {shift.signups.length}/{shift.maxVolunteers}
+                                      {totalPersons}/{shift.maxVolunteers}
                                       {filled && <span className="ml-1">✓</span>}
                                     </Badge>
                                   </div>
@@ -706,6 +708,9 @@ export default function PortalPage() {
                                         <span key={sg.id} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${sg.memberId === subscriber.id ? "bg-green-100 text-green-800 border border-green-300" : "bg-[#1a3a5c]/10 text-[#1a3a5c]"}`}>
                                           <Check className="h-3 w-3" />
                                           {sg.member ? `${sg.member.firstName} ${sg.member.lastName}` : "Unbekannt"}
+                                          {(sg.personCount || 1) > 1 && (
+                                            <span className="bg-[#1a3a5c]/20 rounded-full px-1 font-medium">×{sg.personCount}</span>
+                                          )}
                                         </span>
                                       ))}
                                     </div>

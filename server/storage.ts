@@ -78,7 +78,7 @@ export interface IStorage {
 
   getSignupsByShift(shiftId: number): Promise<ShiftSignup[]>;
   getSignupsByEvent(eventId: number): Promise<ShiftSignup[]>;
-  createSignup(shiftId: number, memberId: number): Promise<ShiftSignup>;
+  createSignup(shiftId: number, memberId: number, personCount?: number): Promise<ShiftSignup>;
   deleteSignup(id: number): Promise<void>;
   getSignup(shiftId: number, memberId: number): Promise<ShiftSignup | undefined>;
 }
@@ -307,8 +307,8 @@ export class DatabaseStorage implements IStorage {
     return all;
   }
 
-  async createSignup(shiftId: number, memberId: number): Promise<ShiftSignup> {
-    const [created] = await db.insert(shiftSignups).values({ shiftId, memberId }).returning();
+  async createSignup(shiftId: number, memberId: number, personCount: number = 1): Promise<ShiftSignup> {
+    const [created] = await db.insert(shiftSignups).values({ shiftId, memberId, personCount }).returning();
     return created;
   }
 
