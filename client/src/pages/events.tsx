@@ -1809,6 +1809,8 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
   const [editingShift, setEditingShift] = useState<ShiftWithSignups | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ShiftFormState>(() => makeDefaultShiftForm(event));
+  const [addToShift, setAddToShift] = useState<ShiftWithSignups | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
 
   const { data: shifts, isLoading } = useQuery<ShiftWithSignups[]>({
     queryKey: ["/api/events", event.id, "shifts"],
@@ -1852,6 +1854,26 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] }),
   });
 
+  const { data: allMembers } = useQuery<Subscriber[]>({
+    queryKey: ["/api/members"],
+  });
+
+  const addSignupMutation = useMutation({
+    mutationFn: ({ shiftId, memberId }: { shiftId: number; memberId: number }) =>
+      apiRequest("POST", `/api/shifts/${shiftId}/signup`, { memberId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", event.id, "shifts"] });
+      setAddToShift(null);
+      setSelectedMemberId("");
+      toast({ title: "Mitglied eingetragen" });
+    },
+    onError: async (err: any) => {
+      let msg = "Fehler beim Eintragen";
+      try { const j = await err.json?.(); if (j?.error) msg = j.error; } catch {}
+      toast({ title: msg, variant: "destructive" });
+    },
+  });
+
   const publicUrl = `${window.location.origin}/schichtplan/${event.id}`;
 
   const byDate: Record<string, ShiftWithSignups[]> = {};
@@ -1863,6 +1885,7 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
 
 
   return (
+    <>
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -1956,15 +1979,27 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
                         </div>
                         {/* Signups */}
                         <div className="mt-2 pt-2 border-t">
-                          <p className="text-xs text-muted-foreground mb-1.5">
+                          <button
+                            className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5 hover:text-foreground transition-colors group"
+                            onClick={() => { setAddToShift(shift); setSelectedMemberId(""); }}
+                            data-testid={`button-open-add-signup-${shift.id}`}
+                            title="Mitglied manuell eintragen"
+                          >
+                            <UserPlus className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#1a3a5c]" />
                             Eingetragen: {shift.signups.length}/{shift.maxVolunteers}
                             {shift.signups.length >= shift.maxVolunteers
                               ? <span className="ml-1 text-green-600 font-medium">· Ziel erreicht ✓</span>
                               : <span className="ml-1 text-red-500 font-medium">· {shift.maxVolunteers - shift.signups.length} fehlen noch</span>
                             }
-                          </p>
+                          </button>
                           {shift.signups.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">Noch niemand eingetragen</p>
+                            <button
+                              className="text-xs text-muted-foreground italic hover:text-[#1a3a5c] hover:not-italic transition-colors"
+                              onClick={() => { setAddToShift(shift); setSelectedMemberId(""); }}
+                              data-testid={`button-open-add-signup-empty-${shift.id}`}
+                            >
+                              Noch niemand eingetragen — klicken zum Eintragen
+                            </button>
                           ) : (
                             <div className="flex flex-wrap gap-1.5">
                               {shift.signups.map((sg) => (
@@ -1993,6 +2028,59 @@ function ShiftPlanAdminDialog({ event, onClose }: { event: Event; onClose: () =>
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Admin: Mitglied manuell zu Schicht eintragen */}
+    {addToShift && (
+      <Dialog open onOpenChange={(open) => { if (!open) { setAddToShift(null); setSelectedMemberId(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-[#1a3a5c]" />
+              Mitglied eintragen
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{addToShift.title}</span>
+              {" · "}{addToShift.startTime} – {addToShift.endTime} Uhr
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Mitglied auswählen</label>
+              <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                <SelectTrigger data-testid="select-member-signup">
+                  <SelectValue placeholder="Mitglied wählen …" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(allMembers || [])
+                    .filter((m) => !addToShift.signups.some((sg) => sg.memberId === m.id))
+                    .sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`))
+                    .map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)} data-testid={`option-member-${m.id}`}>
+                        {m.firstName} {m.lastName}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setAddToShift(null); setSelectedMemberId(""); }}>
+                Abbrechen
+              </Button>
+              <Button
+                className="flex-1 bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white"
+                disabled={!selectedMemberId || addSignupMutation.isPending}
+                onClick={() => addSignupMutation.mutate({ shiftId: addToShift.id, memberId: parseInt(selectedMemberId) })}
+                data-testid="button-confirm-add-signup"
+              >
+                {addSignupMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                Eintragen
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
 
