@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, serial, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -141,6 +141,19 @@ export const emailLogs = pgTable("email_logs", {
 });
 
 export type EmailLog = typeof emailLogs.$inferSelect;
+
+export const kalkulationItems = pgTable("kalkulation_items", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  type: text("type").notNull(), // 'income' | 'expense'
+  description: text("description").notNull(),
+  amount: real("amount").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type KalkulationItem = typeof kalkulationItems.$inferSelect;
+export const insertKalkulationItemSchema = createInsertSchema(kalkulationItems).omit({ id: true, createdAt: true });
+export type InsertKalkulationItem = z.infer<typeof insertKalkulationItemSchema>;
 
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,

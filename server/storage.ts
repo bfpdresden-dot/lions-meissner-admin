@@ -8,6 +8,9 @@ import {
   emailLogs,
   shifts,
   shiftSignups,
+  kalkulationItems,
+  type KalkulationItem,
+  type InsertKalkulationItem,
   type Event,
   type InsertEvent,
   type Subscriber,
@@ -81,6 +84,11 @@ export interface IStorage {
   createSignup(shiftId: number, memberId: number, personCount?: number): Promise<ShiftSignup>;
   deleteSignup(id: number): Promise<void>;
   getSignup(shiftId: number, memberId: number): Promise<ShiftSignup | undefined>;
+
+  getKalkulationItems(eventId: number): Promise<KalkulationItem[]>;
+  createKalkulationItem(item: InsertKalkulationItem): Promise<KalkulationItem>;
+  updateKalkulationItem(id: number, data: Partial<InsertKalkulationItem>): Promise<KalkulationItem | undefined>;
+  deleteKalkulationItem(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -321,6 +329,24 @@ export class DatabaseStorage implements IStorage {
       and(eq(shiftSignups.shiftId, shiftId), eq(shiftSignups.memberId, memberId))
     );
     return row || undefined;
+  }
+
+  async getKalkulationItems(eventId: number): Promise<KalkulationItem[]> {
+    return db.select().from(kalkulationItems).where(eq(kalkulationItems.eventId, eventId)).orderBy(kalkulationItems.createdAt);
+  }
+
+  async createKalkulationItem(item: InsertKalkulationItem): Promise<KalkulationItem> {
+    const [created] = await db.insert(kalkulationItems).values(item).returning();
+    return created;
+  }
+
+  async updateKalkulationItem(id: number, data: Partial<InsertKalkulationItem>): Promise<KalkulationItem | undefined> {
+    const [updated] = await db.update(kalkulationItems).set(data).where(eq(kalkulationItems.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteKalkulationItem(id: number): Promise<void> {
+    await db.delete(kalkulationItems).where(eq(kalkulationItems.id, id));
   }
 }
 

@@ -1641,5 +1641,47 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.send(xml);
   });
 
+  // ── Kalkulation ─────────────────────────────────────────────────────────
+  app.get("/api/kalkulation/:eventId", requireAdmin, async (req, res) => {
+    const eventId = parseInt(req.params.eventId);
+    if (isNaN(eventId)) return res.status(400).json({ error: "Ungültige Event-ID" });
+    const items = await storage.getKalkulationItems(eventId);
+    res.json(items);
+  });
+
+  app.post("/api/kalkulation", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      eventId: z.number().int().positive(),
+      type: z.enum(["income", "expense"]),
+      description: z.string().min(1),
+      amount: z.number().positive(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Daten", details: parsed.error.errors });
+    const item = await storage.createKalkulationItem(parsed.data);
+    res.status(201).json(item);
+  });
+
+  app.patch("/api/kalkulation/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const schema = z.object({
+      description: z.string().min(1).optional(),
+      amount: z.number().positive().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Daten" });
+    const updated = await storage.updateKalkulationItem(id, parsed.data);
+    if (!updated) return res.status(404).json({ error: "Eintrag nicht gefunden" });
+    res.json(updated);
+  });
+
+  app.delete("/api/kalkulation/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    await storage.deleteKalkulationItem(id);
+    res.status(204).send();
+  });
+
   return httpServer;
 }
