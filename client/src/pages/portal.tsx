@@ -200,7 +200,7 @@ export default function PortalPage() {
   const { data: subscriber, isLoading, isError } = useQuery<PortalSubscriber>({
     queryKey: ["/api/portal/me"],
     retry: false,
-    refetchInterval: 10000,
+    refetchInterval: (query) => (query.state.data ? 30000 : false),
   });
 
   const { data: registrations, isLoading: regsLoading } = useQuery<PortalRegistration[]>({

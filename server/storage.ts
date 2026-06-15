@@ -126,7 +126,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubscriberByEmail(email: string): Promise<Subscriber | undefined> {
-    const [sub] = await db.select().from(subscribers).where(eq(subscribers.email, email));
+    const [sub] = await db.select().from(subscribers).where(sql`lower(${subscribers.email}) = lower(${email})`);
     return sub || undefined;
   }
 
