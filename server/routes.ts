@@ -1684,11 +1684,11 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
   });
 
   // ── Member-Erträge ───────────────────────────────────────────────────────
-  // GET /api/member-ertraege/:memberId — alle Erträge eines Mitglieds
-  app.get("/api/member-ertraege/:memberId", requireAdmin, async (req, res) => {
-    const memberId = parseInt(req.params.memberId);
-    if (isNaN(memberId)) return res.status(400).json({ error: "Ungültige ID" });
-    const rows = await storage.getMemberErtraege(memberId);
+  // WICHTIG: Spezifische Routen VOR dem Wildcard /:memberId definieren!
+
+  // GET /api/member-ertraege/grouped — Summen je Mitglied (für Hitliste)
+  app.get("/api/member-ertraege/grouped", requireAdmin, async (req, res) => {
+    const rows = await storage.getAllMemberErtraegeGrouped();
     res.json(rows);
   });
 
@@ -1700,9 +1700,11 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.json(rows);
   });
 
-  // GET /api/member-ertraege/grouped — Summen je Mitglied (für Hitliste)
-  app.get("/api/member-ertraege/grouped", requireAdmin, async (req, res) => {
-    const rows = await storage.getAllMemberErtraegeGrouped();
+  // GET /api/member-ertraege/:memberId — alle Erträge eines Mitglieds
+  app.get("/api/member-ertraege/:memberId", requireAdmin, async (req, res) => {
+    const memberId = parseInt(req.params.memberId);
+    if (isNaN(memberId)) return res.status(400).json({ error: "Ungültige ID" });
+    const rows = await storage.getMemberErtraege(memberId);
     res.json(rows);
   });
 
@@ -1727,16 +1729,14 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     await storage.deleteMemberErtragByEvent(eventId);
     const saved = [];
     for (const e of entries) {
-      if (e.amount > 0) {
-        const row = await storage.upsertMemberErtrag({
-          memberId: e.memberId,
-          eventId,
-          amount: e.amount,
-          eventDate: eventDateObj,
-          eventTitle,
-        });
-        saved.push(row);
-      }
+      const row = await storage.upsertMemberErtrag({
+        memberId: e.memberId,
+        eventId,
+        amount: e.amount,
+        eventDate: eventDateObj,
+        eventTitle,
+      });
+      saved.push(row);
     }
     res.json(saved);
   });
