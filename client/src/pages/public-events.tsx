@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -128,6 +128,8 @@ export default function PublicEventsPage() {
   const [cardCarousel, setCardCarousel] = useState<Record<number, number>>({});
   const [lightbox, setLightbox] = useState<{ photos: EventPhoto[]; index: number } | null>(null);
   const [detailCarouselIndex, setDetailCarouselIndex] = useState(0);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const getCardIdx = (id: number) => cardCarousel[id] ?? 0;
@@ -189,6 +191,36 @@ export default function PublicEventsPage() {
     throwOnError: false,
     select: (data: any) => data?.id ? (data as PortalSubscriber) : undefined,
   });
+
+  const { data: adminAuth } = useQuery<{ authenticated: boolean }>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+    staleTime: 1000 * 60 * 5,
+  });
+  const isAdmin = adminAuth?.authenticated === true;
+  const canUploadPhotos = !!portalSubscriber || isAdmin;
+
+  const handlePublicPhotoUpload = async (eventId: number, files: FileList) => {
+    if (!files.length) return;
+    setPhotoUploading(true);
+    try {
+      const form = new FormData();
+      for (let i = 0; i < files.length; i++) form.append("photos", files[i]);
+      const endpoint = isAdmin
+        ? `/api/events/${eventId}/photos`
+        : `/api/portal/events/${eventId}/photos`;
+      const res = await fetch(endpoint, { method: "POST", body: form });
+      if (!res.ok) throw new Error("Upload fehlgeschlagen");
+      queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "photos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/event-photos"] });
+      toast({ title: `${files.length} Foto${files.length > 1 ? "s" : ""} hochgeladen` });
+    } catch {
+      toast({ title: "Fehler beim Upload", variant: "destructive" });
+    } finally {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
 
   const { data: myRegistrations } = useQuery<{ eventId: number }[]>({
     queryKey: ["/api/portal/registrations"],
@@ -744,6 +776,43 @@ export default function PublicEventsPage() {
                           ))}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Photo upload for logged-in members and admins */}
+                  {canUploadPhotos && (
+                    <div className="border-t pt-4 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <Camera className="h-3.5 w-3.5" />
+                        Fotos hinzufügen
+                      </p>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        data-testid="input-photo-upload-public"
+                        onChange={(e) => {
+                          if (e.target.files?.length) handlePublicPhotoUpload(ev.id, e.target.files);
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 w-full"
+                        disabled={photoUploading}
+                        onClick={() => photoInputRef.current?.click()}
+                        data-testid="button-upload-photos-public"
+                      >
+                        {photoUploading
+                          ? <><Loader2 className="h-4 w-4 animate-spin" />Wird hochgeladen …</>
+                          : <><Camera className="h-4 w-4" />Fotos hochladen</>
+                        }
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Mehrere Bilder gleichzeitig möglich · Sichtbar für alle Besucher
+                      </p>
                     </div>
                   )}
 
