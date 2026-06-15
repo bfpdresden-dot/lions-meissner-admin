@@ -46,6 +46,31 @@ function mapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function formatEventDate(date: string | Date, endDate?: string | Date | null): string {
+  const start = new Date(date);
+  if (!endDate) return `${format(start, "EEEE, dd. MMMM yyyy", { locale: de })}, ${format(start, "HH:mm", { locale: de })} Uhr`;
+  const end = new Date(endDate);
+  if (isSameDay(start, end)) {
+    return `${format(start, "EEEE, dd. MMMM yyyy", { locale: de })}, ${format(start, "HH:mm", { locale: de })} – ${format(end, "HH:mm", { locale: de })} Uhr`;
+  }
+  return `${format(start, "EEEE, dd. MMMM", { locale: de })} – ${format(end, "EEEE, dd. MMMM yyyy", { locale: de })}, ${format(start, "HH:mm", { locale: de })} – ${format(end, "HH:mm", { locale: de })} Uhr`;
+}
+
+function formatEventDateShort(date: string | Date, endDate?: string | Date | null): string {
+  const start = new Date(date);
+  if (!endDate) return format(start, "dd. MMMM yyyy", { locale: de });
+  const end = new Date(endDate);
+  if (isSameDay(start, end)) return format(start, "dd. MMMM yyyy", { locale: de });
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return `${format(start, "dd.", { locale: de })}–${format(end, "dd. MMMM yyyy", { locale: de })}`;
+  }
+  return `${format(start, "dd. MMMM", { locale: de })} – ${format(end, "dd. MMMM yyyy", { locale: de })}`;
+}
+
 function googleCalUrl(ev: { title: string; date: string | Date; endDate?: string | Date | null; description?: string | null; location: string }): string {
   const fmt = (d: string | Date) => format(new Date(d), "yyyyMMdd'T'HHmmss");
   const start = fmt(ev.date);
@@ -544,7 +569,7 @@ export default function PublicEventsPage() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-1">
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4 text-blue-500" />
-                              {format(new Date(event.date), "EEEE, dd. MMMM yyyy", { locale: de })}, {format(new Date(event.date), "HH:mm", { locale: de })}{(event as any).endDate ? ` – ${format(new Date((event as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr
+                              {formatEventDate(event.date, (event as any).endDate)}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <MapPin className="h-4 w-4 text-rose-500" />
@@ -553,7 +578,9 @@ export default function PublicEventsPage() {
                           </div>
                         </div>
                         <Badge variant="secondary" className="shrink-0 self-start">
-                          {format(new Date(event.date), "dd. MMM", { locale: de })}
+                          {(event as any).endDate && !isSameDay(new Date(event.date), new Date((event as any).endDate))
+                            ? `${format(new Date(event.date), "dd.", { locale: de })}–${format(new Date((event as any).endDate), "dd. MMM", { locale: de })}`
+                            : format(new Date(event.date), "dd. MMM", { locale: de })}
                         </Badge>
                       </div>
 
@@ -594,8 +621,8 @@ export default function PublicEventsPage() {
                               const isPast = new Date(event.date) < new Date();
                               const reportText = (event as any).reportText as string | null;
                               const text = isPast && reportText
-                                ? `${event.title} – ${format(new Date(event.date), "dd. MMMM yyyy", { locale: de })}\n\n${reportText}\n${url}`
-                                : `${event.title} – ${format(new Date(event.date), "dd. MMMM yyyy", { locale: de })} in ${event.location}`;
+                                ? `${event.title} – ${formatEventDateShort(event.date, (event as any).endDate)}\n\n${reportText}\n${url}`
+                                : `${event.title} – ${formatEventDateShort(event.date, (event as any).endDate)} in ${event.location}`;
                               if (navigator.share) {
                                 navigator.share({ title: event.title, text, url });
                               } else {
@@ -666,9 +693,7 @@ export default function PublicEventsPage() {
                     <div className="flex items-start gap-2.5">
                       <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       <span>
-                        {format(new Date(ev.date), "EEEE, dd. MMMM yyyy", { locale: de })},{" "}
-                        {format(new Date(ev.date), "HH:mm", { locale: de })}
-                        {(ev as any).endDate ? ` – ${format(new Date((ev as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr
+                        {formatEventDate(ev.date, (ev as any).endDate)}
                       </span>
                     </div>
                     <div className="flex items-start gap-2.5">
@@ -831,8 +856,8 @@ export default function PublicEventsPage() {
                           const isPast = new Date(ev.date) < new Date();
                           const evReportText = (ev as any).reportText as string | null;
                           const baseText = isPast && evReportText
-                            ? `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })}\n\n${evReportText}`
-                            : `${ev.title} – ${format(new Date(ev.date), "dd. MMMM yyyy", { locale: de })} in ${ev.location}`;
+                            ? `${ev.title} – ${formatEventDateShort(ev.date, (ev as any).endDate)}\n\n${evReportText}`
+                            : `${ev.title} – ${formatEventDateShort(ev.date, (ev as any).endDate)} in ${ev.location}`;
                           const photos = detailPhotos || [];
 
                           // Mobile: share actual image files via native share sheet
@@ -926,7 +951,7 @@ export default function PublicEventsPage() {
                             const svg = document.querySelector(`#qr-print-${ev.id} svg`)?.outerHTML || "";
                             printWin.document.write(`<html><body style="text-align:center;font-family:sans-serif;padding:20px">
                               <h2>${ev.title}</h2>
-                              <p>${format(new Date(ev.date), "EEEE, dd. MMMM yyyy", { locale: de })}</p>
+                              <p>${formatEventDate(ev.date, (ev as any).endDate)}</p>
                               ${svg}
                               <p style="font-size:12px;color:#666;margin-top:10px">${eventDeepLink(ev.id)}</p>
                             </body></html>`);
@@ -985,7 +1010,7 @@ export default function PublicEventsPage() {
                 <div className="p-3 rounded-md bg-muted/50 text-sm">
                   <p className="font-medium">{registerEvent.title}</p>
                   <p className="text-muted-foreground mt-0.5">
-                    {format(new Date(registerEvent.date), "EEEE, dd. MMMM yyyy", { locale: de })}, {format(new Date(registerEvent.date), "HH:mm", { locale: de })}{(registerEvent as any).endDate ? ` – ${format(new Date((registerEvent as any).endDate), "HH:mm", { locale: de })}` : ""} Uhr &middot; {registerEvent.location}
+                    {formatEventDate(registerEvent.date, (registerEvent as any).endDate)} &middot; {registerEvent.location}
                   </p>
                 </div>
 
