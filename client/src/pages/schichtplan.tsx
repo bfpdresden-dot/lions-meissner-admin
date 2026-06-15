@@ -20,6 +20,7 @@ interface ShiftWithSignups {
 export default function SchichtplanPage({ eventId }: { eventId: string }) {
   const id = parseInt(eventId, 10);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+  const [shiftPersonCounts, setShiftPersonCounts] = useState<Record<number, number>>({});
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: ["/api/events", id],
@@ -41,11 +42,11 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async ({ shiftId, memberId }: { shiftId: number; memberId: number }) => {
+    mutationFn: async ({ shiftId, memberId, personCount }: { shiftId: number; memberId: number; personCount: number }) => {
       const res = await fetch(`/api/shifts/${shiftId}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId }),
+        body: JSON.stringify({ memberId, personCount }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Fehler");
@@ -238,16 +239,38 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                           Austragen
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white"
-                          disabled={!canSignup || isPending}
-                          onClick={() => signupMutation.mutate({ shiftId: shift.id, memberId: parseInt(selectedMemberId) })}
-                          data-testid={`button-signup-${shift.id}`}
-                        >
-                          {signupMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
-                          Eintragen
-                        </Button>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Anzahl Personen (du + Begleitung):</span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                className="w-6 h-6 rounded border flex items-center justify-center hover:bg-muted disabled:opacity-40"
+                                disabled={(shiftPersonCounts[shift.id] ?? 1) <= 1}
+                                onClick={() => setShiftPersonCounts((p) => ({ ...p, [shift.id]: Math.max(1, (p[shift.id] ?? 1) - 1) }))}
+                                data-testid={`button-persons-minus-${shift.id}`}
+                              >−</button>
+                              <span className="w-5 text-center font-semibold text-[#1a3a5c]" data-testid={`text-persons-${shift.id}`}>
+                                {shiftPersonCounts[shift.id] ?? 1}
+                              </span>
+                              <button
+                                className="w-6 h-6 rounded border flex items-center justify-center hover:bg-muted disabled:opacity-40"
+                                disabled={(shiftPersonCounts[shift.id] ?? 1) >= 10}
+                                onClick={() => setShiftPersonCounts((p) => ({ ...p, [shift.id]: Math.min(10, (p[shift.id] ?? 1) + 1) }))}
+                                data-testid={`button-persons-plus-${shift.id}`}
+                              >+</button>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white"
+                            disabled={!canSignup || isPending}
+                            onClick={() => signupMutation.mutate({ shiftId: shift.id, memberId: parseInt(selectedMemberId), personCount: shiftPersonCounts[shift.id] ?? 1 })}
+                            data-testid={`button-signup-${shift.id}`}
+                          >
+                            {signupMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                            {(shiftPersonCounts[shift.id] ?? 1) > 1 ? `Eintragen (${shiftPersonCounts[shift.id]} Personen)` : "Eintragen"}
+                          </Button>
+                        </div>
                       )
                     )}
                     {!selectedMemberId && (

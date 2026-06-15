@@ -17,7 +17,7 @@ import { de } from "date-fns/locale";
 import type { Event } from "@shared/schema";
 
 interface ShiftMember { id: number; firstName: string; lastName: string; }
-interface ShiftSignup { id: number; shiftId: number; memberId: number; signedUpAt: string; member: ShiftMember | null; }
+interface ShiftSignup { id: number; shiftId: number; memberId: number; personCount: number; signedUpAt: string; member: ShiftMember | null; }
 interface ShiftWithSignups {
   id: number; eventId: number; title: string; date: string;
   startTime: string; endTime: string; maxVolunteers: number;
@@ -90,6 +90,7 @@ function ShiftCard({ shift, eventId, members }: {
   const [editing, setEditing] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [addPersonCount, setAddPersonCount] = useState("1");
   const [form, setForm] = useState<ShiftForm>({
     title: shift.title, date: shift.date, startTime: shift.startTime,
     endTime: shift.endTime, maxVolunteers: shift.maxVolunteers.toString(), note: shift.note || "",
@@ -121,11 +122,11 @@ function ShiftCard({ shift, eventId, members }: {
   });
 
   const addSignupMutation = useMutation({
-    mutationFn: async (memberId: number) => {
+    mutationFn: async ({ memberId, personCount }: { memberId: number; personCount: number }) => {
       const res = await fetch(`/api/shifts/${shift.id}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId }),
+        body: JSON.stringify({ memberId, personCount }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Fehler");
@@ -134,13 +135,15 @@ function ShiftCard({ shift, eventId, members }: {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "shifts"] });
       setSelectedMemberId("");
+      setAddPersonCount("1");
       setAddingMember(false);
       toast({ title: "Mitglied eingetragen" });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
-  const filled = shift.signups.length >= shift.maxVolunteers;
+  const totalPersons = shift.signups.reduce((s, sg) => s + (sg.personCount || 1), 0);
+  const filled = totalPersons >= shift.maxVolunteers;
   const availableMembers = members.filter((m) => !shift.signups.some((s) => s.memberId === m.id));
 
   if (editing) {
@@ -168,7 +171,7 @@ function ShiftCard({ shift, eventId, members }: {
         <div className="flex items-center gap-1 shrink-0">
           <Badge variant="secondary" className={`text-xs ${filled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}>
             <Users className="h-3 w-3 mr-1" />
-            {shift.signups.length}/{shift.maxVolunteers}
+            {totalPersons}/{shift.maxVolunteers}
           </Badge>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(true)} data-testid={`button-edit-shift-${shift.id}`}>
             <Pencil className="h-3.5 w-3.5" />
@@ -181,10 +184,10 @@ function ShiftCard({ shift, eventId, members }: {
 
       <div className="pt-2 border-t space-y-1.5">
         <p className="text-xs text-muted-foreground">
-          Eingetragen: {shift.signups.length}/{shift.maxVolunteers}
+          Eingetragen: {totalPersons}/{shift.maxVolunteers} Personen
           {filled
             ? <span className="ml-1 text-green-600 font-medium">· Ziel erreicht ✓</span>
-            : <span className="ml-1 text-orange-500 font-medium">· {shift.maxVolunteers - shift.signups.length} fehlen noch</span>
+            : <span className="ml-1 text-orange-500 font-medium">· {shift.maxVolunteers - totalPersons} fehlen noch</span>
           }
         </p>
 
@@ -193,6 +196,9 @@ function ShiftCard({ shift, eventId, members }: {
             {shift.signups.map((sg) => (
               <span key={sg.id} className="inline-flex items-center gap-1 text-xs bg-[#1a3a5c]/10 text-[#1a3a5c] px-2 py-0.5 rounded-full font-medium">
                 {sg.member ? `${sg.member.firstName} ${sg.member.lastName}` : "Unbekannt"}
+                {(sg.personCount || 1) > 1 && (
+                  <span className="bg-[#1a3a5c]/20 rounded-full px-1 text-[10px]">×{sg.personCount}</span>
+                )}
                 <button className="hover:text-red-600 ml-0.5" onClick={() => removeSignupMutation.mutate(sg.id)} data-testid={`button-remove-signup-${sg.id}`} title="Entfernen">
                   <X className="h-3 w-3" />
                 </button>
@@ -207,25 +213,37 @@ function ShiftCard({ shift, eventId, members }: {
             Mitglied eintragen
           </Button>
         ) : (
-          <div className="flex gap-2 items-center mt-1">
-            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-              <SelectTrigger className="h-7 text-xs flex-1" data-testid={`select-member-${shift.id}`}>
-                <SelectValue placeholder="Mitglied wählen…" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableMembers.sort((a, b) => a.lastName.localeCompare(b.lastName)).map((m) => (
-                  <SelectItem key={m.id} value={m.id.toString()} data-testid={`option-member-${m.id}`}>
-                    {m.firstName} {m.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button size="sm" className="h-7 text-xs" disabled={!selectedMemberId || addSignupMutation.isPending} onClick={() => addSignupMutation.mutate(parseInt(selectedMemberId))} data-testid="button-confirm-add-member">
-              {addSignupMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddingMember(false); setSelectedMemberId(""); }}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
+          <div className="space-y-1.5 mt-1">
+            <div className="flex gap-2 items-center">
+              <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                <SelectTrigger className="h-7 text-xs flex-1" data-testid={`select-member-${shift.id}`}>
+                  <SelectValue placeholder="Mitglied wählen…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMembers.sort((a, b) => a.lastName.localeCompare(b.lastName)).map((m) => (
+                    <SelectItem key={m.id} value={m.id.toString()} data-testid={`option-member-${m.id}`}>
+                      {m.firstName} {m.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={addPersonCount} onValueChange={setAddPersonCount}>
+                <SelectTrigger className="h-7 text-xs w-20" data-testid={`select-person-count-${shift.id}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1,2,3,4,5].map((n) => (
+                    <SelectItem key={n} value={n.toString()}>{n} {n === 1 ? "Person" : "Personen"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="h-7 text-xs" disabled={!selectedMemberId || addSignupMutation.isPending} onClick={() => addSignupMutation.mutate({ memberId: parseInt(selectedMemberId), personCount: parseInt(addPersonCount) || 1 })} data-testid="button-confirm-add-member">
+                {addSignupMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddingMember(false); setSelectedMemberId(""); setAddPersonCount("1"); }}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
