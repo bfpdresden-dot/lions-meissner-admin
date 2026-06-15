@@ -178,7 +178,7 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                     className={`bg-white rounded-lg border shadow-sm p-4 transition-all ${mySignup ? "border-green-300 bg-green-50/50" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-3">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[#1a3a5c]">{shift.title}</p>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                           <Clock className="h-3.5 w-3.5" />
