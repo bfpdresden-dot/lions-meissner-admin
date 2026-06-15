@@ -29,17 +29,18 @@ function formatDate(d: string | Date) {
 }
 
 function printHitlistePdf(
-  ranked: { member: Subscriber; total: number; details: MemberErtrag[] }[]
+  ranked: { member: Subscriber; total: number; details: MemberErtrag[]; rankGroup: number }[]
 ) {
   const grandTotal = ranked.reduce((s, r) => s + r.total, 0);
 
-  const rows = ranked.map((r, i) => {
+  const rows = ranked.map((r) => {
     const detailRows = r.details.map(d =>
       `<tr class="detail-row"><td></td><td class="detail">${formatDate(d.eventDate)} &ndash; ${d.eventTitle}</td><td></td><td class="amount detail">${formatEuro(d.amount)}</td></tr>`
     ).join("");
+    const medal = r.rankGroup === 1 ? "🥇" : r.rankGroup === 2 ? "🥈" : r.rankGroup === 3 ? "🥉" : `${r.rankGroup}.`;
     return `
-    <tr class="member-row${i === 0 ? " rank1" : i === 1 ? " rank2" : i === 2 ? " rank3" : ""}">
-      <td class="rank">${i + 1}.</td>
+    <tr class="member-row${r.rankGroup === 1 ? " rank1" : r.rankGroup === 2 ? " rank2" : r.rankGroup === 3 ? " rank3" : ""}">
+      <td class="rank">${medal}</td>
       <td>${r.member.lastName}, ${r.member.firstName}</td>
       <td class="center">${r.details.length} VA</td>
       <td class="amount">${formatEuro(r.total)}</td>
@@ -141,14 +142,22 @@ export default function AdminStatistikPage() {
 
   const isLoading = membersLoading || groupedLoading;
 
-  // Ranglist aufbauen
-  const ranked = grouped
+  // Rangliste aufbauen: erst nach Betrag DESC, dann Nachname ASC
+  const sorted = grouped
     .map((g) => {
       const member = members.find((m) => m.id === g.memberId);
       return member ? { member, total: g.totalAmount } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => b!.total - a!.total) as { member: Subscriber; total: number }[];
+    .sort((a, b) => {
+      if (b!.total !== a!.total) return b!.total - a!.total;
+      return a!.member.lastName.localeCompare(b!.member.lastName, "de");
+    }) as { member: Subscriber; total: number }[];
+
+  // Rang-Gruppen: gleicher Betrag = gleiche Gruppe (gleiche Medaille)
+  const uniqueTotals = [...new Set(sorted.map(r => r.total))].sort((a, b) => b - a);
+  const totalToGroup = new Map(uniqueTotals.map((t, i) => [t, i + 1]));
+  const ranked = sorted.map(r => ({ ...r, rankGroup: totalToGroup.get(r.total)! }));
 
   const grandTotal = ranked.reduce((s, r) => s + r.total, 0);
 
@@ -156,7 +165,7 @@ export default function AdminStatistikPage() {
     if (ranked.length === 0) return;
     try {
       // Alle Detaildaten laden
-      const allDetails: { member: Subscriber; total: number; details: MemberErtrag[] }[] = [];
+      const allDetails: { member: Subscriber; total: number; details: MemberErtrag[]; rankGroup: number }[] = [];
       for (const r of ranked) {
         const res = await fetch(`/api/member-ertraege/${r.member.id}`, { credentials: "include" });
         const details: MemberErtrag[] = await res.json();
@@ -223,7 +232,7 @@ export default function AdminStatistikPage() {
                 <h2 className="font-semibold text-[#1a3a5c] text-sm">Hitliste</h2>
               </div>
               <div className="divide-y">
-                {ranked.map((r, i) => {
+                {ranked.map((r) => {
                   const isExpanded = expandedMemberId === r.member.id;
                   return (
                     <div key={r.member.id} data-testid={`row-hitliste-${r.member.id}`}>
@@ -234,12 +243,12 @@ export default function AdminStatistikPage() {
                       >
                         {/* Rang-Badge */}
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                          i === 0 ? "bg-yellow-400 text-yellow-900" :
-                          i === 1 ? "bg-gray-300 text-gray-700" :
-                          i === 2 ? "bg-amber-600 text-white" :
+                          r.rankGroup === 1 ? "bg-yellow-400 text-yellow-900" :
+                          r.rankGroup === 2 ? "bg-gray-300 text-gray-700" :
+                          r.rankGroup === 3 ? "bg-amber-600 text-white" :
                           "bg-[#1a3a5c]/10 text-[#1a3a5c]"
                         }`}>
-                          {i < 3 ? <Medal className="h-3.5 w-3.5" /> : i + 1}
+                          {r.rankGroup <= 3 ? <Medal className="h-3.5 w-3.5" /> : r.rankGroup}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-[#1a3a5c]">{r.member.lastName}, {r.member.firstName}</p>
