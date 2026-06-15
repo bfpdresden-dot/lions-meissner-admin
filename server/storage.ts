@@ -9,8 +9,11 @@ import {
   shifts,
   shiftSignups,
   kalkulationItems,
+  memberErtraege,
   type KalkulationItem,
   type InsertKalkulationItem,
+  type MemberErtrag,
+  type InsertMemberErtrag,
   type Event,
   type InsertEvent,
   type Subscriber,
@@ -89,6 +92,13 @@ export interface IStorage {
   createKalkulationItem(item: InsertKalkulationItem): Promise<KalkulationItem>;
   updateKalkulationItem(id: number, data: Partial<InsertKalkulationItem>): Promise<KalkulationItem | undefined>;
   deleteKalkulationItem(id: number): Promise<void>;
+
+  getMemberErtraege(memberId: number): Promise<MemberErtrag[]>;
+  getMemberErtragByEvent(memberId: number, eventId: number): Promise<MemberErtrag | undefined>;
+  getMemberErtragByEvent2(eventId: number): Promise<MemberErtrag[]>;
+  upsertMemberErtrag(data: InsertMemberErtrag): Promise<MemberErtrag>;
+  deleteMemberErtragByEvent(eventId: number): Promise<void>;
+  getAllMemberErtraegeGrouped(): Promise<{ memberId: number; totalAmount: number }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -347,6 +357,46 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKalkulationItem(id: number): Promise<void> {
     await db.delete(kalkulationItems).where(eq(kalkulationItems.id, id));
+  }
+
+  async getMemberErtraege(memberId: number): Promise<MemberErtrag[]> {
+    return db.select().from(memberErtraege).where(eq(memberErtraege.memberId, memberId)).orderBy(memberErtraege.eventDate);
+  }
+
+  async getMemberErtragByEvent(memberId: number, eventId: number): Promise<MemberErtrag | undefined> {
+    const [row] = await db.select().from(memberErtraege).where(
+      and(eq(memberErtraege.memberId, memberId), eq(memberErtraege.eventId, eventId))
+    );
+    return row || undefined;
+  }
+
+  async getMemberErtragByEvent2(eventId: number): Promise<MemberErtrag[]> {
+    return db.select().from(memberErtraege).where(eq(memberErtraege.eventId, eventId));
+  }
+
+  async upsertMemberErtrag(data: InsertMemberErtrag): Promise<MemberErtrag> {
+    const existing = await this.getMemberErtragByEvent(data.memberId, data.eventId);
+    if (existing) {
+      const [updated] = await db.update(memberErtraege)
+        .set({ amount: data.amount, eventDate: data.eventDate, eventTitle: data.eventTitle })
+        .where(eq(memberErtraege.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(memberErtraege).values(data).returning();
+    return created;
+  }
+
+  async deleteMemberErtragByEvent(eventId: number): Promise<void> {
+    await db.delete(memberErtraege).where(eq(memberErtraege.eventId, eventId));
+  }
+
+  async getAllMemberErtraegeGrouped(): Promise<{ memberId: number; totalAmount: number }[]> {
+    const rows = await db.select({
+      memberId: memberErtraege.memberId,
+      totalAmount: sql<number>`sum(${memberErtraege.amount})`,
+    }).from(memberErtraege).groupBy(memberErtraege.memberId);
+    return rows.map(r => ({ memberId: r.memberId, totalAmount: Number(r.totalAmount) }));
   }
 }
 

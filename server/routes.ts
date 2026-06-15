@@ -1683,5 +1683,71 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.status(204).send();
   });
 
+  // ── Member-Erträge ───────────────────────────────────────────────────────
+  // GET /api/member-ertraege/:memberId — alle Erträge eines Mitglieds
+  app.get("/api/member-ertraege/:memberId", requireAdmin, async (req, res) => {
+    const memberId = parseInt(req.params.memberId);
+    if (isNaN(memberId)) return res.status(400).json({ error: "Ungültige ID" });
+    const rows = await storage.getMemberErtraege(memberId);
+    res.json(rows);
+  });
+
+  // GET /api/member-ertraege/event/:eventId — alle Erträge einer Veranstaltung
+  app.get("/api/member-ertraege/event/:eventId", requireAdmin, async (req, res) => {
+    const eventId = parseInt(req.params.eventId);
+    if (isNaN(eventId)) return res.status(400).json({ error: "Ungültige ID" });
+    const rows = await storage.getMemberErtragByEvent2(eventId);
+    res.json(rows);
+  });
+
+  // GET /api/member-ertraege/grouped — Summen je Mitglied (für Hitliste)
+  app.get("/api/member-ertraege/grouped", requireAdmin, async (req, res) => {
+    const rows = await storage.getAllMemberErtraegeGrouped();
+    res.json(rows);
+  });
+
+  // POST /api/member-ertraege/save-event — Erträge für eine Veranstaltung speichern (upsert)
+  app.post("/api/member-ertraege/save-event", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      eventId: z.number().int().positive(),
+      eventTitle: z.string(),
+      eventDate: z.string(),
+      entries: z.array(z.object({
+        memberId: z.number().int().positive(),
+        amount: z.number(),
+      })),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Ungültige Daten", details: parsed.error.errors });
+
+    const { eventId, eventTitle, eventDate, entries } = parsed.data;
+    const eventDateObj = new Date(eventDate);
+
+    // Alte Einträge löschen, dann neu schreiben
+    await storage.deleteMemberErtragByEvent(eventId);
+    const saved = [];
+    for (const e of entries) {
+      if (e.amount > 0) {
+        const row = await storage.upsertMemberErtrag({
+          memberId: e.memberId,
+          eventId,
+          amount: e.amount,
+          eventDate: eventDateObj,
+          eventTitle,
+        });
+        saved.push(row);
+      }
+    }
+    res.json(saved);
+  });
+
+  // DELETE /api/member-ertraege/event/:eventId — Erträge einer VA löschen
+  app.delete("/api/member-ertraege/event/:eventId", requireAdmin, async (req, res) => {
+    const eventId = parseInt(req.params.eventId);
+    if (isNaN(eventId)) return res.status(400).json({ error: "Ungültige ID" });
+    await storage.deleteMemberErtragByEvent(eventId);
+    res.status(204).send();
+  });
+
   return httpServer;
 }

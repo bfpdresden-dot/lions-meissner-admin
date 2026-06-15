@@ -155,6 +155,20 @@ export type KalkulationItem = typeof kalkulationItems.$inferSelect;
 export const insertKalkulationItemSchema = createInsertSchema(kalkulationItems).omit({ id: true, createdAt: true });
 export type InsertKalkulationItem = z.infer<typeof insertKalkulationItemSchema>;
 
+export const memberErtraege = pgTable("member_ertraege", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").notNull(),
+  eventId: integer("event_id").notNull(),
+  amount: real("amount").notNull(),
+  eventDate: timestamp("event_date").notNull(),
+  eventTitle: text("event_title").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type MemberErtrag = typeof memberErtraege.$inferSelect;
+export const insertMemberErtragSchema = createInsertSchema(memberErtraege).omit({ id: true, createdAt: true });
+export type InsertMemberErtrag = z.infer<typeof insertMemberErtragSchema>;
+
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
   createdAt: true,

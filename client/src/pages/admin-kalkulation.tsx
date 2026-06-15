@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Minus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
-import type { Event } from "@shared/schema";
+import { Loader2, Plus, Minus, Trash2, TrendingUp, TrendingDown, Wallet, FileText, Users } from "lucide-react";
+import type { Event, Subscriber } from "@shared/schema";
 
 interface KalkulationItem {
   id: number;
@@ -18,12 +18,195 @@ interface KalkulationItem {
   createdAt: string;
 }
 
+interface ShiftSignup {
+  id: number;
+  shiftId: number;
+  memberId: number;
+  personCount: number;
+}
+
+interface Shift {
+  id: number;
+  eventId: number;
+  title: string;
+}
+
 function formatEuro(amount: number) {
   return amount.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 }
 
 function parseEuroInput(value: string): number {
   return parseFloat(value.replace(",", ".")) || 0;
+}
+
+function formatDate(d: string | Date) {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+async function generatePdf(simple: boolean, {
+  event, items, members, signups, shifts, ertrag, totalIncome, totalExpenses,
+}: {
+  event: Event;
+  items: KalkulationItem[];
+  members: Subscriber[];
+  signups: ShiftSignup[];
+  shifts: Shift[];
+  ertrag: number;
+  totalIncome: number;
+  totalExpenses: number;
+}) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const navy = [26, 58, 92] as [number, number, number];
+  const gold = [200, 168, 75] as [number, number, number];
+  const green = [22, 101, 52] as [number, number, number];
+  const red = [185, 28, 28] as [number, number, number];
+
+  // Header
+  doc.setFillColor(...navy);
+  doc.rect(0, 0, 210, 28, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont("helvetica", "bold");
+  doc.text("Lions Club Meißner Land", 14, 12);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(simple ? "Gewinnrechnung" : "Gewinnrechnung mit Mitgliederabrechnung", 14, 19);
+  doc.setTextColor(...gold);
+  doc.setFontSize(8);
+  doc.text(`Erstellt am ${formatDate(new Date())}`, 14, 25);
+
+  doc.setTextColor(0, 0, 0);
+  let y = 36;
+
+  // Veranstaltung
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text(event.title, 14, y);
+  y += 6;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text(`${formatDate(event.date)} · ${event.location}`, 14, y);
+  y += 10;
+  doc.setTextColor(0, 0, 0);
+
+  // Einnahmen
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...navy);
+  doc.text("Einnahmen", 14, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 0, 0);
+  const income = items.filter(i => i.type === "income");
+  for (const item of income) {
+    doc.setFontSize(9);
+    doc.text(item.description, 18, y);
+    doc.text(formatEuro(item.amount), 196, y, { align: "right" });
+    y += 5;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...green);
+  doc.text("Einnahmen gesamt", 18, y);
+  doc.text(formatEuro(totalIncome), 196, y, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  y += 8;
+
+  // Ausgaben
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...navy);
+  doc.text("Ausgaben", 14, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 0, 0);
+  const expenses = items.filter(i => i.type === "expense");
+  for (const item of expenses) {
+    doc.setFontSize(9);
+    doc.text(item.description, 18, y);
+    doc.text(formatEuro(item.amount), 196, y, { align: "right" });
+    y += 5;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...red);
+  doc.text("Ausgaben gesamt", 18, y);
+  doc.text(formatEuro(totalExpenses), 196, y, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  y += 10;
+
+  // Trennlinie + Ertrag
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(0.6);
+  doc.line(14, y - 3, 196, y - 3);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(ertrag >= 0 ? green[0] : red[0], ertrag >= 0 ? green[1] : red[1], ertrag >= 0 ? green[2] : red[2]);
+  doc.text("Ertrag", 14, y + 3);
+  doc.text((ertrag >= 0 ? "+" : "") + formatEuro(ertrag), 196, y + 3, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  y += 14;
+
+  if (!simple) {
+    // Teilnehmende Mitglieder aus Schichtplan
+    const memberIdsInEvent = new Set(signups.map(s => s.memberId));
+    const participatingMembers = members.filter(m => memberIdsInEvent.has(m.id));
+    const count = participatingMembers.length;
+    const anteil = count > 0 ? ertrag / count : 0;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...navy);
+    doc.text("Mitgliederabrechnung", 14, y);
+    y += 5;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Ertrag ${formatEuro(ertrag)} ÷ ${count} Mitglieder = ${formatEuro(anteil)} je Person`, 14, y);
+    y += 7;
+
+    doc.setTextColor(0, 0, 0);
+    // Tabellenkopf
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setFillColor(240, 242, 245);
+    doc.rect(14, y - 4, 182, 6, "F");
+    doc.text("Name", 16, y);
+    doc.text("Anteil", 196, y, { align: "right" });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+
+    for (const m of participatingMembers) {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(`${m.lastName}, ${m.firstName}`, 16, y);
+      doc.text(formatEuro(anteil), 196, y, { align: "right" });
+      y += 5;
+    }
+
+    y += 3;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...navy);
+    doc.text(`Gesamt: ${count} Mitglieder`, 16, y);
+    doc.text(formatEuro(anteil * count), 196, y, { align: "right" });
+  }
+
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Lions Club Meißner Land · Seite ${i} von ${pageCount}`, 14, 290);
+  }
+
+  const filename = simple
+    ? `Gewinnrechnung_${event.title.replace(/\s+/g, "_")}.pdf`
+    : `Gewinnrechnung_Mitglieder_${event.title.replace(/\s+/g, "_")}.pdf`;
+  doc.save(filename);
 }
 
 export default function AdminKalkulationPage() {
@@ -34,6 +217,7 @@ export default function AdminKalkulationPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [pdfLoading, setPdfLoading] = useState<"simple" | "extended" | null>(null);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -42,6 +226,25 @@ export default function AdminKalkulationPage() {
   const { data: items = [], isLoading: itemsLoading } = useQuery<KalkulationItem[]>({
     queryKey: ["/api/kalkulation", selectedEventId],
     enabled: selectedEventId !== null,
+  });
+
+  const { data: members = [] } = useQuery<Subscriber[]>({
+    queryKey: ["/api/members"],
+  });
+
+  // shifts-with-signups for this event (existing endpoint)
+  const { data: shiftsWithSignups = [] } = useQuery<(Shift & { signups: (ShiftSignup & { member: { id: number; firstName: string; lastName: string } | null })[] })[]>({
+    queryKey: ["/api/events", selectedEventId, "shifts"],
+    enabled: selectedEventId !== null,
+  });
+
+  // flatten signups from all shifts
+  const signupsForEvent: ShiftSignup[] = shiftsWithSignups.flatMap((s) => s.signups.map((su) => ({ ...su })));
+
+  const saveErtrageMutation = useMutation({
+    mutationFn: (data: { eventId: number; eventTitle: string; eventDate: string; entries: { memberId: number; amount: number }[] }) =>
+      apiRequest("POST", "/api/member-ertraege/save-event", data),
+    onError: () => toast({ title: "Fehler", description: "Erträge konnten nicht gespeichert werden.", variant: "destructive" }),
   });
 
   const addMutation = useMutation({
@@ -100,7 +303,48 @@ export default function AdminKalkulationPage() {
   const totalExpenses = expenses.reduce((s, i) => s + i.amount, 0);
   const ertrag = totalIncome - totalExpenses;
 
+  // Teilnehmende Mitglieder aus Schichtplan (dedupliziert)
+  const memberIdsInEvent = new Set(signupsForEvent.map((s) => s.memberId));
+  const participatingMembers = members.filter((m) => memberIdsInEvent.has(m.id));
+  const anteilJeMitglied = participatingMembers.length > 0 ? ertrag / participatingMembers.length : 0;
+
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
   const activeEvents = events.filter((e) => e.isActive);
+
+  async function handlePdf(simple: boolean) {
+    if (!selectedEvent) return;
+    setPdfLoading(simple ? "simple" : "extended");
+    try {
+      if (!simple) {
+        // Erträge in DB speichern
+        await saveErtrageMutation.mutateAsync({
+          eventId: selectedEvent.id,
+          eventTitle: selectedEvent.title,
+          eventDate: selectedEvent.date.toString(),
+          entries: participatingMembers.map((m) => ({
+            memberId: m.id,
+            amount: anteilJeMitglied,
+          })),
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/member-ertraege"] });
+        toast({ title: "Erträge gespeichert", description: `${participatingMembers.length} Mitglieder wurden abgerechnet.` });
+      }
+      await generatePdf(simple, {
+        event: selectedEvent,
+        items,
+        members,
+        signups: signupsForEvent,
+        shifts: shiftsForEvent,
+        ertrag,
+        totalIncome,
+        totalExpenses,
+      });
+    } catch {
+      toast({ title: "PDF-Fehler", description: "PDF konnte nicht erstellt werden.", variant: "destructive" });
+    } finally {
+      setPdfLoading(null);
+    }
+  }
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-[#f0f2f5]">
@@ -202,44 +446,18 @@ export default function AdminKalkulationPage() {
                       <div key={item.id} className="px-4 py-2.5" data-testid={`row-income-${item.id}`}>
                         {editingId === item.id ? (
                           <div className="flex gap-2 items-center flex-wrap">
-                            <Input
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              className="flex-1 h-8 text-sm min-w-24"
-                              data-testid="input-edit-description"
-                            />
-                            <Input
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="w-28 h-8 text-sm"
-                              data-testid="input-edit-amount"
-                            />
+                            <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="flex-1 h-8 text-sm min-w-24" data-testid="input-edit-description" />
+                            <Input value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-28 h-8 text-sm" data-testid="input-edit-amount" />
                             <Button size="sm" onClick={saveEdit} className="h-8 text-xs" data-testid="button-save-edit">
                               {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Speichern"}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs" data-testid="button-cancel-edit">
-                              Abbrechen
-                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs" data-testid="button-cancel-edit">Abbrechen</Button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span
-                              className="flex-1 text-sm cursor-pointer hover:underline"
-                              onClick={() => startEdit(item)}
-                              data-testid={`text-income-description-${item.id}`}
-                            >
-                              {item.description}
-                            </span>
-                            <span className="text-sm font-semibold text-green-700 shrink-0" data-testid={`text-income-amount-${item.id}`}>
-                              {formatEuro(item.amount)}
-                            </span>
-                            <button
-                              onClick={() => deleteMutation.mutate(item.id)}
-                              className="text-muted-foreground hover:text-red-600 transition-colors shrink-0"
-                              data-testid={`button-delete-income-${item.id}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <span className="flex-1 text-sm cursor-pointer hover:underline" onClick={() => startEdit(item)} data-testid={`text-income-description-${item.id}`}>{item.description}</span>
+                            <span className="text-sm font-semibold text-green-700 shrink-0" data-testid={`text-income-amount-${item.id}`}>{formatEuro(item.amount)}</span>
+                            <button onClick={() => deleteMutation.mutate(item.id)} className="text-muted-foreground hover:text-red-600 transition-colors shrink-0" data-testid={`button-delete-income-${item.id}`}><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         )}
                       </div>
@@ -265,44 +483,18 @@ export default function AdminKalkulationPage() {
                       <div key={item.id} className="px-4 py-2.5" data-testid={`row-expense-${item.id}`}>
                         {editingId === item.id ? (
                           <div className="flex gap-2 items-center flex-wrap">
-                            <Input
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              className="flex-1 h-8 text-sm min-w-24"
-                              data-testid="input-edit-description"
-                            />
-                            <Input
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="w-28 h-8 text-sm"
-                              data-testid="input-edit-amount"
-                            />
+                            <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="flex-1 h-8 text-sm min-w-24" data-testid="input-edit-description" />
+                            <Input value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-28 h-8 text-sm" data-testid="input-edit-amount" />
                             <Button size="sm" onClick={saveEdit} className="h-8 text-xs" data-testid="button-save-edit">
                               {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Speichern"}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs" data-testid="button-cancel-edit">
-                              Abbrechen
-                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs" data-testid="button-cancel-edit">Abbrechen</Button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span
-                              className="flex-1 text-sm cursor-pointer hover:underline"
-                              onClick={() => startEdit(item)}
-                              data-testid={`text-expense-description-${item.id}`}
-                            >
-                              {item.description}
-                            </span>
-                            <span className="text-sm font-semibold text-red-700 shrink-0" data-testid={`text-expense-amount-${item.id}`}>
-                              {formatEuro(item.amount)}
-                            </span>
-                            <button
-                              onClick={() => deleteMutation.mutate(item.id)}
-                              className="text-muted-foreground hover:text-red-600 transition-colors shrink-0"
-                              data-testid={`button-delete-expense-${item.id}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <span className="flex-1 text-sm cursor-pointer hover:underline" onClick={() => startEdit(item)} data-testid={`text-expense-description-${item.id}`}>{item.description}</span>
+                            <span className="text-sm font-semibold text-red-700 shrink-0" data-testid={`text-expense-amount-${item.id}`}>{formatEuro(item.amount)}</span>
+                            <button onClick={() => deleteMutation.mutate(item.id)} className="text-muted-foreground hover:text-red-600 transition-colors shrink-0" data-testid={`button-delete-expense-${item.id}`}><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         )}
                       </div>
@@ -338,6 +530,57 @@ export default function AdminKalkulationPage() {
                       {ertrag >= 0 ? "+" : ""}{formatEuro(ertrag)}
                     </span>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mitgliedervorschau (nur wenn Schichtplan-Teilnehmer vorhanden) */}
+            {!itemsLoading && participatingMembers.length > 0 && (
+              <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b bg-[#1a3a5c]/5 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-[#1a3a5c]" />
+                  <h2 className="font-semibold text-[#1a3a5c] text-sm">Mitgliederanteil (Vorschau)</h2>
+                  <span className="text-xs text-muted-foreground ml-auto">{participatingMembers.length} Mitglieder · je {formatEuro(anteilJeMitglied)}</span>
+                </div>
+                <div className="divide-y max-h-48 overflow-y-auto">
+                  {participatingMembers.map((m) => (
+                    <div key={m.id} className="flex justify-between items-center px-4 py-2" data-testid={`row-member-anteil-${m.id}`}>
+                      <span className="text-sm">{m.lastName}, {m.firstName}</span>
+                      <span className="text-sm font-semibold text-[#1a3a5c]">{formatEuro(anteilJeMitglied)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PDF-Buttons */}
+            {!itemsLoading && items.length > 0 && (
+              <div className="bg-white rounded-lg border shadow-sm p-4">
+                <h2 className="text-sm font-semibold text-[#1a3a5c] mb-3">PDF-Auswertungen</h2>
+                <div className="flex gap-3 flex-wrap">
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePdf(true)}
+                    disabled={pdfLoading !== null}
+                    className="gap-2 border-[#1a3a5c] text-[#1a3a5c] hover:bg-[#1a3a5c]/5"
+                    data-testid="button-pdf-simple"
+                  >
+                    {pdfLoading === "simple" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                    Gewinnrechnung (PDF)
+                  </Button>
+                  <Button
+                    onClick={() => handlePdf(false)}
+                    disabled={pdfLoading !== null || participatingMembers.length === 0}
+                    className="gap-2 bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white"
+                    data-testid="button-pdf-extended"
+                    title={participatingMembers.length === 0 ? "Keine Schichtplan-Teilnehmer gefunden" : ""}
+                  >
+                    {pdfLoading === "extended" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+                    Mit Mitgliederabrechnung (PDF)
+                  </Button>
+                  {participatingMembers.length === 0 && (
+                    <p className="text-xs text-muted-foreground self-center">Kein Schichtplan für diese Veranstaltung oder keine Anmeldungen vorhanden.</p>
+                  )}
                 </div>
               </div>
             )}
