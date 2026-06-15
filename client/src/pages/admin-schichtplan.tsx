@@ -21,9 +21,9 @@ interface ShiftSignup { id: number; shiftId: number; memberId: number; personCou
 interface ShiftWithSignups {
   id: number; eventId: number; title: string; date: string;
   startTime: string; endTime: string; maxVolunteers: number;
-  note: string | null; signups: ShiftSignup[];
+  note: string | null; location: string | null; signups: ShiftSignup[];
 }
-interface ShiftForm { title: string; date: string; startTime: string; endTime: string; maxVolunteers: string; note: string; }
+interface ShiftForm { title: string; date: string; startTime: string; endTime: string; maxVolunteers: string; note: string; location: string; }
 
 function makeDefault(event: Event): ShiftForm {
   const d = new Date(event.date);
@@ -34,6 +34,7 @@ function makeDefault(event: Event): ShiftForm {
     endTime: (event as any).endDate ? format(new Date((event as any).endDate), "HH:mm") : "",
     maxVolunteers: "2",
     note: "",
+    location: event.location,
   };
 }
 
@@ -67,6 +68,10 @@ function ShiftFormRow({ val, onChange, onSubmit, onCancel, isPending }: {
           <Input type="time" value={val.endTime} onChange={set("endTime")} className="h-8 text-sm" data-testid="input-shift-end" />
         </div>
         <div className="col-span-2">
+          <label className="text-xs text-muted-foreground mb-1 block">Standort (Google Maps)</label>
+          <Input value={val.location} onChange={set("location")} placeholder="z.B. Marktplatz Meißen, Stand 3" className="h-8 text-sm" data-testid="input-shift-location" />
+        </div>
+        <div className="col-span-2">
           <label className="text-xs text-muted-foreground mb-1 block">Hinweis (optional)</label>
           <Input value={val.note} onChange={set("note")} placeholder="Kurze Notiz…" className="h-8 text-sm" data-testid="input-shift-note" />
         </div>
@@ -93,7 +98,8 @@ function ShiftCard({ shift, eventId, members }: {
   const [addPersonCount, setAddPersonCount] = useState("1");
   const [form, setForm] = useState<ShiftForm>({
     title: shift.title, date: shift.date, startTime: shift.startTime,
-    endTime: shift.endTime, maxVolunteers: shift.maxVolunteers.toString(), note: shift.note || "",
+    endTime: shift.endTime, maxVolunteers: shift.maxVolunteers.toString(),
+    note: shift.note || "", location: shift.location || "",
   });
 
   const updateMutation = useMutation({
@@ -166,6 +172,18 @@ function ShiftCard({ shift, eventId, members }: {
             <Clock className="h-3 w-3" />
             {shift.startTime} – {shift.endTime} Uhr
           </p>
+          {shift.location && (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shift.location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
+              data-testid={`link-shift-location-${shift.id}`}
+            >
+              <MapPin className="h-3 w-3" />
+              {shift.location}
+            </a>
+          )}
           {shift.note && <p className="text-xs text-muted-foreground italic mt-0.5">{shift.note}</p>}
         </div>
         <div className="flex items-center gap-1 shrink-0">

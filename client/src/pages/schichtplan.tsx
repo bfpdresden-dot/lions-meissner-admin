@@ -14,7 +14,7 @@ interface ShiftSignupWithMember { id: number; shiftId: number; memberId: number;
 interface ShiftWithSignups {
   id: number; eventId: number; title: string; date: string;
   startTime: string; endTime: string; maxVolunteers: number;
-  note: string | null; signups: ShiftSignupWithMember[];
+  note: string | null; location: string | null; signups: ShiftSignupWithMember[];
 }
 
 export default function SchichtplanPage({ eventId }: { eventId: string }) {
@@ -184,6 +184,18 @@ export default function SchichtplanPage({ eventId }: { eventId: string }) {
                           <Clock className="h-3.5 w-3.5" />
                           {shift.startTime} – {shift.endTime} Uhr
                         </p>
+                        {shift.location && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shift.location)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
+                            data-testid={`link-shift-location-${shift.id}`}
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
+                            {shift.location}
+                          </a>
+                        )}
                         {shift.note && <p className="text-xs text-muted-foreground mt-1 italic">{shift.note}</p>}
                       </div>
                       <div className="text-right shrink-0">

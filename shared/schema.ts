@@ -97,6 +97,7 @@ export const shifts = pgTable("shifts", {
   endTime: text("end_time").notNull(),
   maxVolunteers: integer("max_volunteers").notNull().default(1),
   note: text("note"),
+  location: text("location"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
