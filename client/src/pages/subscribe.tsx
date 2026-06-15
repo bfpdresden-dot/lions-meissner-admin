@@ -141,9 +141,15 @@ export default function SubscribePage({ eventId }: { eventId: string }) {
             <p className="text-muted-foreground max-w-xs">
               Wir haben Ihnen eine Bestätigungs-E-Mail geschickt. Bitte klicken Sie auf den Link darin, um Ihre Anmeldung abzuschließen.
             </p>
-            <p className="text-xs text-muted-foreground mt-3 max-w-xs">
-              Kein E-Mail erhalten? Bitte prüfen Sie auch Ihren Spam-Ordner.
-            </p>
+            <div className="mt-4 max-w-xs w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left">
+              <p className="text-xs font-semibold text-amber-800 mb-1">📬 E-Mail nicht angekommen?</p>
+              <p className="text-xs text-amber-700">
+                Bitte prüfen Sie Ihren <strong>Spam- oder Junk-Ordner</strong> – unsere E-Mail landet dort manchmal automatisch.
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                💡 <strong>Tipp:</strong> Markieren Sie unsere E-Mail als <strong>„Kein Spam"</strong> oder fügen Sie den Absender als <strong>VIP / Kontakt</strong> hinzu – dann kommen künftige Nachrichten direkt in Ihren Posteingang.
+              </p>
+            </div>
             <a href="/" className="mt-6">
               <Button variant="secondary" data-testid="button-back-events">
                 Zur&uuml;ck zu den Veranstaltungen

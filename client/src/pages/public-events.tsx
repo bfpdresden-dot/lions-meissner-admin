@@ -1244,7 +1244,7 @@ export default function PublicEventsPage() {
                   <CheckCircle2 className="h-7 w-7 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Erfolgreich angemeldet!</h3>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   Sie erhalten künftig Einladungen zu unseren Veranstaltungen.<br />
                   Mit Ihrem Passwort können Sie sich jetzt unter{" "}
                   <Link href="/mein-bereich" onClick={() => setShowSubscribe(false)} className="underline font-medium text-foreground">
@@ -1252,6 +1252,15 @@ export default function PublicEventsPage() {
                   </Link>{" "}
                   anmelden.
                 </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left w-full mb-4">
+                  <p className="text-xs font-semibold text-amber-800 mb-1">📬 Bestätigungs-E-Mail nicht angekommen?</p>
+                  <p className="text-xs text-amber-700">
+                    Bitte prüfen Sie Ihren <strong>Spam- oder Junk-Ordner</strong> – unsere E-Mail landet dort manchmal automatisch.
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    💡 <strong>Tipp:</strong> Markieren Sie uns als <strong>„Kein Spam"</strong> oder fügen Sie den Absender als <strong>VIP / Kontakt</strong> hinzu.
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <Button onClick={() => setShowSubscribe(false)} variant="outline" data-testid="button-subscribe-close">Schließen</Button>
                   <Link href="/mein-bereich">

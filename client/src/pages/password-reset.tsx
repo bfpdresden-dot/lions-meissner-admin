@@ -66,10 +66,18 @@ function ForgotPasswordForm() {
         <h2 className="text-xl font-semibold">E-Mail gesendet</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
           Falls ein Konto mit dieser E-Mail-Adresse existiert, haben Sie eine
-          Nachricht mit einem Reset-Link erhalten. Bitte prüfen Sie auch Ihren
-          Spam-Ordner.
+          Nachricht mit einem Reset-Link erhalten.
         </p>
         <p className="text-muted-foreground text-sm">Der Link ist 1 Stunde gültig.</p>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left w-full max-w-xs mx-auto">
+          <p className="text-xs font-semibold text-amber-800 mb-1">📬 E-Mail nicht angekommen?</p>
+          <p className="text-xs text-amber-700">
+            Bitte prüfen Sie Ihren <strong>Spam- oder Junk-Ordner</strong> – Reset-E-Mails landen dort manchmal automatisch.
+          </p>
+          <p className="text-xs text-amber-700 mt-1">
+            💡 <strong>Tipp:</strong> Fügen Sie den Absender als <strong>VIP / Kontakt</strong> hinzu, damit künftige E-Mails direkt im Posteingang erscheinen.
+          </p>
+        </div>
         <Link href="/mein-bereich">
           <Button variant="outline" className="mt-2" data-testid="link-back-to-login">
             Zurück zur Anmeldung
