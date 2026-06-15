@@ -46,6 +46,12 @@ function mapsUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
+function truncateWords(text: string, limit = 40): { short: string; truncated: boolean } {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= limit) return { short: text, truncated: false };
+  return { short: words.slice(0, limit).join(" ") + " …", truncated: true };
+}
+
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -561,10 +567,22 @@ export default function PublicEventsPage() {
                           </div>
                           {(event as any).reportText && new Date(event.date) < new Date() ? (
                             <div className="space-y-1">
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{(event as any).reportText}</p>
+                              {(() => { const { short, truncated } = truncateWords((event as any).reportText, 40); return (
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                  {short}{truncated && (
+                                    <button onClick={(e) => { e.stopPropagation(); openDetail(event.id); }} className="ml-1 text-blue-600 hover:underline font-medium">Weiterlesen</button>
+                                  )}
+                                </p>
+                              ); })()}
                             </div>
                           ) : (
-                            <p className="text-muted-foreground">{event.description}</p>
+                            (() => { const { short, truncated } = truncateWords(event.description || "", 40); return (
+                              <p className="text-muted-foreground">
+                                {short}{truncated && (
+                                  <button onClick={(e) => { e.stopPropagation(); openDetail(event.id); }} className="ml-1 text-blue-600 hover:underline font-medium">Weiterlesen</button>
+                                )}
+                              </p>
+                            ); })()
                           )}
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-1">
                             <span className="flex items-center gap-1.5">
