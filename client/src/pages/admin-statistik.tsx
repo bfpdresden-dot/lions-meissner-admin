@@ -28,114 +28,94 @@ function formatDate(d: string | Date) {
   return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-async function generateHitlistePdf(
+function printHitlistePdf(
   ranked: { member: Subscriber; total: number; details: MemberErtrag[] }[]
 ) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  const navy = [26, 58, 92] as [number, number, number];
-  const gold = [200, 168, 75] as [number, number, number];
-
-  // Header
-  doc.setFillColor(...navy);
-  doc.rect(0, 0, 210, 28, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont("helvetica", "bold");
-  doc.text("Lions Club Meißner Land", 14, 12);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("Mitglieder-Ertrags-Statistik", 14, 19);
-  doc.setTextColor(...gold);
-  doc.setFontSize(8);
-  doc.text(`Erstellt am ${formatDate(new Date())}`, 14, 25);
-  doc.setTextColor(0, 0, 0);
-
-  let y = 36;
-
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...navy);
-  doc.text("Hitliste — Ertrag je Mitglied", 14, y);
-  y += 8;
-
-  // Tabellenheader
-  doc.setFontSize(8);
-  doc.setFillColor(240, 242, 245);
-  doc.rect(14, y - 4, 182, 6, "F");
-  doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "bold");
-  doc.text("Rang", 16, y);
-  doc.text("Name", 30, y);
-  doc.text("Veranstaltungen", 120, y);
-  doc.text("Gesamtertrag", 196, y, { align: "right" });
-  y += 6;
-  doc.setFont("helvetica", "normal");
-
-  for (let i = 0; i < ranked.length; i++) {
-    const { member, total, details } = ranked[i];
-    if (y > 265) {
-      doc.addPage();
-      y = 20;
-    }
-
-    const rankStr = `${i + 1}.`;
-    const nameStr = `${member.lastName}, ${member.firstName}`;
-    const vaCount = `${details.length} VA`;
-    const totalStr = formatEuro(total);
-
-    doc.setFontSize(8.5);
-    if (i === 0) doc.setFont("helvetica", "bold");
-    else doc.setFont("helvetica", "normal");
-
-    doc.text(rankStr, 16, y);
-    doc.text(nameStr, 30, y);
-    doc.text(vaCount, 120, y);
-    doc.text(totalStr, 196, y, { align: "right" });
-    y += 5;
-
-    // Detailzeilen je Veranstaltung
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(100, 100, 100);
-    for (const d of details) {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-        doc.setFontSize(7);
-        doc.setTextColor(100, 100, 100);
-      }
-      doc.text(`${formatDate(d.eventDate)}  ${d.eventTitle}`, 32, y);
-      doc.text(formatEuro(d.amount), 196, y, { align: "right" });
-      y += 4;
-    }
-    doc.setTextColor(0, 0, 0);
-    y += 2;
-  }
-
-  // Gesamtsumme
   const grandTotal = ranked.reduce((s, r) => s + r.total, 0);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...navy);
-  if (y > 275) { doc.addPage(); y = 20; }
-  doc.line(14, y, 196, y);
-  y += 5;
-  doc.text(`Gesamtausschüttung: ${formatEuro(grandTotal)}`, 14, y);
-  doc.text(`${ranked.length} Mitglieder`, 196, y, { align: "right" });
 
-  // Footer
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Lions Club Meißner Land · Seite ${i} von ${pageCount}`, 14, 290);
-  }
+  const rows = ranked.map((r, i) => {
+    const detailRows = r.details.map(d =>
+      `<tr class="detail-row"><td></td><td class="detail">${formatDate(d.eventDate)} &ndash; ${d.eventTitle}</td><td></td><td class="amount detail">${formatEuro(d.amount)}</td></tr>`
+    ).join("");
+    return `
+    <tr class="member-row${i === 0 ? " rank1" : i === 1 ? " rank2" : i === 2 ? " rank3" : ""}">
+      <td class="rank">${i + 1}.</td>
+      <td>${r.member.lastName}, ${r.member.firstName}</td>
+      <td class="center">${r.details.length} VA</td>
+      <td class="amount">${formatEuro(r.total)}</td>
+    </tr>
+    ${detailRows}`;
+  }).join("");
 
-  doc.save("Mitglieder_Ertrag_Statistik.pdf");
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Mitglieder-Ertrag-Statistik – Lions Club Meißner Land</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #222; padding: 20mm 18mm; }
+  .header { background: #1a3a5c; color: white; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px; }
+  .header h1 { font-size: 15pt; margin-bottom: 3px; }
+  .header p { font-size: 9pt; opacity: 0.85; }
+  .header .date { color: #c8a84b; font-size: 8pt; margin-top: 4px; }
+  h2 { font-size: 11pt; color: #1a3a5c; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #f0f2f5; text-align: left; padding: 5px 8px; font-size: 9pt; border-bottom: 2px solid #cbd5e1; }
+  th.amount, th.center { text-align: right; }
+  th.center { text-align: center; }
+  td { padding: 5px 8px; font-size: 10pt; border-bottom: 1px solid #f1f5f9; }
+  td.amount { text-align: right; white-space: nowrap; font-weight: 600; color: #166534; }
+  td.center { text-align: center; color: #666; }
+  td.rank { color: #888; font-size: 9pt; width: 30px; }
+  tr.rank1 td { background: #fffbeb; font-weight: bold; }
+  tr.rank2 td { background: #f8fafc; }
+  tr.rank3 td { background: #fff7ed; }
+  tr.detail-row td { padding: 2px 8px; border-bottom: none; }
+  td.detail { font-size: 8.5pt; color: #666; padding-left: 28px; }
+  td.detail.amount { font-size: 8.5pt; font-weight: normal; color: #888; }
+  .totals { margin-top: 12px; border-top: 2px solid #1a3a5c; padding-top: 8px; display: flex; justify-content: space-between; }
+  .totals span { font-size: 11pt; font-weight: bold; color: #1a3a5c; }
+  .totals span.amount { color: #166534; }
+  .footer { margin-top: 24px; font-size: 8pt; color: #999; border-top: 1px solid #e2e8f0; padding-top: 8px; text-align: center; }
+  @media print { body { padding: 10mm 14mm; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Lions Club Meißner Land</h1>
+  <p>Mitglieder-Ertrag-Statistik &mdash; Hitliste</p>
+  <div class="date">Erstellt am ${formatDate(new Date())}</div>
+</div>
+
+<h2>Ertrag je Mitglied (sortiert nach Gesamtbetrag)</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:30px">#</th>
+      <th>Name</th>
+      <th class="center" style="width:80px">Veranst.</th>
+      <th class="amount" style="width:110px">Gesamtertrag</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+
+<div class="totals">
+  <span>Gesamtausschüttung (${ranked.length} Mitglieder)</span>
+  <span class="amount">${formatEuro(grandTotal)}</span>
+</div>
+
+<div class="footer">Lions Club Meißner Land &mdash; Interne Auswertung</div>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=800,height=900");
+  if (!w) throw new Error("Popup blocked");
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 400);
 }
 
 export default function AdminStatistikPage() {
@@ -182,7 +162,7 @@ export default function AdminStatistikPage() {
         const details: MemberErtrag[] = await res.json();
         allDetails.push({ ...r, details });
       }
-      await generateHitlistePdf(allDetails);
+      printHitlistePdf(allDetails);
     } catch {
       toast({ title: "PDF-Fehler", description: "Statistik-PDF konnte nicht erstellt werden.", variant: "destructive" });
     }

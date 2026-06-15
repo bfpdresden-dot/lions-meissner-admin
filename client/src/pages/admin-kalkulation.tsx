@@ -44,169 +44,109 @@ function formatDate(d: string | Date) {
   return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-async function generatePdf(simple: boolean, {
-  event, items, members, signups, shifts, ertrag, totalIncome, totalExpenses,
+function printPdf(simple: boolean, {
+  event, items, members, signups, ertrag, totalIncome, totalExpenses,
 }: {
   event: Event;
   items: KalkulationItem[];
   members: Subscriber[];
   signups: ShiftSignup[];
-  shifts: Shift[];
   ertrag: number;
   totalIncome: number;
   totalExpenses: number;
 }) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  const navy = [26, 58, 92] as [number, number, number];
-  const gold = [200, 168, 75] as [number, number, number];
-  const green = [22, 101, 52] as [number, number, number];
-  const red = [185, 28, 28] as [number, number, number];
-
-  // Header
-  doc.setFillColor(...navy);
-  doc.rect(0, 0, 210, 28, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont("helvetica", "bold");
-  doc.text("Lions Club Meißner Land", 14, 12);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(simple ? "Gewinnrechnung" : "Gewinnrechnung mit Mitgliederabrechnung", 14, 19);
-  doc.setTextColor(...gold);
-  doc.setFontSize(8);
-  doc.text(`Erstellt am ${formatDate(new Date())}`, 14, 25);
-
-  doc.setTextColor(0, 0, 0);
-  let y = 36;
-
-  // Veranstaltung
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text(event.title, 14, y);
-  y += 6;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 80, 80);
-  doc.text(`${formatDate(event.date)} · ${event.location}`, 14, y);
-  y += 10;
-  doc.setTextColor(0, 0, 0);
-
-  // Einnahmen
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...navy);
-  doc.text("Einnahmen", 14, y);
-  y += 5;
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(0, 0, 0);
   const income = items.filter(i => i.type === "income");
-  for (const item of income) {
-    doc.setFontSize(9);
-    doc.text(item.description, 18, y);
-    doc.text(formatEuro(item.amount), 196, y, { align: "right" });
-    y += 5;
-  }
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...green);
-  doc.text("Einnahmen gesamt", 18, y);
-  doc.text(formatEuro(totalIncome), 196, y, { align: "right" });
-  doc.setTextColor(0, 0, 0);
-  y += 8;
-
-  // Ausgaben
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...navy);
-  doc.text("Ausgaben", 14, y);
-  y += 5;
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(0, 0, 0);
   const expenses = items.filter(i => i.type === "expense");
-  for (const item of expenses) {
-    doc.setFontSize(9);
-    doc.text(item.description, 18, y);
-    doc.text(formatEuro(item.amount), 196, y, { align: "right" });
-    y += 5;
-  }
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...red);
-  doc.text("Ausgaben gesamt", 18, y);
-  doc.text(formatEuro(totalExpenses), 196, y, { align: "right" });
-  doc.setTextColor(0, 0, 0);
-  y += 10;
+  const memberIdsInEvent = new Set(signups.map(s => s.memberId));
+  const participatingMembers = members.filter(m => memberIdsInEvent.has(m.id));
+  const count = participatingMembers.length;
+  const anteil = count > 0 ? ertrag / count : 0;
 
-  // Trennlinie + Ertrag
-  doc.setDrawColor(...gold);
-  doc.setLineWidth(0.6);
-  doc.line(14, y - 3, 196, y - 3);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(ertrag >= 0 ? green[0] : red[0], ertrag >= 0 ? green[1] : red[1], ertrag >= 0 ? green[2] : red[2]);
-  doc.text("Ertrag", 14, y + 3);
-  doc.text((ertrag >= 0 ? "+" : "") + formatEuro(ertrag), 196, y + 3, { align: "right" });
-  doc.setTextColor(0, 0, 0);
-  y += 14;
+  const memberRows = participatingMembers.map(m =>
+    `<tr><td>${m.lastName}, ${m.firstName}</td><td class="amount">${formatEuro(anteil)}</td></tr>`
+  ).join("");
 
-  if (!simple) {
-    // Teilnehmende Mitglieder aus Schichtplan
-    const memberIdsInEvent = new Set(signups.map(s => s.memberId));
-    const participatingMembers = members.filter(m => memberIdsInEvent.has(m.id));
-    const count = participatingMembers.length;
-    const anteil = count > 0 ? ertrag / count : 0;
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>${simple ? "Gewinnrechnung" : "Gewinnrechnung mit Mitgliederabrechnung"} – ${event.title}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #222; padding: 20mm 18mm; }
+  .header { background: #1a3a5c; color: white; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px; }
+  .header h1 { font-size: 15pt; margin-bottom: 3px; }
+  .header p { font-size: 9pt; opacity: 0.85; }
+  .header .date { color: #c8a84b; font-size: 8pt; margin-top: 4px; }
+  h2 { font-size: 11pt; color: #1a3a5c; margin: 16px 0 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+  h3 { font-size: 12pt; font-weight: bold; margin-bottom: 2px; }
+  .meta { font-size: 9pt; color: #666; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  td { padding: 4px 6px; font-size: 10pt; }
+  td.amount { text-align: right; white-space: nowrap; }
+  tr.subtotal td { font-weight: bold; border-top: 1px solid #cbd5e1; padding-top: 6px; }
+  tr.subtotal.income td { color: #166534; }
+  tr.subtotal.expense td { color: #991b1b; }
+  .ertrag-box { margin: 16px 0; padding: 10px 12px; border: 2px solid ${ertrag >= 0 ? "#16a34a" : "#dc2626"}; border-radius: 4px; background: ${ertrag >= 0 ? "#f0fdf4" : "#fef2f2"}; display: flex; justify-content: space-between; align-items: center; }
+  .ertrag-box span { font-size: 13pt; font-weight: bold; color: ${ertrag >= 0 ? "#166534" : "#991b1b"}; }
+  .member-info { font-size: 9pt; color: #555; margin-bottom: 8px; }
+  thead tr th { background: #f0f2f5; text-align: left; padding: 5px 6px; font-size: 9pt; }
+  thead tr th.amount { text-align: right; }
+  tbody tr:nth-child(even) td { background: #f8fafc; }
+  .footer { margin-top: 24px; font-size: 8pt; color: #999; border-top: 1px solid #e2e8f0; padding-top: 8px; text-align: center; }
+  @media print { body { padding: 10mm 14mm; } .no-print { display: none; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Lions Club Meißner Land</h1>
+  <p>${simple ? "Gewinnrechnung" : "Gewinnrechnung mit Mitgliederabrechnung"}</p>
+  <div class="date">Erstellt am ${formatDate(new Date())}</div>
+</div>
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...navy);
-    doc.text("Mitgliederabrechnung", 14, y);
-    y += 5;
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Ertrag ${formatEuro(ertrag)} ÷ ${count} Mitglieder = ${formatEuro(anteil)} je Person`, 14, y);
-    y += 7;
+<h3>${event.title}</h3>
+<p class="meta">${formatDate(event.date)} &middot; ${event.location}</p>
 
-    doc.setTextColor(0, 0, 0);
-    // Tabellenkopf
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setFillColor(240, 242, 245);
-    doc.rect(14, y - 4, 182, 6, "F");
-    doc.text("Name", 16, y);
-    doc.text("Anteil", 196, y, { align: "right" });
-    y += 5;
-    doc.setFont("helvetica", "normal");
+<h2>Einnahmen</h2>
+<table>
+  <tbody>
+    ${income.map(i => `<tr><td>${i.description}</td><td class="amount">${formatEuro(i.amount)}</td></tr>`).join("")}
+    <tr class="subtotal income"><td>Einnahmen gesamt</td><td class="amount">${formatEuro(totalIncome)}</td></tr>
+  </tbody>
+</table>
 
-    for (const m of participatingMembers) {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.text(`${m.lastName}, ${m.firstName}`, 16, y);
-      doc.text(formatEuro(anteil), 196, y, { align: "right" });
-      y += 5;
-    }
+<h2>Ausgaben</h2>
+<table>
+  <tbody>
+    ${expenses.map(i => `<tr><td>${i.description}</td><td class="amount">${formatEuro(i.amount)}</td></tr>`).join("")}
+    <tr class="subtotal expense"><td>Ausgaben gesamt</td><td class="amount">${formatEuro(totalExpenses)}</td></tr>
+  </tbody>
+</table>
 
-    y += 3;
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...navy);
-    doc.text(`Gesamt: ${count} Mitglieder`, 16, y);
-    doc.text(formatEuro(anteil * count), 196, y, { align: "right" });
-  }
+<div class="ertrag-box">
+  <span>Ertrag</span>
+  <span>${ertrag >= 0 ? "+" : ""}${formatEuro(ertrag)}</span>
+</div>
 
-  // Footer
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Lions Club Meißner Land · Seite ${i} von ${pageCount}`, 14, 290);
-  }
+${!simple ? `
+<h2>Mitgliederabrechnung</h2>
+<p class="member-info">Ertrag ${formatEuro(ertrag)} &divide; ${count} Mitglieder = <strong>${formatEuro(anteil)}</strong> je Person</p>
+<table>
+  <thead><tr><th>Name</th><th class="amount">Anteil</th></tr></thead>
+  <tbody>${memberRows}</tbody>
+  <tfoot><tr class="subtotal"><td>Gesamt: ${count} Mitglieder</td><td class="amount">${formatEuro(anteil * count)}</td></tr></tfoot>
+</table>` : ""}
 
-  const filename = simple
-    ? `Gewinnrechnung_${event.title.replace(/\s+/g, "_")}.pdf`
-    : `Gewinnrechnung_Mitglieder_${event.title.replace(/\s+/g, "_")}.pdf`;
-  doc.save(filename);
+<div class="footer">Lions Club Meißner Land &mdash; Interne Auswertung</div>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=800,height=900");
+  if (!w) throw new Error("Popup blocked");
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 400);
 }
 
 export default function AdminKalkulationPage() {
@@ -329,12 +269,11 @@ export default function AdminKalkulationPage() {
         queryClient.invalidateQueries({ queryKey: ["/api/member-ertraege"] });
         toast({ title: "Erträge gespeichert", description: `${participatingMembers.length} Mitglieder wurden abgerechnet.` });
       }
-      await generatePdf(simple, {
+      printPdf(simple, {
         event: selectedEvent,
         items,
         members,
         signups: signupsForEvent,
-        shifts: shiftsForEvent,
         ertrag,
         totalIncome,
         totalExpenses,
