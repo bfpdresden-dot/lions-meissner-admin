@@ -1431,6 +1431,8 @@ export default function PublicEventsPage() {
           </p>
           <p className="pt-1">
             <Link href="/datenschutz" className="hover:underline">Datenschutzerklärung</Link>
+            {" "}&middot;{" "}
+            <Link href="/anleitung" className="hover:underline">Bedienungsanleitung</Link>
           </p>
         </div>
       </div>
