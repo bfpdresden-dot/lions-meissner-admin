@@ -1616,6 +1616,12 @@ export default function PortalPage() {
         )}
       </div>
 
+      {/* Footer */}
+      <div className="text-center py-6 text-xs text-gray-400 space-x-3">
+        <a href="/anleitung?bereich=portal" className="hover:underline hover:text-gray-600 transition-colors">Bedienungsanleitung</a>
+        <span>&middot;</span>
+        <a href="/datenschutz" className="hover:underline hover:text-gray-600 transition-colors">Datenschutzerklärung</a>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { ChevronDown, ChevronUp, Printer, Globe, User, ShieldCheck, CheckCircle2, Mail, CalendarDays, QrCode, Users, BarChart2, Calculator, Settings, LogIn, Star, Phone, ClipboardList } from "lucide-react";
 
 const NAVY = "#1a3a5c";
@@ -82,44 +83,64 @@ function SubSection({ icon, title, children }: { icon?: React.ReactNode; title: 
 }
 
 export default function AnleitungPage() {
+  const search = useSearch();
+  const bereich = new URLSearchParams(search).get("bereich");
+
+  const title = bereich === "oeffentlich" ? "Anleitung: Öffentliche Seite"
+    : bereich === "portal" ? "Anleitung: Mein Bereich"
+    : bereich === "admin" ? "Anleitung: Admin-Bereich"
+    : "Bedienungsanleitung";
+
+  const backLabel = bereich === "portal" ? "← Zurück zu Mein Bereich"
+    : bereich === "admin" ? "← Zurück zum Admin-Bereich"
+    : "← Zurück zur Startseite";
+
+  const backHref = bereich === "portal" ? "/mein-bereich"
+    : bereich === "admin" ? "/admin"
+    : "/";
+
   return (
     <div className="min-h-screen" style={{ background: "#f0f2f5" }}>
       {/* Header */}
       <div className="text-white py-10 px-4 text-center" style={{ background: NAVY }}>
         <img src="/images/lions-logo.png" alt="Lions Club Logo" className="h-16 mx-auto mb-4" />
-        <h1 className="text-3xl font-bold mb-2">Bedienungsanleitung</h1>
+        <h1 className="text-3xl font-bold mb-2">{title}</h1>
         <p className="text-blue-200 text-sm">Lions Club Meißner Land · Admin-Tool</p>
-        <div className="flex flex-wrap justify-center gap-3 mt-6">
-          <a href="#oeffentlich" className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 transition-colors">🌐 Öffentliche Seite</a>
-          <a href="#portal" className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 transition-colors">👤 Mein Bereich</a>
-          <a href="#admin" className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 transition-colors">🛡️ Admin-Bereich</a>
-        </div>
+        {!bereich && (
+          <div className="flex flex-wrap justify-center gap-3 mt-6">
+            <a href="#oeffentlich" className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 transition-colors">🌐 Öffentliche Seite</a>
+            <a href="#portal" className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 transition-colors">👤 Mein Bereich</a>
+            <a href="#admin" className="px-4 py-2 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 transition-colors">🛡️ Admin-Bereich</a>
+          </div>
+        )}
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Intro */}
-        <div className="bg-white rounded-2xl border shadow-sm p-5 mb-6">
-          <p className="text-sm text-gray-600 leading-relaxed">
-            Diese Anleitung erklärt alle drei Bereiche des Lions Club Tools Schritt für Schritt.
-            Tippen Sie auf einen Bereich um ihn aufzuklappen.
-          </p>
-          <div className="flex flex-wrap gap-3 mt-4">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <div className="w-3 h-3 rounded-full bg-green-500" /> Für alle Besucher
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <div className="w-3 h-3 rounded-full bg-blue-500" /> Nur für Mitglieder
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <div className="w-3 h-3 rounded-full bg-purple-500" /> Nur für Admins
+        {/* Intro — nur wenn alle Bereiche sichtbar */}
+        {!bereich && (
+          <div className="bg-white rounded-2xl border shadow-sm p-5 mb-6">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Diese Anleitung erklärt alle drei Bereiche des Lions Club Tools Schritt für Schritt.
+              Tippen Sie auf einen Bereich um ihn aufzuklappen.
+            </p>
+            <div className="flex flex-wrap gap-3 mt-4">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="w-3 h-3 rounded-full bg-green-500" /> Für alle Besucher
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="w-3 h-3 rounded-full bg-blue-500" /> Nur für Mitglieder
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="w-3 h-3 rounded-full bg-purple-500" /> Nur für Admins
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ══════════════════════════════════════════
             BEREICH 1: ÖFFENTLICHE SEITE
         ══════════════════════════════════════════ */}
-        <Section id="oeffentlich" icon={<Globe className="h-5 w-5" />} title="1. Öffentliche Seite — Für alle Besucher" color="#16a34a" defaultOpen={true}>
+        {(!bereich || bereich === "oeffentlich") && <Section id="oeffentlich" icon={<Globe className="h-5 w-5" />} title="1. Öffentliche Seite — Für alle Besucher" color="#16a34a" defaultOpen={true}>
 
           <SubSection icon={<CalendarDays className="h-4 w-4" />} title="Die Startseite aufrufen">
             <p className="text-sm text-gray-600">
@@ -185,12 +206,12 @@ export default function AnleitungPage() {
             </div>
           </SubSection>
 
-        </Section>
+        </Section>}
 
         {/* ══════════════════════════════════════════
             BEREICH 2: MEIN BEREICH
         ══════════════════════════════════════════ */}
-        <Section id="portal" icon={<User className="h-5 w-5" />} title="2. Mein Bereich — Für Mitglieder" color="#2563eb">
+        {(!bereich || bereich === "portal") && <Section id="portal" icon={<User className="h-5 w-5" />} title="2. Mein Bereich — Für Mitglieder" color="#2563eb" defaultOpen={true}>
 
           <Hint>
             <strong>Mein Bereich</strong> ist nur für Newsletter-Abonnenten und Clubmitglieder die bei der Anmeldung ein Passwort vergeben haben.
@@ -244,12 +265,12 @@ export default function AnleitungPage() {
             <Hint>Sie können den Newsletter auch über den Abmelde-Link in jeder Newslettermail abbestellen — ohne sich einloggen zu müssen.</Hint>
           </SubSection>
 
-        </Section>
+        </Section>}
 
         {/* ══════════════════════════════════════════
             BEREICH 3: ADMIN
         ══════════════════════════════════════════ */}
-        <Section id="admin" icon={<ShieldCheck className="h-5 w-5" />} title="3. Admin-Bereich — Für Administratoren" color="#7c3aed">
+        {(!bereich || bereich === "admin") && <Section id="admin" icon={<ShieldCheck className="h-5 w-5" />} title="3. Admin-Bereich — Für Administratoren" color="#7c3aed" defaultOpen={true}>
 
           <Hint>
             Der Admin-Bereich ist passwortgeschützt und nur für berechtigte Personen zugänglich. Die Adresse lautet: <strong>/admin</strong>
@@ -383,7 +404,7 @@ export default function AnleitungPage() {
             <Hint>Änderungen in den Einstellungen sind sofort wirksam — Sie müssen nicht neu starten.</Hint>
           </SubSection>
 
-        </Section>
+        </Section>}
 
         {/* Footer */}
         <div className="text-center py-6 space-y-3">
@@ -396,7 +417,7 @@ export default function AnleitungPage() {
             Anleitung drucken / als PDF speichern
           </button>
           <p className="text-xs text-gray-400">Lions Club Meißner Land · Bedienungsanleitung · Stand: {new Date().toLocaleDateString("de-DE", { month: "long", year: "numeric" })}</p>
-          <a href="/" className="block text-xs text-blue-600 underline">← Zurück zur Startseite</a>
+          <a href={backHref} className="block text-xs text-blue-600 underline">{backLabel}</a>
         </div>
       </div>
 

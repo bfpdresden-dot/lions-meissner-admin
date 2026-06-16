@@ -1,4 +1,4 @@
-import { Calendar, Mail, LayoutDashboard, QrCode, Phone, MapPin, Users, Settings, ClipboardList, Calculator, BarChart2 } from "lucide-react";
+import { Calendar, Mail, LayoutDashboard, QrCode, Phone, MapPin, Users, Settings, ClipboardList, Calculator, BarChart2, BookOpen } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -90,10 +90,14 @@ export function AppSidebar() {
             <a href="mailto:schreiber1988@gmx.net" className="hover:underline truncate" data-testid="link-email">schreiber1988@gmx.net</a>
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-sidebar-border">
+        <div className="mt-3 pt-3 border-t border-sidebar-border space-y-2">
           <a href="/" target="_blank" rel="noopener noreferrer" className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1.5 transition-opacity">
             <Calendar className="h-3 w-3" />
             Öffentliche Seite ansehen
+          </a>
+          <a href="/anleitung?bereich=admin" target="_blank" rel="noopener noreferrer" className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1.5 transition-opacity">
+            <BookOpen className="h-3 w-3" />
+            Bedienungsanleitung
           </a>
         </div>
       </SidebarFooter>
