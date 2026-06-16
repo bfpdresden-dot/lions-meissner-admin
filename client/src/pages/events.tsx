@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2, Mail, Send, FileDown } from "lucide-react";
+import { Plus, Calendar, MapPin, Users, User, Pencil, Trash2, Eye, Download, Printer, Copy, Lock, Cake, FileText, X, Globe, ShieldCheck, Camera, Trash, Sparkles, Loader2, CalendarPlus, UserPlus, Bell, ClipboardList, Clock, Check, Link2, Mail, Send, FileDown, Paperclip, ImagePlus } from "lucide-react";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
@@ -101,9 +101,8 @@ export default function EventsPage() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewGuestsEventId, setViewGuestsEventId] = useState<number | null>(null);
-  const [pdfDialogEventId, setPdfDialogEventId] = useState<number | null>(null);
+  const [attachDialogEventId, setAttachDialogEventId] = useState<number | null>(null);
   const [detailEventId, setDetailEventId] = useState<number | null>(null);
-  const [photoDialogEventId, setPhotoDialogEventId] = useState<number | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
@@ -310,9 +309,9 @@ export default function EventsPage() {
   });
 
   const { data: eventPhotos, refetch: refetchPhotos } = useQuery<EventPhoto[]>({
-    queryKey: ["/api/events", photoDialogEventId, "photos"],
-    queryFn: () => fetch(`/api/events/${photoDialogEventId}/photos`).then((r) => r.json()),
-    enabled: photoDialogEventId !== null,
+    queryKey: ["/api/events", attachDialogEventId, "photos"],
+    queryFn: () => fetch(`/api/events/${attachDialogEventId}/photos`).then((r) => r.json()),
+    enabled: attachDialogEventId !== null,
   });
 
   const deletePhotoMutation = useMutation({
@@ -324,14 +323,15 @@ export default function EventsPage() {
   });
 
   const handlePhotoUpload = async (eventId: number, files: FileList) => {
+    const limited = Array.from(files).slice(0, 5);
     setPhotoUploading(true);
     try {
       const form = new FormData();
-      for (let i = 0; i < files.length; i++) form.append("photos", files[i]);
+      limited.forEach((f) => form.append("photos", f));
       const res = await fetch(`/api/events/${eventId}/photos`, { method: "POST", body: form });
       if (!res.ok) throw new Error("Upload fehlgeschlagen");
       refetchPhotos();
-      toast({ title: `${files.length} Foto${files.length > 1 ? "s" : ""} hochgeladen` });
+      toast({ title: `${limited.length} Foto${limited.length > 1 ? "s" : ""} hochgeladen` });
     } catch {
       toast({ title: "Fehler beim Upload", variant: "destructive" });
     } finally {
@@ -805,12 +805,12 @@ export default function EventsPage() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => setPdfDialogEventId(event.id)}
+                          onClick={() => setAttachDialogEventId(event.id)}
                           data-testid={`button-pdf-${event.id}`}
-                          title="Programm-PDF verwalten"
+                          title="Anhänge verwalten (PDF & Fotos)"
                           className={(event as any).programPdf ? "text-primary" : ""}
                         >
-                          <FileText className="h-4 w-4" />
+                          <Paperclip className="h-4 w-4" />
                         </Button>
                         <Button
                           size="icon"
@@ -820,15 +820,6 @@ export default function EventsPage() {
                           title="Anmeldeflyer drucken (DIN A4)"
                         >
                           <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setPhotoDialogEventId(event.id)}
-                          data-testid={`button-photos-${event.id}`}
-                          title="Fotos verwalten"
-                        >
-                          <Camera className="h-4 w-4" />
                         </Button>
                         <Button
                           size="icon"
@@ -1176,78 +1167,6 @@ export default function EventsPage() {
         </Dialog>
 
         {/* Photo management dialog */}
-        {photoDialogEventId !== null && (() => {
-          const ev = events?.find((e) => e.id === photoDialogEventId);
-          if (!ev) return null;
-          return (
-            <Dialog open onOpenChange={(open) => !open && setPhotoDialogEventId(null)}>
-              <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Camera className="h-5 w-5" />
-                    Fotos — {ev.title}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          handlePhotoUpload(photoDialogEventId, e.target.files);
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => photoInputRef.current?.click()}
-                      disabled={photoUploading}
-                      className="w-full"
-                      variant="outline"
-                      data-testid="button-upload-photos"
-                    >
-                      <Camera className="h-4 w-4 mr-2" />
-                      {photoUploading ? "Wird hochgeladen…" : "Fotos hochladen (mehrere möglich)"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1 text-center">JPG, PNG, WebP, GIF · max. 15 MB pro Datei</p>
-                  </div>
-
-                  {eventPhotos && eventPhotos.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {eventPhotos.map((photo) => (
-                        <div key={photo.id} className="relative group rounded-md overflow-hidden border aspect-square">
-                          <img
-                            src={fileUrl(photo.filename)}
-                            alt={photo.caption || "Event-Foto"}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Button
-                              size="icon"
-                              variant="destructive"
-                              onClick={() => deletePhotoMutation.mutate(photo.id)}
-                              disabled={deletePhotoMutation.isPending}
-                              data-testid={`button-delete-photo-${photo.id}`}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8 border rounded-md">
-                      Noch keine Fotos hochgeladen.
-                    </p>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })()}
 
         {/* KI-Kurzbericht: Notizen-Vordialog */}
         <Dialog open={reportNotesOpen} onOpenChange={(open) => { setReportNotesOpen(open); }}>
@@ -1630,73 +1549,86 @@ export default function EventsPage() {
           );
         })()}
 
-        {/* PDF management dialog */}
-        {pdfDialogEventId !== null && (() => {
-          const pdfEvent = events?.find((e) => e.id === pdfDialogEventId);
-          if (!pdfEvent) return null;
-          const currentPdf = (pdfEvent as any).programPdf as string | null;
-          const isPublic = (pdfEvent as any).programPdfPublic as boolean;
+        {/* Combined attachments dialog (PDF + Fotos) */}
+        {attachDialogEventId !== null && (() => {
+          const attachEvent = events?.find((e) => e.id === attachDialogEventId);
+          if (!attachEvent) return null;
+          const currentPdf = (attachEvent as any).programPdf as string | null;
+          const isPublic = (attachEvent as any).programPdfPublic as boolean;
+          const pdfHref = currentPdf
+            ? (currentPdf.startsWith("http://") || currentPdf.startsWith("https://"))
+              ? currentPdf
+              : `/uploads/${currentPdf}`
+            : null;
+          const pdfLabel = currentPdf
+            ? currentPdf.replace(/^https?:\/\/[^/]+\/uploads\//, "").replace(/^\d+-\d+-/, "")
+            : null;
           return (
-            <Dialog open onOpenChange={(open) => !open && setPdfDialogEventId(null)}>
-              <DialogContent className="sm:max-w-md">
+            <Dialog open onOpenChange={(open) => !open && setAttachDialogEventId(null)}>
+              <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Programm-PDF — {pdfEvent.title}
+                    <Paperclip className="h-5 w-5" />
+                    Anhänge — {attachEvent.title}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 pt-1">
-                  {currentPdf ? (
-                    <div className="rounded-md border p-3 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <a
-                          href={`/uploads/${currentPdf}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary flex items-center gap-1.5 hover:underline min-w-0 truncate"
-                        >
-                          <FileText className="h-4 w-4 shrink-0" />
-                          {currentPdf.replace(/^\d+-\d+-/, "")}
-                        </a>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive shrink-0"
-                          onClick={() => deletePdfMutation.mutate(pdfEvent.id)}
-                          disabled={deletePdfMutation.isPending}
-                          title="PDF entfernen"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+
+                <div className="space-y-6 pt-1">
+                  {/* ── PDF section ── */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      Programm-PDF
+                    </h3>
+                    {pdfHref ? (
+                      <div className="rounded-md border p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <a
+                            href={pdfHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary flex items-center gap-1.5 hover:underline min-w-0 truncate"
+                            data-testid="link-current-pdf"
+                          >
+                            <FileText className="h-4 w-4 shrink-0" />
+                            {pdfLabel}
+                          </a>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive shrink-0"
+                            onClick={() => deletePdfMutation.mutate(attachEvent.id)}
+                            disabled={deletePdfMutation.isPending}
+                            title="PDF entfernen"
+                            data-testid="button-delete-pdf"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1 border-t">
+                          <Button
+                            size="sm"
+                            variant={isPublic ? "default" : "outline"}
+                            className="flex-1 gap-1.5"
+                            onClick={() => togglePdfPublicMutation.mutate({ id: attachEvent.id, pub: true })}
+                          >
+                            <Globe className="h-3.5 w-3.5" />
+                            Öffentlich
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={!isPublic ? "default" : "outline"}
+                            className="flex-1 gap-1.5"
+                            onClick={() => togglePdfPublicMutation.mutate({ id: attachEvent.id, pub: false })}
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Nur Mitglieder
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 pt-1 border-t">
-                        <Button
-                          size="sm"
-                          variant={isPublic ? "default" : "outline"}
-                          className="flex-1 gap-1.5"
-                          onClick={() => togglePdfPublicMutation.mutate({ id: pdfEvent.id, pub: true })}
-                        >
-                          <Globe className="h-3.5 w-3.5" />
-                          Öffentlich
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={!isPublic ? "default" : "outline"}
-                          className="flex-1 gap-1.5"
-                          onClick={() => togglePdfPublicMutation.mutate({ id: pdfEvent.id, pub: false })}
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Nur Mitglieder
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Noch kein PDF hochgeladen.</p>
-                  )}
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">
-                      {currentPdf ? "PDF ersetzen" : "PDF hochladen"}
-                    </Label>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Noch kein PDF hochgeladen.</p>
+                    )}
                     <input
                       ref={pdfInputRef}
                       type="file"
@@ -1704,7 +1636,7 @@ export default function EventsPage() {
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handlePdfUpload(pdfEvent.id, file);
+                        if (file) handlePdfUpload(attachEvent.id, file);
                         e.target.value = "";
                       }}
                     />
@@ -1713,11 +1645,79 @@ export default function EventsPage() {
                       className="w-full"
                       disabled={pdfUploading}
                       onClick={() => pdfInputRef.current?.click()}
+                      data-testid="button-upload-pdf"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      {pdfUploading ? "Wird hochgeladen…" : "PDF-Datei auswählen"}
+                      {pdfUploading ? "Wird hochgeladen…" : pdfHref ? "PDF ersetzen" : "PDF hochladen"}
                     </Button>
-                    <p className="text-xs text-muted-foreground mt-1.5">Maximal 10 MB · Nur PDF-Dateien</p>
+                    <p className="text-xs text-muted-foreground -mt-1">Maximal 10 MB · Nur PDF-Dateien</p>
+                  </div>
+
+                  <div className="border-t" />
+
+                  {/* ── Fotos section ── */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Camera className="h-4 w-4 text-muted-foreground" />
+                      Fotos
+                      {eventPhotos && eventPhotos.length > 0 && (
+                        <span className="text-xs font-normal text-muted-foreground">({eventPhotos.length})</span>
+                      )}
+                    </h3>
+
+                    {eventPhotos && eventPhotos.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {eventPhotos.map((photo) => (
+                          <div key={photo.id} className="relative group rounded-md overflow-hidden border aspect-square bg-muted">
+                            <img
+                              src={fileUrl(photo.filename)}
+                              alt={photo.caption || "Event-Foto"}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button
+                                size="icon"
+                                variant="destructive"
+                                className="h-8 w-8"
+                                onClick={() => deletePhotoMutation.mutate(photo.id)}
+                                disabled={deletePhotoMutation.isPending}
+                                data-testid={`button-delete-photo-${photo.id}`}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-6 border rounded-md bg-muted/30">
+                        Noch keine Fotos hochgeladen.
+                      </p>
+                    )}
+
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handlePhotoUpload(attachDialogEventId, e.target.files);
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoUploading}
+                      variant="outline"
+                      className="w-full"
+                      data-testid="button-upload-photos"
+                    >
+                      <ImagePlus className="h-4 w-4 mr-2" />
+                      {photoUploading ? "Wird hochgeladen…" : "Fotos hochladen"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground -mt-1">JPG, PNG, WebP, GIF · max. 15 MB · bis zu 5 Dateien gleichzeitig</p>
                   </div>
                 </div>
               </DialogContent>
