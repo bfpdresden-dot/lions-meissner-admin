@@ -252,14 +252,27 @@ export default function EventsPage() {
     onError: (err: Error) => toast({ title: "Versand fehlgeschlagen", description: err.message, variant: "destructive" }),
   });
 
+  const [pdfLabelDraft, setPdfLabelDraft] = useState<string>("");
+  const [pdfIsPublicDraft, setPdfIsPublicDraft] = useState<boolean>(true);
+
+  const { data: eventPdfs, refetch: refetchPdfs } = useQuery<import("@shared/schema").EventPdf[]>({
+    queryKey: ["/api/events", attachDialogEventId, "pdfs"],
+    queryFn: () => fetch(`/api/events/${attachDialogEventId}/pdfs`).then((r) => r.json()),
+    enabled: attachDialogEventId !== null,
+  });
+
   const handlePdfUpload = async (eventId: number, file: File) => {
     setPdfUploading(true);
     try {
       const form = new FormData();
       form.append("pdf", file);
+      if (pdfLabelDraft.trim()) form.append("label", pdfLabelDraft.trim());
+      form.append("isPublic", String(pdfIsPublicDraft));
       const res = await fetch(`/api/events/${eventId}/upload-pdf`, { method: "POST", body: form });
       if (!res.ok) throw new Error("Upload fehlgeschlagen");
-      await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setPdfLabelDraft("");
+      setPdfIsPublicDraft(true);
+      refetchPdfs();
       toast({ title: "PDF hochgeladen" });
     } catch {
       toast({ title: "Fehler beim Upload", variant: "destructive" });
@@ -269,17 +282,17 @@ export default function EventsPage() {
   };
 
   const deletePdfMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/events/${id}/pdf`),
+    mutationFn: (pdfId: number) => apiRequest("DELETE", `/api/event-pdfs/${pdfId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      refetchPdfs();
       toast({ title: "PDF entfernt" });
     },
   });
 
   const togglePdfPublicMutation = useMutation({
     mutationFn: ({ id, pub }: { id: number; pub: boolean }) =>
-      apiRequest("PATCH", `/api/events/${id}`, { programPdfPublic: pub }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/events"] }),
+      apiRequest("PATCH", `/api/event-pdfs/${id}`, { isPublic: pub }),
+    onSuccess: () => refetchPdfs(),
   });
 
   const { data: events, isLoading } = useQuery<Event[]>({
@@ -1553,18 +1566,16 @@ export default function EventsPage() {
         {attachDialogEventId !== null && (() => {
           const attachEvent = events?.find((e) => e.id === attachDialogEventId);
           if (!attachEvent) return null;
-          const currentPdf = (attachEvent as any).programPdf as string | null;
-          const isPublic = (attachEvent as any).programPdfPublic as boolean;
-          const pdfHref = currentPdf
-            ? (currentPdf.startsWith("http://") || currentPdf.startsWith("https://"))
-              ? currentPdf
-              : `/uploads/${currentPdf}`
-            : null;
-          const pdfLabel = currentPdf
-            ? currentPdf.replace(/^https?:\/\/[^/]+\/uploads\//, "").replace(/^\d+-\d+-/, "")
-            : null;
+
+          const pdfHref = (pdf: import("@shared/schema").EventPdf) =>
+            pdf.filename.startsWith("http://") || pdf.filename.startsWith("https://")
+              ? pdf.filename
+              : `/uploads/${pdf.filename}`;
+          const pdfDisplayLabel = (pdf: import("@shared/schema").EventPdf) =>
+            pdf.label || pdf.filename.replace(/^https?:\/\/[^/]+\/uploads\//, "").replace(/^\d+-\d+-/, "");
+
           return (
-            <Dialog open onOpenChange={(open) => !open && setAttachDialogEventId(null)}>
+            <Dialog open onOpenChange={(open) => { if (!open) { setAttachDialogEventId(null); setPdfLabelDraft(""); setPdfIsPublicDraft(true); } }}>
               <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
@@ -1578,79 +1589,124 @@ export default function EventsPage() {
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
-                      Programm-PDF
+                      PDFs
+                      {eventPdfs && eventPdfs.length > 0 && (
+                        <span className="text-xs font-normal text-muted-foreground">({eventPdfs.length})</span>
+                      )}
                     </h3>
-                    {pdfHref ? (
-                      <div className="rounded-md border p-3 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <a
-                            href={pdfHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary flex items-center gap-1.5 hover:underline min-w-0 truncate"
-                            data-testid="link-current-pdf"
-                          >
-                            <FileText className="h-4 w-4 shrink-0" />
-                            {pdfLabel}
-                          </a>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive shrink-0"
-                            onClick={() => deletePdfMutation.mutate(attachEvent.id)}
-                            disabled={deletePdfMutation.isPending}
-                            title="PDF entfernen"
-                            data-testid="button-delete-pdf"
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2 pt-1 border-t">
-                          <Button
-                            size="sm"
-                            variant={isPublic ? "default" : "outline"}
-                            className="flex-1 gap-1.5"
-                            onClick={() => togglePdfPublicMutation.mutate({ id: attachEvent.id, pub: true })}
-                          >
-                            <Globe className="h-3.5 w-3.5" />
-                            Öffentlich
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={!isPublic ? "default" : "outline"}
-                            className="flex-1 gap-1.5"
-                            onClick={() => togglePdfPublicMutation.mutate({ id: attachEvent.id, pub: false })}
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Nur Mitglieder
-                          </Button>
-                        </div>
+
+                    {/* Existing PDFs list */}
+                    {eventPdfs && eventPdfs.length > 0 ? (
+                      <div className="space-y-2">
+                        {eventPdfs.map((pdf) => (
+                          <div key={pdf.id} className="rounded-md border p-3 space-y-2" data-testid={`pdf-item-${pdf.id}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <a
+                                href={pdfHref(pdf)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary flex items-center gap-1.5 hover:underline min-w-0 truncate"
+                                data-testid={`link-pdf-${pdf.id}`}
+                              >
+                                <FileText className="h-4 w-4 shrink-0" />
+                                {pdfDisplayLabel(pdf)}
+                              </a>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-destructive shrink-0 h-7 w-7"
+                                onClick={() => deletePdfMutation.mutate(pdf.id)}
+                                disabled={deletePdfMutation.isPending}
+                                title="PDF entfernen"
+                                data-testid={`button-delete-pdf-${pdf.id}`}
+                              >
+                                <Trash className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant={pdf.isPublic ? "default" : "outline"}
+                                className="h-7 px-2.5 text-xs gap-1"
+                                onClick={() => togglePdfPublicMutation.mutate({ id: pdf.id, pub: true })}
+                                disabled={togglePdfPublicMutation.isPending}
+                              >
+                                <Globe className="h-3 w-3" />
+                                Öffentlich
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={!pdf.isPublic ? "default" : "outline"}
+                                className="h-7 px-2.5 text-xs gap-1"
+                                onClick={() => togglePdfPublicMutation.mutate({ id: pdf.id, pub: false })}
+                                disabled={togglePdfPublicMutation.isPending}
+                              >
+                                <ShieldCheck className="h-3 w-3" />
+                                Nur intern
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Noch kein PDF hochgeladen.</p>
+                      <p className="text-sm text-muted-foreground text-center py-4 border rounded-md bg-muted/30">
+                        Noch keine PDFs hochgeladen.
+                      </p>
                     )}
-                    <input
-                      ref={pdfInputRef}
-                      type="file"
-                      accept="application/pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handlePdfUpload(attachEvent.id, file);
-                        e.target.value = "";
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      disabled={pdfUploading}
-                      onClick={() => pdfInputRef.current?.click()}
-                      data-testid="button-upload-pdf"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      {pdfUploading ? "Wird hochgeladen…" : pdfHref ? "PDF ersetzen" : "PDF hochladen"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground -mt-1">Maximal 10 MB · Nur PDF-Dateien</p>
+
+                    {/* Upload new PDF */}
+                    <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+                      <p className="text-xs font-medium text-muted-foreground">Neues PDF hinzufügen</p>
+                      <Input
+                        placeholder="Bezeichnung (z.B. Programm, Einladung, …)"
+                        value={pdfLabelDraft}
+                        onChange={(e) => setPdfLabelDraft(e.target.value)}
+                        className="h-8 text-sm"
+                        data-testid="input-pdf-label"
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={pdfIsPublicDraft ? "default" : "outline"}
+                          className="h-7 px-2.5 text-xs gap-1"
+                          onClick={() => setPdfIsPublicDraft(true)}
+                        >
+                          <Globe className="h-3 w-3" />
+                          Öffentlich
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={!pdfIsPublicDraft ? "default" : "outline"}
+                          className="h-7 px-2.5 text-xs gap-1"
+                          onClick={() => setPdfIsPublicDraft(false)}
+                        >
+                          <ShieldCheck className="h-3 w-3" />
+                          Nur intern
+                        </Button>
+                      </div>
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePdfUpload(attachEvent.id, file);
+                          e.target.value = "";
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        className="w-full h-8 text-sm"
+                        disabled={pdfUploading}
+                        onClick={() => pdfInputRef.current?.click()}
+                        data-testid="button-upload-pdf"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {pdfUploading ? "Wird hochgeladen…" : "PDF-Datei auswählen & hochladen"}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">Maximal 10 MB · Nur PDF-Dateien</p>
+                    </div>
                   </div>
 
                   <div className="border-t" />

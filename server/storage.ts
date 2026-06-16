@@ -5,6 +5,7 @@ import {
   passwordResetTokens,
   settings,
   eventPhotos,
+  eventPdfs,
   emailLogs,
   shifts,
   shiftSignups,
@@ -23,6 +24,7 @@ import {
   type PasswordResetToken,
   type Setting,
   type EventPhoto,
+  type EventPdf,
   type EmailLog,
   type Shift,
   type InsertShift,
@@ -62,6 +64,11 @@ export interface IStorage {
   createEmailLog(log: { eventId?: number; subscriberId?: number; recipientEmail: string; recipientName: string; subject: string; success: boolean }): Promise<void>;
   getEmailLogsByEvent(eventId: number): Promise<import("@shared/schema").EmailLog[]>;
   getEmailLogsBySubscriber(subscriberId: number): Promise<import("@shared/schema").EmailLog[]>;
+
+  getEventPdfs(eventId: number): Promise<EventPdf[]>;
+  createEventPdf(eventId: number, filename: string, label?: string, isPublic?: boolean): Promise<EventPdf>;
+  updateEventPdf(id: number, data: Partial<{ label: string; isPublic: boolean }>): Promise<EventPdf | undefined>;
+  deleteEventPdf(id: number): Promise<EventPdf | undefined>;
 
   getAllEventPhotos(): Promise<EventPhoto[]>;
   getEventPhotos(eventId: number): Promise<EventPhoto[]>;
@@ -234,6 +241,25 @@ export class DatabaseStorage implements IStorage {
 
   async getEmailLogsBySubscriber(subscriberId: number): Promise<EmailLog[]> {
     return db.select().from(emailLogs).where(eq(emailLogs.subscriberId, subscriberId)).orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getEventPdfs(eventId: number): Promise<EventPdf[]> {
+    return db.select().from(eventPdfs).where(eq(eventPdfs.eventId, eventId)).orderBy(eventPdfs.uploadedAt);
+  }
+
+  async createEventPdf(eventId: number, filename: string, label?: string, isPublic = true): Promise<EventPdf> {
+    const [created] = await db.insert(eventPdfs).values({ eventId, filename, label, isPublic }).returning();
+    return created;
+  }
+
+  async updateEventPdf(id: number, data: Partial<{ label: string; isPublic: boolean }>): Promise<EventPdf | undefined> {
+    const [updated] = await db.update(eventPdfs).set(data).where(eq(eventPdfs.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteEventPdf(id: number): Promise<EventPdf | undefined> {
+    const [deleted] = await db.delete(eventPdfs).where(eq(eventPdfs.id, id)).returning();
+    return deleted || undefined;
   }
 
   async getAllEventPhotos(): Promise<EventPhoto[]> {

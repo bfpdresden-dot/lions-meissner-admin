@@ -205,6 +205,13 @@ export default function PublicEventsPage() {
     enabled: detailEventId !== null,
   });
 
+  type EventPdf = { id: number; eventId: number; filename: string; label: string | null; isPublic: boolean; uploadedAt: string };
+  const { data: detailPdfs } = useQuery<EventPdf[]>({
+    queryKey: ["/api/events", detailEventId, "pdfs"],
+    queryFn: () => fetch(`/api/events/${detailEventId}/pdfs`).then((r) => r.json()),
+    enabled: detailEventId !== null,
+  });
+
   const { data: allPhotos } = useQuery<EventPhoto[]>({
     queryKey: ["/api/event-photos"],
     staleTime: 1000 * 60,
@@ -649,7 +656,7 @@ export default function PublicEventsPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(event as any).programPdf && (event as any).programPdfPublic && (
+                          {false && (event as any).programPdf && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -783,13 +790,17 @@ export default function PublicEventsPage() {
                           </Button>
                         )}
 
-                        {!isOver && (ev as any).programPdf && (ev as any).programPdfPublic && (
-                          <Button variant="outline" size="sm" asChild className="w-full">
-                            <a href={fileUrl((ev as any).programPdf)} target="_blank" rel="noopener noreferrer">
-                              <FileText className="h-4 w-4 mr-2 text-amber-500" />
-                              Programm herunterladen (PDF)
-                            </a>
-                          </Button>
+                        {!isOver && detailPdfs && detailPdfs.filter((p) => p.isPublic).length > 0 && (
+                          <div className="space-y-1.5">
+                            {detailPdfs.filter((p) => p.isPublic).map((pdf) => (
+                              <Button key={pdf.id} variant="outline" size="sm" asChild className="w-full">
+                                <a href={fileUrl(pdf.filename)} target="_blank" rel="noopener noreferrer">
+                                  <FileText className="h-4 w-4 mr-2 text-amber-500" />
+                                  {pdf.label || "PDF herunterladen"}
+                                </a>
+                              </Button>
+                            ))}
+                          </div>
                         )}
                       </>
                     );

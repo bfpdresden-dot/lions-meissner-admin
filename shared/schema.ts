@@ -117,6 +117,19 @@ export type ShiftSignup = typeof shiftSignups.$inferSelect;
 export const insertShiftSignupSchema = createInsertSchema(shiftSignups).omit({ id: true, signedUpAt: true });
 export type InsertShiftSignup = z.infer<typeof insertShiftSignupSchema>;
 
+export const eventPdfs = pgTable("event_pdfs", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  filename: text("filename").notNull(),
+  label: text("label"),
+  isPublic: boolean("is_public").notNull().default(true),
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+});
+
+export type EventPdf = typeof eventPdfs.$inferSelect;
+export const insertEventPdfSchema = createInsertSchema(eventPdfs).omit({ id: true, uploadedAt: true });
+export type InsertEventPdf = z.infer<typeof insertEventPdfSchema>;
+
 export const eventPhotos = pgTable("event_photos", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull(),

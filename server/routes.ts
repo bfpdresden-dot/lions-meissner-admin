@@ -184,29 +184,58 @@ export async function registerRoutes(
     return res.json({ ok: true });
   });
 
-  // PDF upload for event
+  // List PDFs for event (auto-migrates legacy programPdf field)
+  app.get("/api/events/:id/pdfs", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const event = await storage.getEvent(id);
+    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
+    let pdfs = await storage.getEventPdfs(id);
+    // Auto-migrate legacy programPdf into event_pdfs table (one-time)
+    const legacyPdf = (event as any).programPdf as string | null;
+    if (legacyPdf && pdfs.length === 0) {
+      const migrated = await storage.createEventPdf(id, legacyPdf, "Programm-PDF", (event as any).programPdfPublic ?? true);
+      await storage.updateEvent(id, { programPdf: null } as any);
+      pdfs = [migrated];
+    }
+    res.json(pdfs);
+  });
+
+  // Upload a new PDF for event
   app.post("/api/events/:id/upload-pdf", requireAdmin, pdfUpload.single("pdf"), async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
     if (!req.file) return res.status(400).json({ error: "Keine PDF-Datei" });
     const event = await storage.getEvent(id);
     if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
-    if ((event as any).programPdf) await deleteFromStorage((event as any).programPdf);
+    const label = typeof req.body.label === "string" && req.body.label.trim() ? req.body.label.trim() : req.file.originalname;
+    const isPublic = req.body.isPublic !== "false";
     const externalUrl = await pushToExternalServer(req.file.path, req.file.originalname, "application/pdf").catch(() => null);
     const stored = externalUrl ?? req.file.filename;
-    const updated = await storage.updateEvent(id, { programPdf: stored } as any);
+    const created = await storage.createEventPdf(id, stored, label, isPublic);
+    res.json(created);
+  });
+
+  // Update PDF visibility / label
+  app.patch("/api/event-pdfs/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
+    const data: Partial<{ label: string; isPublic: boolean }> = {};
+    if (typeof req.body.label === "string") data.label = req.body.label;
+    if (typeof req.body.isPublic === "boolean") data.isPublic = req.body.isPublic;
+    const updated = await storage.updateEventPdf(id, data);
+    if (!updated) return res.status(404).json({ error: "PDF nicht gefunden" });
     res.json(updated);
   });
 
-  // Delete PDF for event
-  app.delete("/api/events/:id/pdf", requireAdmin, async (req, res) => {
+  // Delete a single PDF
+  app.delete("/api/event-pdfs/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Ungültige ID" });
-    const event = await storage.getEvent(id);
-    if (!event) return res.status(404).json({ error: "Veranstaltung nicht gefunden" });
-    if ((event as any).programPdf) await deleteFromStorage((event as any).programPdf);
-    const updated = await storage.updateEvent(id, { programPdf: null, programPdfPublic: true } as any);
-    res.json(updated);
+    const deleted = await storage.deleteEventPdf(id);
+    if (!deleted) return res.status(404).json({ error: "PDF nicht gefunden" });
+    await deleteFromStorage(deleted.filename);
+    res.json({ ok: true });
   });
 
   // ── Event Photos ─────────────────────────────────────────────────────────
