@@ -321,6 +321,12 @@ export default function EventsPage() {
     enabled: detailEventId !== null,
   });
 
+  const { data: detailPdfs } = useQuery<import("@shared/schema").EventPdf[]>({
+    queryKey: ["/api/events", detailEventId, "pdfs"],
+    queryFn: () => fetch(`/api/events/${detailEventId}/pdfs`).then((r) => r.json()),
+    enabled: detailEventId !== null,
+  });
+
   const { data: eventPhotos, refetch: refetchPhotos } = useQuery<EventPhoto[]>({
     queryKey: ["/api/events", attachDialogEventId, "photos"],
     queryFn: () => fetch(`/api/events/${attachDialogEventId}/photos`).then((r) => r.json()),
@@ -1521,17 +1527,25 @@ export default function EventsPage() {
                     </Button>
                   </div>
 
-                  {(ev as any).programPdf && (
-                    <div className="border-t pt-3">
-                      <Button variant="outline" size="sm" asChild className="w-full">
-                        <a href={fileUrl((ev as any).programPdf)} target="_blank" rel="noopener noreferrer">
-                          <FileText className="h-4 w-4 mr-2" />
-                          Programm-PDF öffnen
-                          {!(ev as any).programPdfPublic && (
-                            <Badge variant="outline" className="ml-2 text-xs">Nur intern</Badge>
-                          )}
-                        </a>
-                      </Button>
+                  {detailPdfs && detailPdfs.length > 0 && (
+                    <div className="border-t pt-3 space-y-1.5">
+                      {detailPdfs.map((pdf) => {
+                        const href = pdf.filename.startsWith("http://") || pdf.filename.startsWith("https://")
+                          ? pdf.filename
+                          : `/uploads/${pdf.filename}`;
+                        const label = pdf.label || pdf.filename.replace(/^https?:\/\/[^/]+\/uploads\//, "").replace(/^\d+-\d+-/, "");
+                        return (
+                          <Button key={pdf.id} variant="outline" size="sm" asChild className="w-full">
+                            <a href={href} target="_blank" rel="noopener noreferrer">
+                              <FileText className="h-4 w-4 mr-2 text-amber-500" />
+                              {label}
+                              {!pdf.isPublic && (
+                                <Badge variant="outline" className="ml-2 text-xs">Nur intern</Badge>
+                              )}
+                            </a>
+                          </Button>
+                        );
+                      })}
                     </div>
                   )}
 
