@@ -65,6 +65,7 @@ export interface IStorage {
   getEmailLogsByEvent(eventId: number): Promise<import("@shared/schema").EmailLog[]>;
   getEmailLogsBySubscriber(subscriberId: number): Promise<import("@shared/schema").EmailLog[]>;
 
+  getAllEventPdfs(): Promise<EventPdf[]>;
   getEventPdfs(eventId: number): Promise<EventPdf[]>;
   createEventPdf(eventId: number, filename: string, label?: string, isPublic?: boolean): Promise<EventPdf>;
   updateEventPdf(id: number, data: Partial<{ label: string; isPublic: boolean }>): Promise<EventPdf | undefined>;
@@ -241,6 +242,10 @@ export class DatabaseStorage implements IStorage {
 
   async getEmailLogsBySubscriber(subscriberId: number): Promise<EmailLog[]> {
     return db.select().from(emailLogs).where(eq(emailLogs.subscriberId, subscriberId)).orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getAllEventPdfs(): Promise<EventPdf[]> {
+    return db.select().from(eventPdfs).orderBy(eventPdfs.uploadedAt);
   }
 
   async getEventPdfs(eventId: number): Promise<EventPdf[]> {

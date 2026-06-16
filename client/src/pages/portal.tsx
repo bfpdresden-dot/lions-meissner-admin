@@ -312,6 +312,18 @@ export default function PortalPage() {
     return acc;
   }, {});
 
+  type PortalEventPdf = { id: number; eventId: number; filename: string; label: string | null; isPublic: boolean; uploadedAt: string };
+  const { data: allEventPdfs } = useQuery<PortalEventPdf[]>({
+    queryKey: ["/api/event-pdfs"],
+    enabled: !!subscriber,
+    staleTime: 1000 * 30,
+  });
+
+  const pdfsByEvent = (allEventPdfs || []).reduce<Record<number, PortalEventPdf[]>>((acc, p) => {
+    (acc[p.eventId] = acc[p.eventId] || []).push(p);
+    return acc;
+  }, {});
+
   const handlePortalPhotoUpload = async (eventId: number, files: FileList | null) => {
     if (!files || files.length === 0) return;
     const form = new FormData();
@@ -1073,14 +1085,38 @@ export default function PortalPage() {
                                   <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans">{ev.agenda}</pre>
                                 </div>
                               )}
-                              {ev.isInternal && ev.programPdf && (
-                                <div className="pt-2 border-t border-amber-200">
-                                  <a href={fileUrl(ev.programPdf ?? "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:underline">
-                                    <FileText className="h-3.5 w-3.5" />
-                                    Programm herunterladen (PDF)
-                                  </a>
-                                </div>
-                              )}
+                              {(() => {
+                                const evPdfs = pdfsByEvent[ev.id] || [];
+                                // Members see all PDFs; non-members only public ones
+                                const visiblePdfs = subscriber.isMember ? evPdfs : evPdfs.filter((p) => p.isPublic);
+                                if (visiblePdfs.length === 0) return null;
+                                return (
+                                  <div className={`pt-2 border-t space-y-1.5 ${ev.isInternal ? "border-amber-200" : "border-border"}`}>
+                                    {visiblePdfs.map((pdf) => {
+                                      const href = pdf.filename.startsWith("http://") || pdf.filename.startsWith("https://")
+                                        ? pdf.filename
+                                        : `/uploads/${pdf.filename}`;
+                                      const label = pdf.label || pdf.filename.replace(/^https?:\/\/[^/]+\/uploads\//, "").replace(/^\d+-\d+-/, "");
+                                      return (
+                                        <a
+                                          key={pdf.id}
+                                          href={href}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 hover:underline"
+                                          data-testid={`link-event-pdf-${pdf.id}`}
+                                        >
+                                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                                          {label}
+                                          {!pdf.isPublic && (
+                                            <span className="ml-1 text-[10px] font-normal text-amber-600 border border-amber-300 rounded px-1">Intern</span>
+                                          )}
+                                        </a>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
 
                               {/* Fotos */}
                               {(() => {

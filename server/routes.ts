@@ -184,6 +184,12 @@ export async function registerRoutes(
     return res.json({ ok: true });
   });
 
+  // List all PDFs (for portal / admin overview)
+  app.get("/api/event-pdfs", async (_req, res) => {
+    const pdfs = await storage.getAllEventPdfs();
+    res.json(pdfs);
+  });
+
   // List PDFs for event (auto-migrates legacy programPdf field)
   app.get("/api/events/:id/pdfs", async (req, res) => {
     const id = parseInt(req.params.id, 10);
