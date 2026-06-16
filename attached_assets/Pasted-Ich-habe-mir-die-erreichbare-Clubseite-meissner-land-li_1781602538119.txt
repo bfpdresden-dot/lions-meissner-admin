@@ -1,0 +1,107 @@
+Ich habe mir die erreichbare Clubseite **meissner-land.lions.de** angesehen. Die Domain **lions-club-meissner-land.de** konnte ich über die Suche nicht direkt auslesen; sichtbar ist aber eure Lions-Deutschland-Seite.
+
+## Wichtigster Befund
+
+Die Seite wirkt aktuell noch wie eine **Vorlage im Aufbau**: Startseite sagt „Diese Seite befindet sich noch im Aufbau“, es steht noch „Lions Club XYZ“, und mehrere Bereiche enthalten Beispieltexte/Lorem Ipsum. ([Meißner Land][1])
+
+Das ist der größte Reichweitenverlust.
+
+## Neue Prioritäten
+
+### 1. Sofort beheben: Glaubwürdigkeit herstellen
+
+Ersetzen:
+
+**„Lions Club XYZ“**
+durch:
+
+**Lions Club Meißner Land**
+
+Ersetzen:
+
+**„Diese Seite befindet sich noch im Aufbau“**
+durch:
+
+> Wir engagieren uns zwischen Dresden und Riesa für Menschen, Bildung, Jugend, Kultur und soziale Projekte im Meißner Land. Lernen Sie uns kennen, besuchen Sie eine Veranstaltung oder sprechen Sie uns auf eine Mitarbeit an.
+
+Auch die Seiten „Über uns“, „Aktuell“ und „Projekte“ enthalten noch Beispielinhalte. ([Meißner Land][2]) ([Meißner Land][3]) ([Meißner Land][4])
+
+### 2. Startseite neu strukturieren
+
+Oben sollte stehen:
+
+> **Gutes tun im Meißner Land. Gemeinsam.**
+>
+> Der Lions Club Meißner Land verbindet engagierte Menschen, die regionale Projekte unterstützen und neue Ideen für unsere Heimat umsetzen.
+
+Dann drei Buttons:
+
+**Veranstaltungen besuchen**
+**Mithelfen**
+**Kontakt aufnehmen**
+
+Das Kontaktformular ist vorhanden, aber es sollte klarer als Einladung genutzt werden. ([Meißner Land][5])
+
+### 3. Veranstaltungsseite als Mitglieder-Magnet
+
+Jede Veranstaltung braucht diesen Block:
+
+> **Sie möchten Lions kennenlernen?**
+> Kommen Sie zu unserer Veranstaltung, helfen Sie mit oder sprechen Sie uns an. Gäste sind willkommen.
+
+Dazu Button:
+
+**Ich möchte als Gast teilnehmen**
+
+### 4. Projekte-Seite umbauen
+
+Statt „Unser Projekte“ und Beispielartikel: ([Meißner Land][4])
+
+Struktur:
+
+**Unsere Wirkung im Meißner Land**
+
+Für jedes Projekt:
+
+* Wem hilft es?
+* Warum ist es wichtig?
+* Was wurde erreicht?
+* Wie kann man unterstützen?
+* Fotos
+
+### 5. Neue Hauptnavigation
+
+Aktuell: Über uns, Aktuell, Projekte, Vorstand. ([Meißner Land][1])
+
+Besser:
+
+**Start**
+**Veranstaltungen**
+**Projekte**
+**Mitmachen**
+**Über uns**
+**Kontakt**
+
+Die Seite „Vorstand“ ist aktuell leer. ([Meißner Land][6]) Entweder mit Personen füllen oder vorerst ausblenden.
+
+### 6. Konkreter SEO-Titel
+
+Für Google sollte die Seite auf Begriffe zielen wie:
+
+**Lions Club Meißner Land – Ehrenamt, Veranstaltungen und soziale Projekte in Meißen, Radebeul, Coswig und Umgebung**
+
+### 7. Sofortiger Text für „Mitmachen“
+
+> Sie möchten sich regional engagieren, neue Menschen kennenlernen und konkrete Projekte unterstützen?
+> Beim Lions Club Meißner Land können Sie als Gast, Helfer, Förderer oder Mitglied mitwirken. Schreiben Sie uns – wir freuen uns auf den Austausch.
+
+Das passt zum Lions-Ansatz, Clubs mit neuen Mitgliedern zu revitalisieren und bestehende Mitglieder durch Gemeinschaft und Service neu zu motivieren. 
+
+**Kurz gesagt:** Erst die Platzhalter entfernen, dann jede Veranstaltung mit „Mitmachen“ verbinden. Das wird am schnellsten Reichweite und Anfragen bringen.
+
+[1]: https://meissner-land.lions.de/ "Home - Meißner Land - Lions Deutschland"
+[2]: https://meissner-land.lions.de/ueber-uns "Über uns - Meißner Land - Lions Deutschland"
+[3]: https://meissner-land.lions.de/aktuell "Aktuell - Meißner Land - Lions Deutschland"
+[4]: https://meissner-land.lions.de/projekte "Projekte - Meißner Land - Lions Deutschland"
+[5]: https://meissner-land.lions.de/web/meissner-land/kontakt "Kontakt - Meißner Land - Lions Deutschland"
+[6]: https://meissner-land.lions.de/vorstand "Vorstand - Meißner Land - Lions Deutschland"

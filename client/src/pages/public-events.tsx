@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer, Camera, ChevronLeft, ChevronRight, X as XIcon, Maximize2, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Users, CheckCircle2, UserPlus, Mail, User, Zap, FileText, Share2, Copy, MessageCircle, Facebook, CalendarPlus, QrCode, Printer, Camera, ChevronLeft, ChevronRight, X as XIcon, Maximize2, Loader2, Heart, ArrowRight } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toSafeJsonLd } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -440,6 +440,15 @@ export default function PublicEventsPage() {
           </h1>
           <p className="text-lg opacity-80 mb-8">Unsere Veranstaltungen</p>
           <div className="flex items-center gap-3 justify-center flex-wrap">
+            <Link href="/mitmachen">
+              <Button
+                className="bg-[#c8a84b] hover:bg-[#b8963b] text-white border-0 font-semibold"
+                data-testid="link-mitmachen-hero"
+              >
+                <Heart className="h-4 w-4 mr-2" />
+                Mitmachen
+              </Button>
+            </Link>
             <Button
               variant="outline"
               className="bg-white/10 border-white/30 text-white hover:bg-white/20"
@@ -460,6 +469,28 @@ export default function PublicEventsPage() {
               </Button>
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* ── Invitation banner ── */}
+      <div className="bg-amber-50 border-b border-amber-100">
+        <div className="max-w-4xl mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-center sm:text-left">
+            <p className="font-semibold text-[#1a3a5c]">Sie möchten den Lions Club Meißner Land kennenlernen?</p>
+            <p className="text-sm text-gray-600 mt-0.5">
+              Kommen Sie als Gast, helfen Sie mit oder sprechen Sie uns auf eine Mitgliedschaft an — wir freuen uns auf Sie.
+            </p>
+          </div>
+          <Link href="/mitmachen" className="shrink-0">
+            <Button
+              className="gap-2 whitespace-nowrap"
+              style={{ background: "#1a3a5c", color: "#fff" }}
+              data-testid="button-invite-mitmachen"
+            >
+              Mitmachen
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </div>
 
