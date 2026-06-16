@@ -1432,6 +1432,8 @@ export default function PublicEventsPage() {
           <p className="pt-1">
             <Link href="/datenschutz" className="hover:underline">Datenschutzerklärung</Link>
             {" "}&middot;{" "}
+            <Link href="/mitmachen" className="hover:underline">Mitmachen</Link>
+            {" "}&middot;{" "}
             <Link href="/anleitung?bereich=oeffentlich" className="hover:underline">Bedienungsanleitung</Link>
           </p>
         </div>

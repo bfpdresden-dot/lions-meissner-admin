@@ -12,6 +12,7 @@ export const KNOWN_ROUTE_PATTERNS: RegExp[] = [
   /^\/abmelden$/,
   /^\/schichtplan\/[^/]+$/,
   /^\/anleitung$/,
+  /^\/mitmachen$/,
 ];
 
 export function isKnownRoute(pathname: string): boolean {
@@ -166,6 +167,15 @@ async function resolvePageMeta(pathname: string, query: Record<string, string> =
       canonicalPath: "/",
       preContent: `${preIntro}${eventItems ? `<h2>Aktuelle Veranstaltungen</h2><ul>${eventItems}</ul>` : ""}`,
       jsonLd: JSON.stringify(orgJsonLd),
+    };
+  }
+
+  if (pathname === "/mitmachen") {
+    return {
+      title: `Mitmachen – Helfen, Spenden, Netzwerken | ${site}`,
+      description: `Engagieren Sie sich beim ${site}: Aktionen, Spenden, Gästeabende, Mitgliedschaft oder Kooperation – wir freuen uns auf Sie.`,
+      canonicalPath: "/mitmachen",
+      preContent: `<h1>Mitmachen beim Lions Club Meißner Land</h1><p>Ob ehrenamtlich helfen, spenden, netzwerken, Mitglied werden oder als Partner kooperieren – wir freuen uns auf Ihre Anfrage.</p>`,
     };
   }
 

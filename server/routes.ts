@@ -1363,6 +1363,49 @@ WICHTIG: Das Datum muss exakt im Format YYYY-MM-DDTHH:mm sein, z.B. 2026-05-28T1
     res.json({ id: member.id, firstName: member.firstName, lastName: member.lastName });
   });
 
+  // ── Public contact form ───────────────────────────────────────────────────
+  app.post("/api/contact", async (req, res) => {
+    const { firstName, lastName, email, message, topic } = req.body;
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json({ error: "Name und E-Mail sind erforderlich" });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Ungültige E-Mail-Adresse" });
+    }
+    try {
+      let settings: any = {};
+      try { settings = await storage.getSettings(); } catch {}
+      const adminEmail =
+        settings.senderEmail ||
+        process.env.SENDGRID_FROM_EMAIL ||
+        "schreiber1988@gmx.net";
+      const subjectLine = topic
+        ? `Kontaktanfrage: ${topic} – Lions Club Meißner Land`
+        : "Neue Kontaktanfrage – Lions Club Meißner Land";
+      const msgText = message || "(keine Nachricht)";
+      const html = `
+        <table cellpadding="0" cellspacing="0" width="100%" style="font-family:sans-serif;font-size:14px;color:#374151;">
+          <tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;width:110px;font-weight:600;color:#6b7280;text-transform:uppercase;font-size:11px;letter-spacing:.5px;">Anliegen</td><td style="padding:8px 0 8px 16px;border-bottom:1px solid #e5e7eb;">${topic || "–"}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;width:110px;font-weight:600;color:#6b7280;text-transform:uppercase;font-size:11px;letter-spacing:.5px;">Name</td><td style="padding:8px 0 8px 16px;border-bottom:1px solid #e5e7eb;">${firstName} ${lastName}</td></tr>
+          <tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;width:110px;font-weight:600;color:#6b7280;text-transform:uppercase;font-size:11px;letter-spacing:.5px;">E-Mail</td><td style="padding:8px 0 8px 16px;border-bottom:1px solid #e5e7eb;"><a href="mailto:${email}" style="color:#1a3a5c;">${email}</a></td></tr>
+          <tr><td style="padding:8px 0;width:110px;font-weight:600;color:#6b7280;text-transform:uppercase;font-size:11px;letter-spacing:.5px;vertical-align:top;">Nachricht</td><td style="padding:8px 0 8px 16px;line-height:1.7;">${msgText.replace(/\n/g, "<br/>")}</td></tr>
+        </table>`;
+      await sendToClubAdmin({
+        adminEmail,
+        subject: subjectLine,
+        senderName: `${firstName} ${lastName}`,
+        senderEmail: email,
+        html,
+        text: `Anliegen: ${topic || "–"}\nName: ${firstName} ${lastName}\nE-Mail: ${email}\n\nNachricht:\n${msgText}`,
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[contact form]", err?.message || err);
+      res.status(500).json({ error: "E-Mail konnte nicht gesendet werden" });
+    }
+  });
+
   app.post("/api/subscribe", async (req, res) => {
     const { email, firstName, lastName, phone, eventId, referredByMemberId, isMember, password } = req.body;
     if (!email || !firstName || !lastName) {

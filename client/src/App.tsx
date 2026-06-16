@@ -30,6 +30,7 @@ import AdminSchichtplanPage from "@/pages/admin-schichtplan";
 import AdminKalkulationPage from "@/pages/admin-kalkulation";
 import AdminStatistikPage from "@/pages/admin-statistik";
 import AnleitungPage from "@/pages/anleitung";
+import MitmachenPage from "@/pages/mitmachen";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { useEffect } from "react";
 
@@ -145,6 +146,7 @@ function App() {
   const isDatenschutz = pathname === "/datenschutz";
   const isAbmelden = pathname === "/abmelden";
   const isAnleitung = pathname === "/anleitung";
+  const isMitmachen = pathname === "/mitmachen";
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
 
   return (
@@ -171,6 +173,8 @@ function App() {
           <AbmeldenPage />
         ) : isAnleitung ? (
           <AnleitungPage />
+        ) : isMitmachen ? (
+          <MitmachenPage />
         ) : schichtplanMatch ? (
           <SchichtplanPage eventId={schichtplanMatch[1]} />
         ) : isAdmin ? (
