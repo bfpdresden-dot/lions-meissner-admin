@@ -33,6 +33,7 @@ interface PageMeta {
   canonicalPath: string;
   preContent: string;
   ogImage?: string;
+  jsonLd?: string;
 }
 
 async function resolvePageMeta(pathname: string, query: Record<string, string> = {}): Promise<PageMeta> {
@@ -66,6 +67,7 @@ async function resolvePageMeta(pathname: string, query: Record<string, string> =
     }
 
     let eventItems = "";
+    let eventJsonLdArray: object[] = [];
     try {
       const evts = await storage.getEvents();
       const active = evts.filter((e) => e.isActive);
@@ -79,15 +81,91 @@ async function resolvePageMeta(pathname: string, query: Record<string, string> =
             return `<li><strong>${escapeHtml(e.title)}</strong>${date ? ` – ${date}` : ""}${loc}</li>`;
           })
           .join("");
+        eventJsonLdArray = active.map((e) => ({
+          "@type": "Event",
+          "name": e.title,
+          "description": e.description || "",
+          "startDate": e.date ? new Date(e.date).toISOString() : undefined,
+          "location": e.location ? {
+            "@type": "Place",
+            "name": e.location,
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": e.location,
+              "addressRegion": "Sachsen",
+              "addressCountry": "DE",
+            },
+          } : undefined,
+          "organizer": {
+            "@type": "Organization",
+            "name": "Lions Club Meißner Land",
+            "url": "__BASE__",
+          },
+          "eventStatus": "https://schema.org/EventScheduled",
+          "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+        }));
       }
     } catch {
       // DB not available during build/prerender; omit list
     }
+    const orgJsonLd = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "VoluntaryOrg",
+          "name": "Lions Club Meißner Land",
+          "alternateName": ["Lions Club Meißen", "Lions Meißner Land"],
+          "description": "Gemeinnützige Organisation – Ehrenamt, Charity-Events und soziales Engagement im Landkreis Meißen, Coswig und Radebeul.",
+          "url": "__BASE__",
+          "logo": "__BASE__/images/lions-logo.png",
+          "image": "__BASE__/images/lions-logo.png",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Seestraße 18e",
+            "addressLocality": "Coswig",
+            "postalCode": "01640",
+            "addressRegion": "Sachsen",
+            "addressCountry": "DE",
+          },
+          "areaServed": [
+            { "@type": "City", "name": "Meißen" },
+            { "@type": "City", "name": "Coswig" },
+            { "@type": "City", "name": "Radebeul" },
+            { "@type": "AdministrativeArea", "name": "Landkreis Meißen" },
+          ],
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+49-172-340-8543",
+            "email": "schreiber1988@gmx.net",
+            "contactType": "Kontakt",
+          },
+          "sameAs": ["https://www.lions.de"],
+          "keywords": "Ehrenamt Meißen, Engagement Meißner Land, Charity Meißen, Freiwilligenarbeit Coswig, soziales Engagement Radebeul, Netzwerk Unternehmer Meißen, Helfen Landkreis Meißen",
+        },
+        ...eventJsonLdArray,
+      ],
+    };
+
+    const preIntro = `
+<h1>Lions Club Meißner Land – Ehrenamt &amp; Engagement im Landkreis Meißen</h1>
+<p>
+  Der Lions Club Meißner Land engagiert sich ehrenamtlich für Menschen in <strong>Meißen</strong>,
+  <strong>Coswig</strong>, <strong>Radebeul</strong> und dem gesamten <strong>Landkreis Meißen</strong>.
+  Als Teil von Lions International fördern wir gemeinnützige Projekte, veranstalten Charity-Events
+  und bieten ein aktives Netzwerk für Unternehmer und sozial Engagierte in der Region.
+</p>
+<p>
+  Sie suchen nach Möglichkeiten für <strong>Freiwilligenarbeit</strong> oder
+  <strong>soziales Engagement in Radebeul, Coswig oder Meißen</strong>?
+  Besuchen Sie eine unserer Veranstaltungen und lernen Sie uns kennen.
+</p>`;
+
     return {
-      title: `Veranstaltungen – ${site}`,
-      description: `Aktuelle Veranstaltungen des ${site}. Informieren Sie sich und melden Sie sich online an.`,
+      title: `Ehrenamt & Veranstaltungen im Landkreis Meißen | ${site}`,
+      description: `${site} – Ehrenamt, Charity und soziales Engagement in Meißen, Coswig und Radebeul. Aktuelle Veranstaltungen entdecken und online anmelden.`,
       canonicalPath: "/",
-      preContent: `<h1>Veranstaltungen</h1><p>${site}</p>${eventItems ? `<ul>${eventItems}</ul>` : ""}`,
+      preContent: `${preIntro}${eventItems ? `<h2>Aktuelle Veranstaltungen</h2><ul>${eventItems}</ul>` : ""}`,
+      jsonLd: JSON.stringify(orgJsonLd),
     };
   }
 
@@ -253,6 +331,14 @@ export async function injectPageMeta(
     /<meta name="twitter:image"[^>]*\/?>/,
     `<meta name="twitter:image" content="${escapeHtml(ogImageUrl)}" />`
   );
+
+  if (meta.jsonLd) {
+    const jsonLdWithBase = meta.jsonLd.replace(/"__BASE__"/g, `"${baseUrl}"`);
+    html = html.replace(
+      "</head>",
+      `<script type="application/ld+json">${jsonLdWithBase}</script></head>`
+    );
+  }
 
   if (meta.preContent) {
     html = html.replace(
