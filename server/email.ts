@@ -2,6 +2,7 @@ import sgMail from "@sendgrid/mail";
 import { storage } from "./storage";
 
 async function getSendGridApiKey(): Promise<string> {
+  // Replit-Connector: automatischer Key (falls auf Replit)
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME || process.env.CONNECTORS_HOSTNAME;
   const identity = process.env.REPL_IDENTITY;
 
@@ -27,6 +28,7 @@ async function getSendGridApiKey(): Promise<string> {
     }
   }
 
+  // Extern: SENDGRID_API_KEY als Umgebungsvariable setzen
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
     throw new Error(

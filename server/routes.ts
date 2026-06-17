@@ -666,8 +666,8 @@ export async function registerRoutes(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://lions-meissner.replit.app",
-          "X-Title": "Lions Club Meißner Land",
+          "HTTP-Referer": process.env.BASE_URL || `https://${req.get("host") || "lions-meissner.replit.app"}`,
+          "X-Title": process.env.APP_NAME || "Lions Club",
         },
         body: JSON.stringify({
           model,
